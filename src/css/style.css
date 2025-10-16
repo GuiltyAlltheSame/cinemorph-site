@@ -40,3 +40,36 @@ body {
   max-width: 100%;
   z-index: 2;
 }
+
+/* Общие правила хот-спотов */
+.hotspot {
+  position: absolute;
+  z-index: 3;            /* выше картинки сцены */
+  display: block;
+  cursor: pointer;
+}
+
+/* Подсветка при наведении */
+.hotspot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;                         /* подкорректируй под форму */
+  box-shadow: 0 0 0 2px rgba(255, 210, 80, .9),
+              0 0 24px rgba(255, 210, 80, .55);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.hotspot:hover::after {
+  opacity: 1;
+}
+
+/* Позиция и размер зоны коробки (проценты — от размеров изображения) */
+.hotspot-vhs {
+  /* подгони проценты под своё исходное разрешение изображения */
+  left: 70%;      /* x-позиция */
+  top: 48%;       /* y-позиция */
+  width: 17%;     /* ширина области */
+  height: 16%;    /* высота области */
+  clip-path: polygon(5% 15%, 100% 10%, 95% 85%, 0% 90%); /* подгонка граней */
+}
