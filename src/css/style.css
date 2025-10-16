@@ -1,53 +1,42 @@
-:root{
-  --W: 1920; --H: 1080;                                    /* эталонные размеры */
-  --s: clamp(0.6, min(100vw/var(--W), 100vh/var(--H)), 1); /* масштаб с порогом */
-}
 
-html, body {
-  height: 100%; 
+
+body {
   margin: 0;
 }
 
-.scene {
-  margin: 0 auto;
-  overflow: hidden;
-  position: relative;
-  width: calc(var(--W) * var(--s));
-  height: calc(var(--H) * var(--s));
+.main-area {
+ width: 100%;
 }
 
-.stage{
+
+.tv-area {
   position: relative;
-  width: calc(var(--W) * 1px);
-  height: calc(var(--H) * 1px);
-  transform: scale(var(--s));
-  transform-origin: top left;
 }
+
+
+
 
 .tv-content {
   position: absolute;
-  left: 38%;    /* сдвиг от левого края рамки */
-  top: 21%;     /* сдвиг от верхнего края рамки */
-  width: 24%;   /* ширина области экрана */
-  height: 39%;  /* высота области экрана */
-  background: #000;
-  overflow:hidden;
-  display: grid;
-  place-items: center;
-}
-
-.frame {
-  position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
+  z-index: 1;
+  top: 43%;
+  left: 50%;
+  width: 24%;
+  height: 31%;
+  transform: translate(-50%, -50%); /* центрирование по обеим осям */
 }
 
 .screen {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;  /* или 'contain', если важно сохранить всю гифку без обрезки */
-  pointer-events: none;
+  object-fit: cover;
+  display: block;
+}
+
+.tv-room-image {
+  position: relative;
+  max-width: 100%;
+  z-index: 2;
 }
