@@ -15,7 +15,7 @@ body {
 .tv-content {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   top: 43%;
   left: 50%;
   width: 24%;
@@ -40,25 +40,12 @@ body {
 /* Общие правила хот-спотов */
 .hotspot {
   position: absolute;
-  z-index: 3;            /* выше картинки сцены */
+  z-index: 4;            /* выше картинки сцены */
   display: block;
   cursor: pointer;
 }
 
-/* Подсветка при наведении */
-.hotspot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;                         /* подкорректируй под форму */
-  box-shadow: 0 0 0 2px rgba(255, 210, 80, .9),
-              0 0 24px rgba(255, 210, 80, .55);
-  opacity: 0;
-  transition: opacity .18s ease;
-}
-.hotspot:hover::after {
-  opacity: 1;
-}
+
 
 /* Позиция и размер зоны коробки (проценты — от размеров изображения) */
 .hotspot-vhs {
@@ -68,6 +55,60 @@ body {
   width: 17%;     /* ширина области */
   height: 16%;    /* высота области */
 }
+
+
+.vhs-box {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  z-index: 3;              /* над фоном и свечением */
+  pointer-events: none;    /* не мешает клику по хотспоту */
+}
+
+/* Хотспот остаётся кликовой маской поверх всего */
+.hotspot { z-index: 4; }   /* уже есть у тебя, важно держать выше vhs-box */
+
+/* Подсветка за коробкой */
+.vhs-glow {
+  position: absolute;
+  z-index: 2;              /* между фоном и vhs-box */
+  pointer-events: none;
+  /* Размер и позиция совпадают с зоной хотспота (подгони под свои проценты) */
+  left: 70%;
+  top: 48%;
+  width: 17%;
+  height: 16%;
+  transform: translate(-50%, -50%);
+  border-radius: 10px;
+
+  /* Сам свет: мягкое пятно, можно усилить/ослабить */
+  background:
+    radial-gradient(ellipse at center,
+      rgba(255, 215, 102, 0.75) 0%,
+      rgba(255, 208, 80, 0.45) 35%,
+      rgba(255, 200, 60, 0.12) 70%,
+      rgba(255, 200, 60, 0.0) 100%);
+  filter: blur(14px);
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+
+/* Включаем свечение, когда навели курсор на хотспот */
+.hotspot-vhs:hover + .vhs-glow {
+  opacity: 1;
+}
+
+/* Сохраним доступность: при фокусе с клавиатуры тоже включаем свечение */
+.hotspot:focus-visible + .vhs-glow {
+  opacity: 1;
+}
+/* Уберём браузерный outline у ссылки (рамка вокруг <a>) */
+.hotspot { outline: none; }
+.hotspot:focus,
+.hotspot:focus-visible { outline: none; }
+
+
 
 /* ------------------------------------------------------------------Секция Сцена с ТВ END---------------------------*/
 
