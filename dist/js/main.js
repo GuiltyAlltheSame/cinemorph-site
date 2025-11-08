@@ -1,6 +1,3 @@
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
   const menu = document.getElementById('vhsMenu');
   const btnClose = document.getElementById('vhsMenuClose');
