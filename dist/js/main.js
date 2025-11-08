@@ -3,14 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClose = document.getElementById('vhsMenuClose');
   const hotspot = document.querySelector('.hotspot-vhs');
 
-  // Открытие меню
+  // Переключение меню по клику на коробку
   hotspot.addEventListener('click', (e) => {
-    e.preventDefault(); // если это <a>, не переходит по ссылке
-    menu.classList.add('open');
+    e.preventDefault();
+    menu.classList.toggle('open');
   });
 
-  // Закрытие меню
-  btnClose.addEventListener('click', () => {
+  // Принудительное закрытие по клику на кнопку
+  btnClose.addEventListener('click', (e) => {
+    e.stopPropagation(); // предотвращает "всплытие" и повторный триггер
     menu.classList.remove('open');
   });
 });
