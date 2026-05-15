@@ -1,5 +1,6 @@
 ﻿node_modules/
 dist/
+photoshop-workfiles/
 *.log
 .DS_Store
 Thumbs.db
