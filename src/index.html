@@ -14,7 +14,13 @@
   <div class="tv-area">
     <img class="tv-room-image" src="assets/img/wallpaper2.png" alt="Frame">
     <img class="vhs-box" src="assets/img/box-click.png" alt="VHS Box">
-      <a class="hotspot hotspot-vhs" href="/vhs" aria-label="Коробка с кассетами"></a>
+      <button
+        class="hotspot hotspot-vhs"
+        type="button"
+        aria-label="Открыть коробку с кассетами"
+        aria-controls="vhsMenu"
+        aria-expanded="false"
+      ></button>
       <div class="vhs-glow" aria-hidden="true"></div>
     <div class="tv-content">
       <img class="screen" src="assets/img/nosignal.gif" alt="TV screen">
@@ -22,14 +28,19 @@
   </div>
 
   
-  <div class="vhs-menu" id="vhsMenu">
-    <button class="vhs-menu__close" id="vhsMenuClose" aria-label="Закрыть меню">×</button>
-    <ul class="vhs-menu__list">
-      <li class="vhs-menu__item"></li>
-      <li class="vhs-menu__item"></li>
-      <li class="vhs-menu__item"></li>
-      <li class="vhs-menu__item"></li>
-  </ul>
+  <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
+    <div class="vhs-menu__content">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
+    </div>
   </div>
 </div>
 <!----------------------------------------------------------------Секция Сцена с ТВ END---------------------------->

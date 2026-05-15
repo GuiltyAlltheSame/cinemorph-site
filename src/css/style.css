@@ -1,5 +1,15 @@
+html,
 body {
   margin: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* ------------------------------------------------------------------Секция Сцена с ТВ---------------------------*/
@@ -49,6 +59,9 @@ body {
   z-index: 4;            /* выше картинки сцены */
   display: block;
   cursor: pointer;
+  border: 0;
+  padding: 0;
+  background: transparent;
 }
 
 
@@ -80,22 +93,22 @@ body {
   position: absolute;
   z-index: 2;              /* между фоном и vhs-box */
   pointer-events: none;
-  /* Размер и позиция совпадают с зоной хотспота (подгони под свои проценты) */
-  left: 70%;
-  top: 48%;
-  width: 17%;
-  height: 16%;
+  /* Центрируем свечение относительно самой коробки. */
+  left: 78%;
+  top: 54%;
+  width: 22%;
+  height: 23%;
   transform: translate(-50%, -50%);
-  border-radius: 10px;
+  border-radius: 50%;
 
   /* Сам свет: мягкое пятно, можно усилить/ослабить */
   background:
     radial-gradient(ellipse at center,
-      rgba(255, 215, 102, 0.75) 0%,
-      rgba(255, 208, 80, 0.45) 35%,
-      rgba(255, 200, 60, 0.12) 70%,
+      rgba(255, 215, 102, 0.85) 0%,
+      rgba(255, 208, 80, 0.5) 32%,
+      rgba(255, 200, 60, 0.18) 68%,
       rgba(255, 200, 60, 0.0) 100%);
-  filter: blur(14px);
+  filter: blur(18px);
   opacity: 0;
   transition: opacity .44s ease;
 }
@@ -119,63 +132,51 @@ body {
 
 .vhs-menu {
   position: absolute;
-  top: 0;
   right: 0;
-  width: 300px;
-  height: 100%;
-  background: #0e1418;
-  color: #fff;
-  z-index: 999;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+  bottom: clamp(10px, 2vw, 24px);
+  width: clamp(220px, 30vw, 500px);
+  aspect-ratio: 1250 / 1600;
+  z-index: 5;
+  background: url("../assets/img/box-bg.png") center / contain no-repeat;
+  filter: drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48));
 
-  transform: translateX(100%);
-  transition: transform 0.4s ease;
-  display: flex;
-  flex-direction: column;
+  transform: translateX(calc(100% + 48px));
+  transition: transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  will-change: transform;
 }
 
-.vhs-menu.open {
+.vhs-menu.is-open {
   transform: translateX(0);
+  pointer-events: auto;
 }
 
-/* Кнопка закрытия */
-.vhs-menu__close {
-  align-self: flex-end;
-  margin: 16px;
-  padding: 6px 12px;
-  font-size: 24px;
-  background: none;
-  border: none;
-  color: var(--accent, #ffd766);
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.vhs-menu__close:hover {
-  transform: scale(1.1);
-}
-
-/* Список кассет */
-.vhs-menu__list {
-  list-style: none;
-  padding: 0 16px;
-  margin: 0;
+.vhs-menu__content {
+  position: absolute;
+  top: 4.2%;
+  right: 3.6%;
+  left: 3.6%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+  filter: drop-shadow(0 18px 14px rgba(0, 0, 0, 0.58));
 }
 
-.vhs-menu__item {
-  height: 56px;
-  background: #1b232a;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.3);
-  cursor: pointer;
-  transition: background 0.2s;
+.vhs-menu__cassette {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.22s ease;
 }
 
-.vhs-menu__item:hover {
-  background: #26303a;
+.vhs-menu__cassette:hover {
+  transform: scale(1.04);
+}
+
+@media (max-width: 700px) {
+  .vhs-menu {
+    width: min(62vw, 320px);
+  }
 }
 
 
