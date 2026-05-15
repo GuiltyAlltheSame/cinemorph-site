@@ -37,6 +37,30 @@ body::-webkit-scrollbar {
   width: 24%;
   height: 31%;
   transform: translate(-50%, -50%); /* центрирование по обеим осям */
+  overflow: hidden;
+  background: #080a0b;
+}
+
+.tv-bloom {
+  position: absolute;
+  z-index: 3;
+  top: 43%;
+  left: 50%;
+  width: 32%;
+  height: 40%;
+  transform: translate(-50%, -50%);
+  border-radius: 18%;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(108, 188, 255, 0.34) 0%,
+      rgba(81, 158, 255, 0.18) 42%,
+      rgba(63, 138, 255, 0) 76%
+    );
+  filter: blur(22px);
+  opacity: 0;
+  transition: opacity 2.6s ease;
+  pointer-events: none;
 }
 
 .screen {
@@ -45,6 +69,20 @@ body::-webkit-scrollbar {
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  filter: brightness(0);
+  transition:
+    opacity 2.6s ease,
+    filter 2.6s ease;
+}
+
+.tv-content.is-on .screen {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+.tv-bloom.is-on {
+  opacity: 0.82;
 }
 
 .tv-room-image {
@@ -73,6 +111,54 @@ body::-webkit-scrollbar {
   top: 48%;       /* y-позиция */
   width: 17%;     /* ширина области */
   height: 16%;    /* высота области */
+}
+
+.hotspot-tv-power {
+  left: 39.85%;
+  top: 63.5%;
+  width: 1.25%;
+  height: 2.25%;
+  border-radius: 2px;
+  background: rgba(154, 24, 24, 0.78);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 220, 0.14),
+    0 0 5px rgba(255, 58, 58, 0.4);
+  animation: tv-power-blink 10s ease-in-out infinite;
+  transition:
+    background-color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.18s ease;
+}
+
+.hotspot-tv-power:hover {
+  transform: scale(1.08);
+}
+
+.hotspot-tv-power.is-on {
+  background: rgba(54, 214, 112, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 255, 235, 0.42),
+    0 0 8px rgba(90, 255, 149, 0.78),
+    0 0 18px rgba(90, 255, 149, 0.34);
+  animation: none;
+}
+
+@keyframes tv-power-blink {
+  0%,
+  100% {
+    background: rgba(154, 24, 24, 0.56);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 220, 220, 0.08),
+      0 0 3px rgba(255, 58, 58, 0.18);
+  }
+
+  50% {
+    background: rgba(238, 42, 42, 0.92);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 235, 235, 0.24),
+      0 0 8px rgba(255, 70, 70, 0.78),
+      0 0 18px rgba(255, 70, 70, 0.34);
+  }
 }
 
 
@@ -171,6 +257,92 @@ body::-webkit-scrollbar {
 
 .vhs-menu__cassette:hover {
   transform: scale(1.04);
+}
+
+.scene-loader {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(20px, 4vh, 42px);
+  width: clamp(64px, 7vw, 92px);
+  aspect-ratio: 1;
+  z-index: 6;
+  opacity: 0;
+  transform: translate(-50%, 14px) scale(0.96);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: none;
+}
+
+.scene-loader.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.scene-loader__segment {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16%;
+  height: 30%;
+  background: rgba(244, 240, 239, 0.1);
+  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+  transform:
+    translate(-50%, -50%)
+    rotate(calc(var(--segment) * 22.5deg))
+    translateY(-118%);
+  transition: background-color 0.16s ease;
+}
+
+.scene-loader__segment.is-filled {
+  background: rgba(244, 240, 239, 0.95);
+}
+
+.scene-return {
+  position: fixed;
+  top: clamp(14px, 3vh, 28px);
+  left: 50%;
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(10, 14, 17, 0.62);
+  opacity: 0;
+  transform: translate(-50%, -16px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease,
+    background-color 0.22s ease;
+  pointer-events: none;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.scene-return::before {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: 50%;
+  width: 13px;
+  height: 13px;
+  border-top: 2px solid rgba(244, 240, 239, 0.94);
+  border-left: 2px solid rgba(244, 240, 239, 0.94);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.scene-return.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.scene-return.is-pulling {
+  background: rgba(10, 14, 17, 0.84);
+}
+
+.scene-return:hover {
+  background: rgba(10, 14, 17, 0.84);
 }
 
 @media (max-width: 700px) {

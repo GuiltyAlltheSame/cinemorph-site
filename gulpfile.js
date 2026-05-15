@@ -27,6 +27,12 @@ function copyImages() {
     .pipe(dest('dist/assets/img'));
 }
 
+// Звуки
+function copySounds() {
+  return src('src/assets/sounds/**/*.*', { encoding: false })
+    .pipe(dest('dist/assets/sounds'));
+}
+
 // CSS (готовые .css из src/css)
 function minifyCSS() {
   return src('src/css/*.css')
@@ -68,10 +74,11 @@ function watchFiles() {
   watch('src/js/*.js', series(parallel(minifyJS, copyModules), reload));
   watch('src/assets/fonts/**/*.{woff,woff2,ttf,otf}', series(copyFonts, reload));
   watch('src/assets/img/**/*.{png,jpg,jpeg,gif,svg,webp,avif}', series(copyImages, reload));
+  watch('src/assets/sounds/**/*.{mp3,wav,ogg,m4a}', series(copySounds, reload));
 }
 
 exports.default = series(
-  parallel(copyHTML, minifyCSS, minifyJS, copyModules, copyFonts, copyImages),
+  parallel(copyHTML, minifyCSS, minifyJS, copyModules, copyFonts, copyImages, copySounds),
   serve,
   watchFiles
 );

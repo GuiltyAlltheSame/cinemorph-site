@@ -15,6 +15,12 @@
     <img class="tv-room-image" src="assets/img/wallpaper2.png" alt="Frame">
     <img class="vhs-box" src="assets/img/box-click.png" alt="VHS Box">
       <button
+        class="hotspot hotspot-tv-power"
+        type="button"
+        aria-label="Включить телевизор"
+        aria-pressed="false"
+      ></button>
+      <button
         class="hotspot hotspot-vhs"
         type="button"
         aria-label="Открыть коробку с кассетами"
@@ -22,10 +28,13 @@
         aria-expanded="false"
       ></button>
       <div class="vhs-glow" aria-hidden="true"></div>
+    <div class="tv-bloom" aria-hidden="true"></div>
     <div class="tv-content">
       <img class="screen" src="assets/img/nosignal.gif" alt="TV screen">
     </div>
   </div>
+
+  <audio id="tvNoise" src="assets/sounds/white-noise-soft.mp3" preload="auto" loop></audio>
 
   
   <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
@@ -41,6 +50,25 @@
       <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
       <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
     </div>
+  </div>
+
+  <div class="scene-loader" id="sceneLoader" aria-hidden="true">
+    <span class="scene-loader__segment" style="--segment: 0"></span>
+    <span class="scene-loader__segment" style="--segment: 1"></span>
+    <span class="scene-loader__segment" style="--segment: 2"></span>
+    <span class="scene-loader__segment" style="--segment: 3"></span>
+    <span class="scene-loader__segment" style="--segment: 4"></span>
+    <span class="scene-loader__segment" style="--segment: 5"></span>
+    <span class="scene-loader__segment" style="--segment: 6"></span>
+    <span class="scene-loader__segment" style="--segment: 7"></span>
+    <span class="scene-loader__segment" style="--segment: 8"></span>
+    <span class="scene-loader__segment" style="--segment: 9"></span>
+    <span class="scene-loader__segment" style="--segment: 10"></span>
+    <span class="scene-loader__segment" style="--segment: 11"></span>
+    <span class="scene-loader__segment" style="--segment: 12"></span>
+    <span class="scene-loader__segment" style="--segment: 13"></span>
+    <span class="scene-loader__segment" style="--segment: 14"></span>
+    <span class="scene-loader__segment" style="--segment: 15"></span>
   </div>
 </div>
 <!----------------------------------------------------------------Секция Сцена с ТВ END---------------------------->
@@ -208,6 +236,7 @@
 
 </main>
 
+<button class="scene-return" id="sceneReturn" type="button" aria-label="Вернуться к сцене"></button>
 
 
   <script src="js/main.js" defer></script>
