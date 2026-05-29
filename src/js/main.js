@@ -3,18 +3,27 @@ const vhsMenu = document.querySelector("#vhsMenu");
 const scene = document.querySelector(".main-area");
 const content = document.querySelector("main");
 const sceneLoader = document.querySelector("#sceneLoader");
-const loaderSegments = [...document.querySelectorAll(".scene-loader__segment")];
 const sceneReturn = document.querySelector("#sceneReturn");
 const tvContent = document.querySelector(".tv-content");
 const tvNoise = document.querySelector("#tvNoise");
+const tvPowerClick = document.querySelector("#tvPowerClick");
 const tvPowerButton = document.querySelector(".hotspot-tv-power");
 const tvBloom = document.querySelector(".tv-bloom");
+const vcrClock = document.querySelector("#vcrClock");
+const vcrClockHours = document.querySelector(".vcr-clock__hours");
+const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
 let tvNoiseController;
 
 if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   const maxNoiseVolume = 0.01;
   const tvBootDuration = 2600;
+  const tvShutdownDuration = 420;
+
+  // on/off button sound: 1 = orig, 1.35 = faster, 0.8 = slower.
+  const tvPowerClickPlaybackRate = 4;
+  
   let noiseFadeFrame;
+  let tvShutdownTimer;
   let noiseStarted = false;
   let targetNoiseVolume = 0;
   let tvPoweredOn = false;
@@ -66,8 +75,19 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     }
   };
 
+  const playPowerClick = () => {
+    if (!tvPowerClick) return;
+
+    tvPowerClick.pause();
+    tvPowerClick.currentTime = 0;
+    tvPowerClick.playbackRate = tvPowerClickPlaybackRate;
+    tvPowerClick.play().catch(() => {});
+  };
+
   const powerOnTv = () => {
+    window.clearTimeout(tvShutdownTimer);
     tvPoweredOn = true;
+    tvContent.classList.remove("is-switching-off");
     tvContent.classList.add("is-on");
     tvBloom.classList.add("is-on");
     tvPowerButton.classList.add("is-on");
@@ -77,7 +97,9 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   };
 
   const powerOffTv = () => {
+    window.clearTimeout(tvShutdownTimer);
     tvPoweredOn = false;
+    tvContent.classList.add("is-switching-off");
     tvContent.classList.remove("is-on");
     tvBloom.classList.remove("is-on");
     tvPowerButton.classList.remove("is-on");
@@ -87,9 +109,15 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     if (noiseStarted) {
       fadeNoiseTo(0);
     }
+
+    tvShutdownTimer = window.setTimeout(() => {
+      tvContent.classList.remove("is-switching-off");
+    }, tvShutdownDuration);
   };
 
   tvPowerButton.addEventListener("click", () => {
+    playPowerClick();
+
     if (tvPoweredOn) {
       powerOffTv();
       return;
@@ -158,7 +186,23 @@ if (vhsTrigger && vhsMenu) {
   });
 }
 
-if (scene && content && sceneLoader && loaderSegments.length && sceneReturn) {
+if (vcrClock && vcrClockHours && vcrClockMinutes) {
+  const updateVcrClock = () => {
+    const now = new Date();
+    const hours = now.getHours() % 12 || 12;
+    const minutes = now.getMinutes();
+    const displayTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+
+    vcrClockHours.textContent = String(hours).padStart(2, "0");
+    vcrClockMinutes.textContent = String(minutes).padStart(2, "0");
+    vcrClock.setAttribute("aria-label", `VCR clock ${displayTime}`);
+  };
+
+  updateVcrClock();
+  window.setInterval(updateVcrClock, 1000);
+}
+
+if (scene && content && sceneLoader && sceneReturn) {
   const pullThreshold = 900;
   const returnThreshold = 260;
   const resetDelay = 520;
@@ -174,20 +218,18 @@ if (scene && content && sceneLoader && loaderSegments.length && sceneReturn) {
   const isAtContentTop = () => Math.abs(window.scrollY - contentTop()) <= 3;
   const isInContent = () => window.scrollY >= contentTop() - 3;
 
-  const fillLoader = (progress) => {
-    const filledSegments = Math.ceil(progress * loaderSegments.length);
+  const updateLoader = (progress) => {
+    const clampedProgress = Math.max(0, Math.min(progress, 1));
+    const frame = Math.min(Math.floor(clampedProgress * 4), 4);
 
-    loaderSegments.forEach((segment, index) => {
-      segment.classList.toggle("is-filled", index < filledSegments);
-    });
-
-    sceneLoader.classList.toggle("is-visible", progress > 0);
+    sceneLoader.style.setProperty("--loader-frame-position", `${frame * 25}%`);
+    sceneLoader.classList.toggle("is-visible", clampedProgress > 0);
   };
 
   const resetPulls = () => {
     scenePull = 0;
     returnPull = 0;
-    fillLoader(0);
+    updateLoader(0);
     sceneReturn.classList.remove("is-pulling");
   };
 
@@ -203,7 +245,7 @@ if (scene && content && sceneLoader && loaderSegments.length && sceneReturn) {
   const jumpToContent = () => {
     isTransitioning = true;
     scenePull = pullThreshold;
-    fillLoader(1);
+    updateLoader(1);
     window.clearTimeout(resetTimer);
     tvNoiseController?.fadeOut();
 
@@ -248,7 +290,7 @@ if (scene && content && sceneLoader && loaderSegments.length && sceneReturn) {
       if (isAtScene() && event.deltaY > 0) {
         event.preventDefault();
         scenePull = Math.min(scenePull + event.deltaY, pullThreshold);
-        fillLoader(scenePull / pullThreshold);
+        updateLoader(scenePull / pullThreshold);
         queueReset();
 
         if (scenePull >= pullThreshold) {
@@ -261,7 +303,7 @@ if (scene && content && sceneLoader && loaderSegments.length && sceneReturn) {
       if (isAtScene() && event.deltaY < 0 && scenePull > 0) {
         event.preventDefault();
         scenePull = Math.max(scenePull + event.deltaY, 0);
-        fillLoader(scenePull / pullThreshold);
+        updateLoader(scenePull / pullThreshold);
         queueReset();
         return;
       }

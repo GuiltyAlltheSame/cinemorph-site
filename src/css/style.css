@@ -15,12 +15,79 @@ body::-webkit-scrollbar {
 /* ------------------------------------------------------------------Секция Сцена с ТВ---------------------------*/
 
 .main-area {
+  --scene-grain-opacity: 0.05;
+  --scene-grain-speed: 0.40s;
+  --scene-grain-spread: 50%;
+
   block-size: 100svh;
   
   overflow: hidden;
   position: relative;
   display: grid;
   place-items: center;
+}
+
+.main-area::after {
+  content: "";
+  position: absolute;
+  z-index: 7;
+  inset: calc(var(--scene-grain-spread) * -1);
+  pointer-events: none;
+  opacity: var(--scene-grain-opacity);
+  background-image: url("https://upload.wikimedia.org/wikipedia/commons/5/5c/Image_gaussian_noise_example.png");
+  background-repeat: repeat;
+  animation: scene-grain var(--scene-grain-speed) steps(2, end) infinite;
+}
+
+@keyframes scene-grain {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  10% {
+    transform: translate3d(-12px, -18px, 0);
+  }
+
+  20% {
+    transform: translate3d(16px, -8px, 0);
+  }
+
+  30% {
+    transform: translate3d(-8px, 14px, 0);
+  }
+
+  40% {
+    transform: translate3d(20px, 10px, 0);
+  }
+
+  50% {
+    transform: translate3d(-18px, 6px, 0);
+  }
+
+  60% {
+    transform: translate3d(10px, -14px, 0);
+  }
+
+  70% {
+    transform: translate3d(-14px, 20px, 0);
+  }
+
+  80% {
+    transform: translate3d(18px, 16px, 0);
+  }
+
+  90% {
+    transform: translate3d(-10px, -10px, 0);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.tv-area {
+  --tv-turn-on-duration: 0.48s;    /* tv bloom on/off duration */
+  --tv-turn-off-duration: 0.42s;
 }
 
 .tv-area {
@@ -38,7 +105,7 @@ body::-webkit-scrollbar {
   height: 31%;
   transform: translate(-50%, -50%); /* центрирование по обеим осям */
   overflow: hidden;
-  background: #080a0b;
+  background: #070e0f;
 }
 
 .tv-bloom {
@@ -47,7 +114,7 @@ body::-webkit-scrollbar {
   top: 43%;
   left: 50%;
   width: 32%;
-  height: 40%;
+  height: 44%;
   transform: translate(-50%, -50%);
   border-radius: 18%;
   background:
@@ -59,36 +126,112 @@ body::-webkit-scrollbar {
     );
   filter: blur(22px);
   opacity: 0;
-  transition: opacity 2.6s ease;
+  transition: opacity var(--tv-turn-off-duration) cubic-bezier(0.55, 0.08, 0.68, 0.53);
   pointer-events: none;
 }
 
 .screen {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  width: 0;
+  height: 0;
+  overflow: hidden;
   opacity: 0;
-  filter: brightness(0);
-  transition:
-    opacity 2.6s ease,
-    filter 2.6s ease;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  filter: brightness(1.35);
+}
+
+.screen__signal {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: url("../assets/img/vhsnoise.gif") center / cover no-repeat;
+  transition: opacity 0.18s ease 0.34s;
 }
 
 .tv-content.is-on .screen {
+  width: 100%;
+  height: 100%;
   opacity: 1;
+  background: #16222a;
   filter: brightness(1);
+  animation: tv-screen-turn-on var(--tv-turn-on-duration) cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.tv-content.is-on .screen__signal {
+  opacity: 1;
+}
+
+.tv-content.is-switching-off .screen {
+  opacity: 1;
+  animation: tv-screen-turn-off var(--tv-turn-off-duration) cubic-bezier(0.55, 0.08, 0.68, 0.53) both;
+}
+
+.tv-content.is-switching-off .screen__signal {
+  opacity: 0;
+  transition-delay: 0s;
 }
 
 .tv-bloom.is-on {
   opacity: 0.82;
+  transition-duration: var(--tv-turn-on-duration);
+  transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .tv-room-image {
   position: relative;
 
   z-index: 2;
+}
+
+.vcr-clock {
+  --vcr-clock-left: 50%;
+  --vcr-clock-top: 80.1%;
+  --vcr-clock-scale: 1;
+  --vcr-clock-rotate: 0deg;
+
+  position: absolute;
+  z-index: 4;
+  left: var(--vcr-clock-left);
+  top: var(--vcr-clock-top);
+  transform: translate(-50%, -50%) scale(var(--vcr-clock-scale)) rotate(var(--vcr-clock-rotate));
+  transform-origin: center;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(42px, 5.4vw, 95px);
+  padding: clamp(1px, 0.16vw, 3px) clamp(4px, 0.42vw, 7px);
+  border-radius: 2px;
+  color: rgba(95, 255, 142, 0.92);
+  font-family: "Courier New", monospace;
+  font-size: clamp(9px, 0.92vw, 15px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 3px rgba(88, 255, 142, 0.82),
+    0 0 8px rgba(88, 255, 142, 0.48);
+}
+
+.vcr-clock__colon {
+  animation: vcr-clock-colon-blink 1s steps(2, end) infinite;
+}
+
+@keyframes vcr-clock-colon-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0.16;
+  }
 }
 
 /* Общие правила хот-спотов */
@@ -116,13 +259,13 @@ body::-webkit-scrollbar {
 .hotspot-tv-power {
   left: 39.85%;
   top: 63.5%;
-  width: 1.25%;
-  height: 2.25%;
-  border-radius: 2px;
-  background: rgba(154, 24, 24, 0.78);
+  width: 20px;
+  height: 6px;
+  border-radius: 1.6px;
+  background: rgba(255, 0, 0, 0.78);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 220, 220, 0.14),
-    0 0 5px rgba(255, 58, 58, 0.4);
+    inset 0 0 0 0px rgba(0, 0, 0, 0.14),
+    0 0 5px rgba(255, 0, 0, 0.78);
   animation: tv-power-blink 10s ease-in-out infinite;
   transition:
     background-color 0.24s ease,
@@ -158,6 +301,92 @@ body::-webkit-scrollbar {
       inset 0 0 0 1px rgba(255, 235, 235, 0.24),
       0 0 8px rgba(255, 70, 70, 0.78),
       0 0 18px rgba(255, 70, 70, 0.34);
+  }
+}
+
+@keyframes tv-screen-turn-on {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0;
+    background: #ffffff;
+    filter: brightness(2.4);
+  }
+
+  16% {
+    width: 2px;
+    height: 2px;
+    opacity: 1;
+    background: #ffffff;
+    filter: brightness(2.4);
+  }
+
+  48% {
+    width: 100%;
+    height: 2px;
+    opacity: 1;
+    background: #ffffff;
+    filter: brightness(2.2);
+  }
+
+  100% {
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    background: #16222a;
+    filter: brightness(1);
+  }
+}
+
+@keyframes tv-screen-turn-off {
+  0% {
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    background: #16222a;
+    filter: brightness(1);
+  }
+
+  54% {
+    width: 100%;
+    height: 2px;
+    opacity: 1;
+    background: #ffffff;
+    filter: brightness(2.3);
+  }
+
+  100% {
+    width: 0;
+    height: 0;
+    opacity: 0;
+    background: #ffffff;
+    filter: brightness(2.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-area::after,
+  .tv-content.is-on .screen,
+  .tv-content.is-switching-off .screen,
+  .screen__signal {
+    animation: none;
+  }
+
+  .tv-content.is-on .screen {
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    background: #16222a;
+  }
+
+  .tv-content.is-switching-off .screen {
+    width: 0;
+    height: 0;
+    opacity: 0;
+  }
+
+  .tv-content.is-on .screen__signal {
+    opacity: 1;
   }
 }
 
@@ -260,42 +489,27 @@ body::-webkit-scrollbar {
 }
 
 .scene-loader {
+  --loader-frame-position: 0%;
+
   position: absolute;
-  left: 50%;
-  bottom: clamp(20px, 4vh, 42px);
-  width: clamp(64px, 7vw, 92px);
+  left: 5%;
+  bottom: clamp(20px, 4vh, 18px);
+  width: clamp(76px, 8vw, 112px);
   aspect-ratio: 1;
-  z-index: 6;
+  z-index: 8;
   opacity: 0;
   transform: translate(-50%, 14px) scale(0.96);
+  background: url("../assets/img/reel-loader-sheet.png") var(--loader-frame-position) 0 / 500% 100% no-repeat;
   transition:
     opacity 0.18s ease,
     transform 0.18s ease;
   pointer-events: none;
+  image-rendering: auto;
 }
 
 .scene-loader.is-visible {
   opacity: 1;
   transform: translate(-50%, 0) scale(1);
-}
-
-.scene-loader__segment {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16%;
-  height: 30%;
-  background: rgba(244, 240, 239, 0.1);
-  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
-  transform:
-    translate(-50%, -50%)
-    rotate(calc(var(--segment) * 22.5deg))
-    translateY(-118%);
-  transition: background-color 0.16s ease;
-}
-
-.scene-loader__segment.is-filled {
-  background: rgba(244, 240, 239, 0.95);
 }
 
 .scene-return {
