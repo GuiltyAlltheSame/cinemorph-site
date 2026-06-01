@@ -242,6 +242,7 @@ if (scene && content && sceneLoader) {
   const pullThreshold = 900;
   const resetDelay = 520;
   const boundaryTolerance = 3;
+  const innerScrollTolerance = 2;
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const transitionDuration = prefersReducedMotion ? 0 : 720;
   const settleLockDuration = prefersReducedMotion ? 0 : 320;
@@ -263,16 +264,62 @@ if (scene && content && sceneLoader) {
   let scrollLockTarget = null;
   let isTransitioning = false;
   let lastTouchY = null;
+  let touchStartTarget = null;
 
   const clampIndex = (index) => Math.max(0, Math.min(index, targets.length - 1));
   const targetTop = (index) => targets[clampIndex(index)].top();
   const isScrollLocked = () => scrollLockTarget !== null && performance.now() < scrollLockTarget.until;
+  const activeTarget = () => targets[activeTargetIndex];
+  const maxInnerScroll = (element) => Math.max(0, element.scrollHeight - element.clientHeight);
 
   const getWheelDeltaY = (event) => {
     if (event.deltaMode === 1) return event.deltaY * 16;
     if (event.deltaMode === 2) return event.deltaY * window.innerHeight;
 
     return event.deltaY;
+  };
+
+  const canElementScrollInDirection = (element, direction) => {
+    const scrollRange = maxInnerScroll(element);
+
+    if (scrollRange <= innerScrollTolerance) return false;
+    if (direction > 0) return element.scrollTop < scrollRange - innerScrollTolerance;
+
+    return element.scrollTop > innerScrollTolerance;
+  };
+
+  const getScrollableElementForEvent = (target, direction) => {
+    const activeElement = activeTarget()?.element;
+    const startElement = target instanceof Element ? target : target?.parentElement;
+
+    if (!activeElement || activeElement === scene || !startElement) {
+      return null;
+    }
+
+    let element = startElement;
+
+    while (element && element !== document.body && element !== document.documentElement) {
+      if (activeElement.contains(element) && canElementScrollInDirection(element, direction)) {
+        return element;
+      }
+
+      if (element === activeElement) {
+        break;
+      }
+
+      element = element.parentElement;
+    }
+
+    return null;
+  };
+
+  const resetTargetInnerScroll = (index, direction) => {
+    const target = targets[clampIndex(index)];
+    const element = target?.element;
+
+    if (!element || element === scene) return;
+
+    element.scrollTop = direction < 0 ? maxInnerScroll(element) : 0;
   };
 
   const nearestTargetIndex = () => {
@@ -344,10 +391,13 @@ if (scene && content && sceneLoader) {
 
   const goToTarget = (index, options = {}) => {
     const nextIndex = clampIndex(index);
+    const computedDirection = Math.sign(nextIndex - activeTargetIndex);
+    const travelDirection = options.direction ?? (computedDirection || 1);
     const shouldShowLoader = options.showLoader ?? true;
 
     isTransitioning = true;
     activeTargetIndex = nextIndex;
+    resetTargetInnerScroll(nextIndex, travelDirection);
     updateMenuState();
     window.clearTimeout(resetTimer);
 
@@ -403,17 +453,27 @@ if (scene && content && sceneLoader) {
       const deltaY = getWheelDeltaY(event);
       const direction = deltaY > 0 ? 1 : -1;
 
-      event.preventDefault();
+      if (deltaY === 0) {
+        return;
+      }
 
       if (isScrollLocked()) {
+        event.preventDefault();
         window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
         return;
       }
 
-      if (isTransitioning || deltaY === 0) {
+      if (isTransitioning) {
+        event.preventDefault();
         return;
       }
 
+      if (getScrollableElementForEvent(event.target, direction)) {
+        resetPull();
+        return;
+      }
+
+      event.preventDefault();
       handlePull(direction, deltaY);
     },
     { passive: false }
@@ -425,6 +485,7 @@ if (scene && content && sceneLoader) {
       if (event.touches.length !== 1) return;
 
       lastTouchY = event.touches[0].clientY;
+      touchStartTarget = event.target;
     },
     { passive: true }
   );
@@ -441,17 +502,28 @@ if (scene && content && sceneLoader) {
       const touchThreshold = Math.min(pullThreshold, window.innerHeight * 0.55);
 
       lastTouchY = currentY;
-      event.preventDefault();
 
       if (isScrollLocked()) {
+        event.preventDefault();
         window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
         return;
       }
 
-      if (isTransitioning || Math.abs(deltaY) < 1) {
+      if (isTransitioning) {
+        event.preventDefault();
         return;
       }
 
+      if (Math.abs(deltaY) < 1) {
+        return;
+      }
+
+      if (getScrollableElementForEvent(touchStartTarget, direction)) {
+        resetPull();
+        return;
+      }
+
+      event.preventDefault();
       handlePull(direction, deltaY, touchThreshold);
     },
     { passive: false }
@@ -461,6 +533,16 @@ if (scene && content && sceneLoader) {
     "touchend",
     () => {
       lastTouchY = null;
+      touchStartTarget = null;
+    },
+    { passive: true }
+  );
+
+  window.addEventListener(
+    "touchcancel",
+    () => {
+      lastTouchY = null;
+      touchStartTarget = null;
     },
     { passive: true }
   );
