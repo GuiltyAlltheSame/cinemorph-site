@@ -6,7 +6,7 @@ const autoprefixer = require('autoprefixer');
 const browserSync = require('browser-sync').create();
 
 const MODULES = [
-  // если появятся отдельные модули, добавим пути сюда (будут копироваться как есть)
+  // Add separate module paths here if needed; they will be copied as-is.
 ];
 
 // HTML
@@ -15,25 +15,25 @@ function copyHTML() {
     .pipe(dest('dist'));
 }
 
-// Шрифты
+// Fonts
 function copyFonts() {
   return src('src/assets/fonts/**/*')
     .pipe(dest('dist/assets/fonts'));
 }
 
-// Изображения (без сжатия, с бинарной копией)
+// Images, copied as binary files without compression.
 function copyImages() {
   return src('src/assets/img/**/*.*', { encoding: false })
     .pipe(dest('dist/assets/img'));
 }
 
-// Звуки
+// Sounds
 function copySounds() {
   return src('src/assets/sounds/**/*.*', { encoding: false })
     .pipe(dest('dist/assets/sounds'));
 }
 
-// CSS (готовые .css из src/css)
+// CSS, from ready-made .css files in src/css.
 function minifyCSS() {
   return src('src/css/*.css')
     .pipe(postcss([autoprefixer()]))
@@ -41,33 +41,33 @@ function minifyCSS() {
     .pipe(dest('dist/css'));
 }
 
-// JS (минифицируем всё, кроме перечисленных в MODULES)
+// JS, minify everything except files listed in MODULES.
 function minifyJS() {
   return src(['src/js/*.js', ...MODULES.map(m => '!' + m)])
     .pipe(terser())
     .pipe(dest('dist/js'));
 }
 
-// Копия модулей как есть (если нужны необфусцированные файлы)
+// Copy modules as-is when unobfuscated files are needed.
 function copyModules() {
   if (MODULES.length === 0) return Promise.resolve();
   return src(MODULES, { base: 'src/js' })
     .pipe(dest('dist/js'));
 }
 
-// Dev-сервер
+// Dev server
 function serve(done) {
   browserSync.init({ server: { baseDir: 'dist' }, notify: false, open: true });
   done();
 }
 
-// Релоад
+// Reload
 function reload(done) {
   browserSync.reload();
   done();
 }
 
-// Вотчеры
+// Watchers
 function watchFiles() {
   watch('src/*.html', series(copyHTML, reload));
   watch('src/css/*.css', series(minifyCSS, reload));

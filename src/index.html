@@ -1,38 +1,115 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CINEMORPH STUDIOS</title>
+  <title>CINEMORPH STUDIO</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+<!-- Bottom Navigation -->
+<nav id="menu" class="site-menu" aria-label="Primary navigation">
+  <div id="logo-menu" class="site-menu__brand">
+    <span class="site-menu__brand-text">Cinemorph Studio</span>
+    <div class="scene-loader" id="sceneLoader" aria-hidden="true"></div>
+  </div>
 
-<!----------------------------------------------------------------Секция Сцена с ТВ---------------------------->
-<div class="main-area">
+  <ul id="men" class="icon-list">
+    <li><a href="#home" data-hover="HOME" data-section-link>Home</a></li>
+    <li><a href="#about" data-hover="ABOUT" data-section-link>About</a></li>
+    <li><a href="#portfolio" data-hover="PORTFOLIO" data-section-link>Portfolio</a></li>
+    <li><a href="#gallery" data-hover="GALLERY" data-section-link>Gallery</a></li>
+    <li><a href="#services" data-hover="SERVICES" data-section-link>Services</a></li>
+    <li><a href="#contact" data-hover="CONTACT" data-section-link>Contact</a></li>
+  </ul>
+
+  <ul id="social" class="site-menu__social" aria-label="Social links">
+    <li>
+      <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14.2 8.2V6.7c0-.7.2-1.1 1.2-1.1h1.7V2.7c-.8-.1-1.7-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3v1.4H7.6v3.2h2.8v8.1h3.4v-8.1h2.8l.4-3.2h-3Z"/>
+        </svg>
+      </a>
+    </li>
+    <li>
+      <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
+        </svg>
+      </a>
+    </li>
+    <li>
+      <a href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21.6 7.2a3 3 0 0 0-2.1-2.1C17.6 4.6 12 4.6 12 4.6s-5.6 0-7.5.5a3 3 0 0 0-2.1 2.1C2 9.1 2 12 2 12s0 2.9.4 4.8a3 3 0 0 0 2.1 2.1c1.9.5 7.5.5 7.5.5s5.6 0 7.5-.5a3 3 0 0 0 2.1-2.1c.4-1.9.4-4.8.4-4.8s0-2.9-.4-4.8ZM10 15.5v-7l6 3.5-6 3.5Z"/>
+        </svg>
+      </a>
+    </li>
+  </ul>
+
+  <div class="mobilenav" id="mobileNav" aria-hidden="true">
+    <ul>
+      <li class="mobile-brand">Cinemorph Studio</li>
+      <li class="voce-menu"><a href="#home" data-section-link>Home</a></li>
+      <li class="voce-menu"><a href="#about" data-section-link>About</a></li>
+      <li class="voce-menu"><a href="#portfolio" data-section-link>Portfolio</a></li>
+      <li class="voce-menu"><a href="#gallery" data-section-link>Gallery</a></li>
+      <li class="voce-menu"><a href="#services" data-section-link>Services</a></li>
+      <li class="voce-menu"><a href="#contact" data-section-link>Contact</a></li>
+      <li class="voce-menu mobile-social">
+        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14.2 8.2V6.7c0-.7.2-1.1 1.2-1.1h1.7V2.7c-.8-.1-1.7-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3v1.4H7.6v3.2h2.8v8.1h3.4v-8.1h2.8l.4-3.2h-3Z"/>
+          </svg>
+        </a>
+        <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
+          </svg>
+        </a>
+        <a href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21.6 7.2a3 3 0 0 0-2.1-2.1C17.6 4.6 12 4.6 12 4.6s-5.6 0-7.5.5a3 3 0 0 0-2.1 2.1C2 9.1 2 12 2 12s0 2.9.4 4.8a3 3 0 0 0 2.1 2.1c1.9.5 7.5.5 7.5.5s5.6 0 7.5-.5a3 3 0 0 0 2.1-2.1c.4-1.9.4-4.8.4-4.8s0-2.9-.4-4.8ZM10 15.5v-7l6 3.5-6 3.5Z"/>
+          </svg>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <button class="icon white" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false">
+    <span class="hamburger" aria-hidden="true">
+      <span class="menui top-menu"></span>
+      <span class="menui mid-menu"></span>
+      <span class="menui bottom-menu"></span>
+    </span>
+  </button>
+</nav>
+
+<!-- TV Scene Section -->
+<div class="main-area" id="home">
   <div class="tv-area">
     <img class="tv-room-image" src="assets/img/wallpaper2.png" alt="Frame">
     <img class="vhs-box" src="assets/img/box-click.png" alt="VHS Box">
-      <div class="vcr-clock" id="vcrClock" aria-label="VCR clock">
-        <span class="vcr-clock__hours">12</span>
-        <span class="vcr-clock__colon">:</span>
-        <span class="vcr-clock__minutes">00</span>
-      </div>
-      <button
-        class="hotspot hotspot-tv-power"
-        type="button"
-        aria-label="Включить телевизор"
-        aria-pressed="false"
-      ></button>
-      <button
-        class="hotspot hotspot-vhs"
-        type="button"
-        aria-label="Открыть коробку с кассетами"
-        aria-controls="vhsMenu"
-        aria-expanded="false"
-      ></button>
-      <div class="vhs-glow" aria-hidden="true"></div>
+    <div class="vcr-clock" id="vcrClock" aria-label="VCR clock">
+      <span class="vcr-clock__hours">12</span>
+      <span class="vcr-clock__colon">:</span>
+      <span class="vcr-clock__minutes">00</span>
+    </div>
+    <button
+      class="hotspot hotspot-tv-power"
+      type="button"
+      aria-label="Turn TV on"
+      aria-pressed="false"
+    ></button>
+    <button
+      class="hotspot hotspot-vhs"
+      type="button"
+      aria-label="Open VHS tape box"
+      aria-controls="vhsMenu"
+      aria-expanded="false"
+    ></button>
+    <div class="vhs-glow" aria-hidden="true"></div>
     <div class="tv-bloom" aria-hidden="true"></div>
     <div class="tv-content">
       <div class="screen" role="img" aria-label="TV screen">
@@ -44,7 +121,6 @@
   <audio id="tvNoise" src="assets/sounds/white-noise-soft.mp3" preload="auto" loop></audio>
   <audio id="tvPowerClick" src="assets/sounds/on-off-click.mp3" preload="auto"></audio>
 
-  
   <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
     <div class="vhs-menu__content">
       <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
@@ -59,36 +135,30 @@
       <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
     </div>
   </div>
-
-  <div class="scene-loader" id="sceneLoader" aria-hidden="true"></div>
 </div>
-<!----------------------------------------------------------------Секция Сцена с ТВ END---------------------------->
+<!-- TV Scene Section END -->
 
-<!-- Разделы ниже блока .tv-area -->
 <main>
-
-  <!-- About (чёрный) --------------------------------------------------------------------------------------------->
   <section id="about" class="section section--dark">
     <div class="section__inner">
       <h2>About</h2>
-      <p class="lead">CINEMORPH STUDIOS — команда с фокусом на ретро-эстетику VHS/CRT и атмосферный сторителлинг.</p>
-      <p>Здесь краткая история студии, миссия и подход к работе: от эскиза и раскадровки до пост-продакшена и релиза. Текст-заглушка для наполнения.</p>
+      <p class="lead">CINEMORPH STUDIO is a team of video professionals.</p>
+      <p>We use ideas and technology to tell stories. If you want to talk to us about yours, we will turn it into images.</p>
     </div>
   </section>
 
-  <!-- Portfolio (белый) ------------------------------------------------------------------------------------------>
-  <section id="portfolio" class="section section--light">
+  <section id="portfolio" class="section section--dark">
     <div class="section__inner">
       <h2>Portfolio</h2>
-      <p>Подборка кейсов: постеры, заставки, короткие сцены, веб-сцены с CRT-эффектами.</p>
+      <p>A selection of projects: posters, title sequences, and short scenes.</p>
 
       <div class="portfolio-grid">
         <article class="card card--light">
           <div class="ph-thumb"></div>
           <div class="card__body">
             <span class="tag">Motion</span>
-            <h3>Заглушка проекта №1</h3>
-            <p>Краткое описание: задача, эстетика, инструменты.</p>
+            <h3>Project Placeholder No. 1</h3>
+            <p>Brief description: goal, aesthetic, and tools.</p>
           </div>
         </article>
 
@@ -96,8 +166,8 @@
           <div class="ph-thumb"></div>
           <div class="card__body">
             <span class="tag">Branding</span>
-            <h3>Заглушка проекта №2</h3>
-            <p>Палитра, ключевые визуальные решения.</p>
+            <h3>Project Placeholder No. 2</h3>
+            <p>Palette and key visual decisions.</p>
           </div>
         </article>
 
@@ -105,8 +175,8 @@
           <div class="ph-thumb"></div>
           <div class="card__body">
             <span class="tag">Web</span>
-            <h3>Заглушка проекта №3</h3>
-            <p>Анимации интерфейса и адаптив.</p>
+            <h3>Project Placeholder No. 3</h3>
+            <p>Interface animations and responsive behavior.</p>
           </div>
         </article>
 
@@ -114,122 +184,68 @@
           <div class="ph-thumb"></div>
           <div class="card__body">
             <span class="tag">Poster</span>
-            <h3>Заглушка проекта №4</h3>
-            <p>Композиция, типографика, текстуры.</p>
+            <h3>Project Placeholder No. 4</h3>
+            <p>Composition, typography, and textures.</p>
           </div>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- Services (чёрный) ------------------------------------------------------------------------------------------>
+  <section id="gallery" class="section section--dark">
+    <div class="section__inner">
+      <h1>Gallery</h1>
+    </div>
+  </section>
+
   <section id="services" class="section section--dark">
     <div class="section__inner">
       <h2>Services</h2>
       <div class="services">
         <div class="service">
-          <h3>Motion-дизайн</h3>
-          <p>Титры, логотип-аним, винтажные эффекты.</p>
+          <h3>Motion Design</h3>
+          <p>Titles, logo animation, and vintage effects.</p>
         </div>
         <div class="service">
-          <h3>Иллюстрация</h3>
-          <p>Постеры, обложки, промо-арт.</p>
+          <h3>Illustration</h3>
+          <p>Posters, covers, and promo art.</p>
         </div>
         <div class="service">
-          <h3>Web-сцены</h3>
-          <p>Интерактивные страницы с «экранами».</p>
+          <h3>Web Scenes</h3>
+          <p>Interactive pages built around screen-based scenes.</p>
         </div>
         <div class="service">
-          <h3>Брендинг</h3>
-          <p>Знаки, палитры, гайдлайны.</p>
+          <h3>Branding</h3>
+          <p>Marks, palettes, and guidelines.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Team (белый) ----------------------------------------------------------------------------------------------->
-  <section id="team" class="section section--light">
-    <div class="section__inner">
-      <h2>Team</h2>
-      <div class="team">
-        <article class="member">
-          <div class="avatar"></div>
-          <div>
-            <h4>Имя Фамилия</h4>
-            <p class="role">Creative Director</p>
-            <p class="bio">Куратор визуального языка и света.</p>
-          </div>
-        </article>
-        <article class="member">
-          <div class="avatar"></div>
-          <div>
-            <h4>Имя Фамилия</h4>
-            <p class="role">Motion Designer</p>
-            <p class="bio">Анимация титров и переходов.</p>
-          </div>
-        </article>
-        <article class="member">
-          <div class="avatar"></div>
-          <div>
-            <h4>Имя Фамилия</h4>
-            <p class="role">Frontend</p>
-            <p class="bio">Интерактив и производительность.</p>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- Awards (чёрный) -------------------------------------------------------------------------------------------->
-  <section id="awards" class="section section--dark">
-    <div class="section__inner">
-      <h2>Awards</h2>
-      <div class="awards">
-        <div class="award">
-          <div class="year">2025</div>
-          <p>Заглушка: спецприз за визуальную атмосферу.</p>
-        </div>
-        <div class="award">
-          <div class="year">2024</div>
-          <p>Лучшая стилизация VHS/CRT в интерактивном проекте.</p>
-        </div>
-        <div class="award">
-          <div class="year">2023</div>
-          <p>Постер-серия «Analog Dreams» — шорт-лист.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Contact (белый) --------------------------------------------------------------------------------------------->
-  <section id="contact" class="section section--light">
+  <section id="contact" class="section section--dark">
     <div class="section__inner">
       <h2>Contact</h2>
-      <p>Коротко опишите задачу, сроки и референсы.</p>
+      <p>Briefly describe the task, timeline, and references.</p>
 
       <form class="contact" action="#" method="post">
         <div class="field">
-          <label for="name">Имя</label>
-          <input class="input" type="text" id="name" name="name" placeholder="Ваше имя">
+          <label for="name">Name</label>
+          <input class="input" type="text" id="name" name="name" placeholder="Your name">
         </div>
         <div class="field">
           <label for="email">Email</label>
           <input class="input" type="email" id="email" name="email" placeholder="you@example.com">
         </div>
         <div class="field">
-          <label for="msg">Сообщение</label>
-          <textarea class="textarea" id="msg" name="message" placeholder="Коротко о задаче…"></textarea>
+          <label for="msg">Message</label>
+          <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..."></textarea>
         </div>
-        <button class="btn" type="submit">Отправить</button>
+        <button class="btn" type="submit">Send</button>
       </form>
     </div>
   </section>
-
 </main>
 
-<button class="scene-return" id="sceneReturn" type="button" aria-label="Вернуться к сцене"></button>
-
-
-  <script src="js/main.js" defer></script>
+<script src="js/main.js" defer></script>
 </body>
 </html>

@@ -3,7 +3,11 @@ const vhsMenu = document.querySelector("#vhsMenu");
 const scene = document.querySelector(".main-area");
 const content = document.querySelector("main");
 const sceneLoader = document.querySelector("#sceneLoader");
-const sceneReturn = document.querySelector("#sceneReturn");
+const siteMenu = document.querySelector("#menu");
+const siteMenuBrand = document.querySelector("#logo-menu");
+const mobileMenuToggle = document.querySelector("#menu .icon");
+const mobileMenu = document.querySelector("#mobileNav");
+const menuLinks = document.querySelectorAll("[data-section-link]");
 const tvContent = document.querySelector(".tv-content");
 const tvNoise = document.querySelector("#tvNoise");
 const tvPowerClick = document.querySelector("#tvPowerClick");
@@ -91,7 +95,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     tvContent.classList.add("is-on");
     tvBloom.classList.add("is-on");
     tvPowerButton.classList.add("is-on");
-    tvPowerButton.setAttribute("aria-label", "Выключить телевизор");
+    tvPowerButton.setAttribute("aria-label", "Turn TV off");
     tvPowerButton.setAttribute("aria-pressed", "true");
     startNoise();
   };
@@ -103,7 +107,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     tvContent.classList.remove("is-on");
     tvBloom.classList.remove("is-on");
     tvPowerButton.classList.remove("is-on");
-    tvPowerButton.setAttribute("aria-label", "Включить телевизор");
+    tvPowerButton.setAttribute("aria-label", "Turn TV on");
     tvPowerButton.setAttribute("aria-pressed", "false");
 
     if (noiseStarted) {
@@ -202,21 +206,85 @@ if (vcrClock && vcrClockHours && vcrClockMinutes) {
   window.setInterval(updateVcrClock, 1000);
 }
 
-if (scene && content && sceneLoader && sceneReturn) {
+if (mobileMenuToggle && mobileMenu) {
+  const menuBars = mobileMenuToggle.querySelectorAll(".menui");
+
+  const setMobileMenuOpen = (isOpen) => {
+    mobileMenu.classList.toggle("is-open", isOpen);
+    mobileMenu.setAttribute("aria-hidden", String(!isOpen));
+    mobileMenuToggle.setAttribute("aria-expanded", String(isOpen));
+    mobileMenuToggle.setAttribute("aria-label", isOpen ? "Close menu" : "Open menu");
+    document.body.classList.toggle("menu-open", isOpen);
+    menuBars[0]?.classList.toggle("top-animate", isOpen);
+    menuBars[1]?.classList.toggle("mid-animate", isOpen);
+    menuBars[2]?.classList.toggle("bottom-animate", isOpen);
+  };
+
+  mobileMenuToggle.addEventListener("click", () => {
+    setMobileMenuOpen(!mobileMenu.classList.contains("is-open"));
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setMobileMenuOpen(false);
+    }
+  });
+
+  mobileMenu.addEventListener("click", (event) => {
+    if (event.target.closest("a")) {
+      setMobileMenuOpen(false);
+    }
+  });
+}
+
+if (scene && content && sceneLoader) {
+  const sections = Array.from(content.querySelectorAll(".section"));
   const pullThreshold = 900;
-  const returnThreshold = 260;
   const resetDelay = 520;
+  const boundaryTolerance = 3;
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const transitionDuration = prefersReducedMotion ? 0 : 720;
+  const settleLockDuration = prefersReducedMotion ? 0 : 320;
 
-  let scenePull = 0;
-  let returnPull = 0;
+  const targets = [
+    { id: "home", element: scene, top: () => 0 },
+    ...sections.map((section) => ({
+      id: section.id,
+      element: section,
+      top: () => section.offsetTop,
+    })),
+  ];
+
+  let activeTargetIndex = 0;
+  let pullAmount = 0;
+  let pullDirection = 0;
   let resetTimer;
+  let scrollLockTimer;
+  let scrollLockTarget = null;
   let isTransitioning = false;
+  let lastTouchY = null;
 
-  const contentTop = () => content.offsetTop;
-  const isAtScene = () => window.scrollY <= 2;
-  const isAtContentTop = () => Math.abs(window.scrollY - contentTop()) <= 3;
-  const isInContent = () => window.scrollY >= contentTop() - 3;
+  const clampIndex = (index) => Math.max(0, Math.min(index, targets.length - 1));
+  const targetTop = (index) => targets[clampIndex(index)].top();
+  const isScrollLocked = () => scrollLockTarget !== null && performance.now() < scrollLockTarget.until;
+
+  const getWheelDeltaY = (event) => {
+    if (event.deltaMode === 1) return event.deltaY * 16;
+    if (event.deltaMode === 2) return event.deltaY * window.innerHeight;
+
+    return event.deltaY;
+  };
+
+  const nearestTargetIndex = () => {
+    const currentY = window.scrollY;
+
+    return targets.reduce((nearestIndex, target, index) => {
+      const nearestDistance = Math.abs(currentY - targetTop(nearestIndex));
+      const targetDistance = Math.abs(currentY - target.top());
+
+      return targetDistance < nearestDistance ? index : nearestIndex;
+    }, 0);
+  };
 
   const updateLoader = (progress) => {
     const clampedProgress = Math.max(0, Math.min(progress, 1));
@@ -224,123 +292,212 @@ if (scene && content && sceneLoader && sceneReturn) {
 
     sceneLoader.style.setProperty("--loader-frame-position", `${frame * 25}%`);
     sceneLoader.classList.toggle("is-visible", clampedProgress > 0);
+    siteMenuBrand?.classList.toggle("is-loading", clampedProgress > 0);
   };
 
-  const resetPulls = () => {
-    scenePull = 0;
-    returnPull = 0;
+  const updateMenuState = () => {
+    const activeId = targets[activeTargetIndex]?.id;
+
+    siteMenu?.classList.toggle("is-off-scene", activeTargetIndex > 0);
+
+    menuLinks.forEach((link) => {
+      const linkId = link.getAttribute("href")?.slice(1);
+      link.classList.toggle("is-active", linkId === activeId);
+    });
+  };
+
+  const updateAudioForTarget = () => {
+    if (activeTargetIndex === 0) {
+      tvNoiseController?.fadeIn();
+      return;
+    }
+
+    tvNoiseController?.fadeOut();
+  };
+
+  const resetPull = () => {
+    pullAmount = 0;
+    pullDirection = 0;
     updateLoader(0);
-    sceneReturn.classList.remove("is-pulling");
   };
 
   const queueReset = () => {
     window.clearTimeout(resetTimer);
-    resetTimer = window.setTimeout(resetPulls, resetDelay);
+    resetTimer = window.setTimeout(resetPull, resetDelay);
   };
 
-  const updateReturnArrow = () => {
-    sceneReturn.classList.toggle("is-visible", isInContent());
+  const lockScrollAt = (top) => {
+    window.clearTimeout(scrollLockTimer);
+    scrollLockTarget = {
+      top,
+      until: performance.now() + settleLockDuration,
+    };
+
+    window.scrollTo({ top, behavior: "auto" });
+
+    scrollLockTimer = window.setTimeout(() => {
+      if (scrollLockTarget?.top === top) {
+        scrollLockTarget = null;
+      }
+    }, settleLockDuration);
   };
 
-  const jumpToContent = () => {
+  const goToTarget = (index, options = {}) => {
+    const nextIndex = clampIndex(index);
+    const shouldShowLoader = options.showLoader ?? true;
+
     isTransitioning = true;
-    scenePull = pullThreshold;
-    updateLoader(1);
+    activeTargetIndex = nextIndex;
+    updateMenuState();
     window.clearTimeout(resetTimer);
-    tvNoiseController?.fadeOut();
+
+    if (shouldShowLoader) {
+      updateLoader(1);
+    } else {
+      resetPull();
+    }
+
+    if (nextIndex !== 0) {
+      tvNoiseController?.fadeOut();
+    }
 
     window.scrollTo({
-      top: contentTop(),
+      top: targetTop(nextIndex),
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
 
     window.setTimeout(() => {
-      resetPulls();
-      updateReturnArrow();
+      lockScrollAt(targetTop(nextIndex));
+      resetPull();
+      updateMenuState();
+      updateAudioForTarget();
       isTransitioning = false;
-    }, prefersReducedMotion ? 0 : 620);
+    }, transitionDuration);
   };
 
-  const jumpToScene = () => {
-    isTransitioning = true;
-    returnPull = returnThreshold;
-    window.clearTimeout(resetTimer);
+  const handlePull = (direction, delta, threshold = pullThreshold) => {
+    const nextIndex = activeTargetIndex + direction;
 
-    window.scrollTo({
-      top: 0,
-      behavior: prefersReducedMotion ? "auto" : "smooth",
-    });
+    if (nextIndex < 0 || nextIndex >= targets.length) {
+      resetPull();
+      return;
+    }
 
-    window.setTimeout(() => {
-      resetPulls();
-      updateReturnArrow();
-      tvNoiseController?.fadeIn();
-      isTransitioning = false;
-    }, prefersReducedMotion ? 0 : 620);
+    if (pullDirection !== direction) {
+      pullDirection = direction;
+      pullAmount = 0;
+    }
+
+    pullAmount = Math.min(pullAmount + Math.abs(delta), threshold);
+    updateLoader(pullAmount / threshold);
+    queueReset();
+
+    if (pullAmount >= threshold) {
+      goToTarget(nextIndex, { showLoader: true });
+    }
   };
 
   window.addEventListener(
     "wheel",
     (event) => {
-      if (isTransitioning) {
-        event.preventDefault();
+      const deltaY = getWheelDeltaY(event);
+      const direction = deltaY > 0 ? 1 : -1;
+
+      event.preventDefault();
+
+      if (isScrollLocked()) {
+        window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
         return;
       }
 
-      if (isAtScene() && event.deltaY > 0) {
-        event.preventDefault();
-        scenePull = Math.min(scenePull + event.deltaY, pullThreshold);
-        updateLoader(scenePull / pullThreshold);
-        queueReset();
-
-        if (scenePull >= pullThreshold) {
-          jumpToContent();
-        }
-
+      if (isTransitioning || deltaY === 0) {
         return;
       }
 
-      if (isAtScene() && event.deltaY < 0 && scenePull > 0) {
-        event.preventDefault();
-        scenePull = Math.max(scenePull + event.deltaY, 0);
-        updateLoader(scenePull / pullThreshold);
-        queueReset();
-        return;
-      }
-
-      if (isAtContentTop() && event.deltaY < 0) {
-        event.preventDefault();
-        returnPull = Math.min(returnPull + Math.abs(event.deltaY), returnThreshold);
-        sceneReturn.classList.add("is-pulling");
-        queueReset();
-
-        if (returnPull >= returnThreshold) {
-          jumpToScene();
-        }
-      }
+      handlePull(direction, deltaY);
     },
     { passive: false }
   );
 
   window.addEventListener(
-    "scroll",
-    () => {
-      updateReturnArrow();
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
 
-      if (isInContent()) {
-        tvNoiseController?.fadeOut();
-      } else if (isAtScene()) {
-        tvNoiseController?.fadeIn();
-      }
+      lastTouchY = event.touches[0].clientY;
     },
     { passive: true }
   );
 
-  sceneReturn.addEventListener("click", () => {
-    if (!isTransitioning) {
-      jumpToScene();
-    }
+  window.addEventListener(
+    "touchmove",
+    (event) => {
+      if (mobileMenu?.classList.contains("is-open")) return;
+      if (event.touches.length !== 1 || lastTouchY === null) return;
+
+      const currentY = event.touches[0].clientY;
+      const deltaY = lastTouchY - currentY;
+      const direction = deltaY > 0 ? 1 : -1;
+      const touchThreshold = Math.min(pullThreshold, window.innerHeight * 0.55);
+
+      lastTouchY = currentY;
+      event.preventDefault();
+
+      if (isScrollLocked()) {
+        window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
+        return;
+      }
+
+      if (isTransitioning || Math.abs(deltaY) < 1) {
+        return;
+      }
+
+      handlePull(direction, deltaY, touchThreshold);
+    },
+    { passive: false }
+  );
+
+  window.addEventListener(
+    "touchend",
+    () => {
+      lastTouchY = null;
+    },
+    { passive: true }
+  );
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (isTransitioning) {
+        return;
+      }
+
+      const target = targetTop(activeTargetIndex);
+
+      if (Math.abs(window.scrollY - target) > boundaryTolerance) {
+        window.scrollTo({ top: target, behavior: "auto" });
+        return;
+      }
+
+      updateAudioForTarget();
+    },
+    { passive: true }
+  );
+
+  menuLinks.forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const sectionId = link.getAttribute("href")?.slice(1);
+      const targetIndex = targets.findIndex((target) => target.id === sectionId);
+
+      if (targetIndex === -1) return;
+
+      event.preventDefault();
+      goToTarget(targetIndex, { showLoader: false });
+    });
   });
 
-  updateReturnArrow();
+  activeTargetIndex = nearestTargetIndex();
+  lockScrollAt(targetTop(activeTargetIndex));
+  updateMenuState();
+  updateAudioForTarget();
 }

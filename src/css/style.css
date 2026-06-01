@@ -1,8 +1,27 @@
+@font-face {
+  font-family: "Bebas Neue";
+  src:
+    url("../assets/fonts/BebasNeue-Regular.otf") format("opentype"),
+    url("../assets/fonts/BebasNeue-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: 20px;
+  line-height: 1.35;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
 }
 
 html::-webkit-scrollbar,
@@ -12,7 +31,335 @@ body::-webkit-scrollbar {
   height: 0;
 }
 
-/* ------------------------------------------------------------------Секция Сцена с ТВ---------------------------*/
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ====================== BOTTOM MENU =========================== */
+
+#menu {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 998;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: var(--site-menu-height, 70px);
+  padding: 0 60px;
+  border-top: 1px solid #222;
+  background: #000;
+  color: #ccc;
+}
+
+#logo-menu {
+  position: relative;
+  flex: 0 0 220px;
+  display: grid;
+  align-items: center;
+  min-height: 44px;
+  color: #ddd;
+  font-size: 21px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.site-menu__brand-text {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+#logo-menu.is-loading .site-menu__brand-text,
+#menu:not(.is-off-scene) .site-menu__brand-text {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+#menu.is-off-scene #logo-menu {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#logo-menu.is-loading {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#men,
+#social,
+.mobilenav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#men {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  gap: 36px;
+  transform: translateX(-50%);
+}
+
+#social {
+  display: flex;
+  flex: 0 0 220px;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+#menu a {
+  color: #ccc;
+  text-decoration: none;
+}
+
+#social a {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  transition: color 0.2s ease;
+}
+
+#social svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+#menu a:hover,
+#menu a:focus-visible {
+  color: #666;
+}
+
+.icon-list a {
+  position: relative;
+  display: inline-block;
+  color: #666 !important;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.icon-list a::before {
+  content: attr(data-hover);
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-height: 100%;
+  overflow: hidden;
+  color: #ddd;
+  transition: max-height 0.5s ease;
+}
+
+.icon-list a:hover::before,
+.icon-list a:focus-visible::before {
+  max-height: 0%;
+}
+
+.mobilenav {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.5s ease,
+    visibility 0s linear 0.5s;
+}
+
+.mobilenav.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.5s ease,
+    visibility 0s;
+}
+
+.mobilenav li {
+  padding: 2vh;
+  text-align: center;
+}
+
+.mobilenav a,
+.mobile-brand {
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mobile-brand {
+  margin-bottom: 2vh;
+  color: #ddd;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease;
+}
+
+#menu.is-off-scene .mobile-brand {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mobile-social {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.mobile-social a {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+}
+
+.mobile-social svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.icon {
+  position: relative;
+  z-index: 1000;
+  display: none;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hamburger {
+  position: relative;
+  display: block;
+  width: 25px;
+  height: 26px;
+  margin: 0 auto;
+}
+
+.menui {
+  position: absolute;
+  left: 0;
+  width: 25px;
+  height: 2px;
+  border-radius: 10px;
+  background: #fff;
+  transition: 0.6s ease;
+  transition-timing-function: cubic-bezier(0.75, 0, 0.29, 1.01);
+}
+
+.top-menu {
+  top: 5px;
+}
+
+.mid-menu {
+  top: 13px;
+}
+
+.bottom-menu {
+  top: 21px;
+}
+
+.top-animate {
+  top: 13px;
+  transform: rotate(45deg);
+}
+
+.mid-animate {
+  opacity: 0;
+}
+
+.bottom-animate {
+  top: 13px;
+  transform: rotate(-225deg);
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
+@media (max-width: 991px) {
+  #men,
+  #social {
+    display: none;
+  }
+
+  #menu {
+    padding: 0 60px;
+  }
+
+  #logo-menu {
+    flex-basis: auto;
+  }
+
+  .icon {
+    display: block;
+  }
+}
+
+@media (max-width: 600px) {
+  #menu {
+    padding: 0 30px;
+  }
+
+  .mobilenav li:first-child {
+    margin-top: 30px;
+  }
+}
+
+@media (max-width: 440px) {
+  .mobilenav li {
+    padding: 1.3vh;
+  }
+
+  .mobilenav li:first-child {
+    margin-top: 15px;
+    margin-bottom: 5px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 320px) {
+  .mobile-brand {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------TV Scene Section---------------------------*/
 
 .main-area {
   --scene-grain-opacity: 0.05;
@@ -103,7 +450,7 @@ body::-webkit-scrollbar {
   left: 50%;
   width: 24%;
   height: 31%;
-  transform: translate(-50%, -50%); /* центрирование по обеим осям */
+  transform: translate(-50%, -50%); /* center on both axes */
   overflow: hidden;
   background: #070e0f;
 }
@@ -208,8 +555,8 @@ body::-webkit-scrollbar {
   padding: clamp(1px, 0.16vw, 3px) clamp(4px, 0.42vw, 7px);
   border-radius: 2px;
   color: rgba(95, 255, 142, 0.92);
-  font-family: "Courier New", monospace;
-  font-size: clamp(9px, 0.92vw, 15px);
+  font-family: inherit;
+  font-size: 0.8rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.08em;
@@ -234,10 +581,10 @@ body::-webkit-scrollbar {
   }
 }
 
-/* Общие правила хот-спотов */
+/* Shared hotspot rules */
 .hotspot {
   position: absolute;
-  z-index: 4;            /* выше картинки сцены */
+  z-index: 4;            /* above the scene image */
   display: block;
   cursor: pointer;
   border: 0;
@@ -247,30 +594,36 @@ body::-webkit-scrollbar {
 
 
 
-/* Позиция и размер зоны коробки (проценты — от размеров изображения) */
+/* Box hotspot position and size, as percentages of the image size */
 .hotspot-vhs {
-  /* подгони проценты под своё исходное разрешение изображения */
-  left: 70%;      /* x-позиция */
-  top: 48%;       /* y-позиция */
-  width: 17%;     /* ширина области */
-  height: 16%;    /* высота области */
+  /* Adjust these percentages for the source image resolution. */
+  left: 70%;      /* x position */
+  top: 48%;       /* y position */
+  width: 17%;     /* hotspot width */
+  height: 16%;    /* hotspot height */
 }
 
 .hotspot-tv-power {
+  /* Power light settings: blink interval and dim/bright colors. */
+  --tv-power-blink-duration: 10s;
+  --tv-power-blink-dim-bg: rgba(120, 10, 10, 0.58);
+  --tv-power-blink-dim-inner: rgba(0, 0, 0, 0.08);
+  --tv-power-blink-dim-glow: rgba(255, 35, 35, 0.2);
+  --tv-power-blink-bright-bg: rgba(255, 20, 20, 0.96);
+  --tv-power-blink-bright-inner: rgba(255, 235, 235, 0.32);
+  --tv-power-blink-bright-glow: rgba(255, 55, 55, 0.86);
+
   left: 39.85%;
   top: 63.5%;
   width: 20px;
   height: 6px;
   border-radius: 1.6px;
-  background: rgba(255, 0, 0, 0.78);
+  background: var(--tv-power-blink-dim-bg);
   box-shadow:
-    inset 0 0 0 0px rgba(0, 0, 0, 0.14),
-    0 0 5px rgba(255, 0, 0, 0.78);
-  animation: tv-power-blink 10s ease-in-out infinite;
-  transition:
-    background-color 0.24s ease,
-    box-shadow 0.24s ease,
-    transform 0.18s ease;
+    inset 0 0 0 1px var(--tv-power-blink-dim-inner),
+    0 0 3px var(--tv-power-blink-dim-glow);
+  animation: tv-power-blink var(--tv-power-blink-duration) steps(1, end) infinite;
+  transition: transform 0.18s ease;
 }
 
 .hotspot-tv-power:hover {
@@ -288,19 +641,20 @@ body::-webkit-scrollbar {
 
 @keyframes tv-power-blink {
   0%,
-  100% {
-    background: rgba(154, 24, 24, 0.56);
+  49.99% {
+    background: var(--tv-power-blink-dim-bg);
     box-shadow:
-      inset 0 0 0 1px rgba(255, 220, 220, 0.08),
-      0 0 3px rgba(255, 58, 58, 0.18);
+      inset 0 0 0 1px var(--tv-power-blink-dim-inner),
+      0 0 3px var(--tv-power-blink-dim-glow);
   }
 
-  50% {
-    background: rgba(238, 42, 42, 0.92);
+  50%,
+  100% {
+    background: var(--tv-power-blink-bright-bg);
     box-shadow:
-      inset 0 0 0 1px rgba(255, 235, 235, 0.24),
-      0 0 8px rgba(255, 70, 70, 0.78),
-      0 0 18px rgba(255, 70, 70, 0.34);
+      inset 0 0 0 1px var(--tv-power-blink-bright-inner),
+      0 0 8px var(--tv-power-blink-bright-glow),
+      0 0 18px var(--tv-power-blink-bright-glow);
   }
 }
 
@@ -396,19 +750,19 @@ body::-webkit-scrollbar {
   inset: 0;
   width: 100%;
   height: auto;
-  z-index: 3;              /* над фоном и свечением */
-  pointer-events: none;    /* не мешает клику по хотспоту */
+  z-index: 3;              /* above the background and glow */
+  pointer-events: none;    /* does not block hotspot clicks */
 }
 
-/* Хотспот остаётся кликовой маской поверх всего */
-.hotspot { z-index: 4; }   /* уже есть у тебя, важно держать выше vhs-box */
+/* The hotspot remains a clickable mask above everything */
+.hotspot { z-index: 4; }   /* keep this above vhs-box */
 
-/* Подсветка за коробкой */
+/* Glow behind the box */
 .vhs-glow {
   position: absolute;
-  z-index: 2;              /* между фоном и vhs-box */
+  z-index: 2;              /* between the background and vhs-box */
   pointer-events: none;
-  /* Центрируем свечение относительно самой коробки. */
+  /* Center the glow relative to the box. */
   left: 78%;
   top: 54%;
   width: 22%;
@@ -416,7 +770,7 @@ body::-webkit-scrollbar {
   transform: translate(-50%, -50%);
   border-radius: 50%;
 
-  /* Сам свет: мягкое пятно, можно усилить/ослабить */
+  /* The light itself: a soft spot that can be intensified or softened. */
   background:
     radial-gradient(ellipse at center,
       rgba(255, 215, 102, 0.85) 0%,
@@ -428,16 +782,16 @@ body::-webkit-scrollbar {
   transition: opacity .44s ease;
 }
 
-/* Включаем свечение, когда навели курсор на хотспот */
+/* Enable the glow when the hotspot is hovered. */
 .hotspot-vhs:hover + .vhs-glow {
   opacity: 1;
 }
 
-/* Сохраним доступность: при фокусе с клавиатуры тоже включаем свечение */
+/* Keep keyboard accessibility: focus also enables the glow. */
 .hotspot:focus-visible + .vhs-glow {
   opacity: 1;
 }
-/* Уберём браузерный outline у ссылки (рамка вокруг <a>) */
+/* Remove the browser outline from the link-style hotspot. */
 .hotspot { outline: none; }
 .hotspot:focus,
 .hotspot:focus-visible { outline: none; }
@@ -448,7 +802,7 @@ body::-webkit-scrollbar {
 .vhs-menu {
   position: absolute;
   right: 0;
-  bottom: clamp(10px, 2vw, 24px);
+  bottom: clamp(73px, 2vw, 24px);
   width: clamp(220px, 30vw, 500px);
   aspect-ratio: 1250 / 1600;
   z-index: 5;
@@ -490,15 +844,16 @@ body::-webkit-scrollbar {
 
 .scene-loader {
   --loader-frame-position: 0%;
+  --scene-loader-size: clamp(70px, 30vw, 96px);
 
-  position: absolute;
-  left: 5%;
-  bottom: clamp(20px, 4vh, 18px);
-  width: clamp(76px, 8vw, 112px);
+  grid-area: 1 / 1;
+  position: relative;
+  justify-self: start;
+  width: min(var(--scene-loader-size), 100%);
   aspect-ratio: 1;
-  z-index: 8;
+  z-index: 1;
   opacity: 0;
-  transform: translate(-50%, 14px) scale(0.96);
+  transform: translateY(8px) scale(0.96);
   background: url("../assets/img/reel-loader-sheet.png") var(--loader-frame-position) 0 / 500% 100% no-repeat;
   transition:
     opacity 0.18s ease,
@@ -509,57 +864,14 @@ body::-webkit-scrollbar {
 
 .scene-loader.is-visible {
   opacity: 1;
-  transform: translate(-50%, 0) scale(1);
-}
-
-.scene-return {
-  position: fixed;
-  top: clamp(14px, 3vh, 28px);
-  left: 50%;
-  z-index: 20;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(10, 14, 17, 0.62);
-  opacity: 0;
-  transform: translate(-50%, -16px);
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease,
-    background-color 0.22s ease;
-  pointer-events: none;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-}
-
-.scene-return::before {
-  content: "";
-  position: absolute;
-  top: 17px;
-  left: 50%;
-  width: 13px;
-  height: 13px;
-  border-top: 2px solid rgba(244, 240, 239, 0.94);
-  border-left: 2px solid rgba(244, 240, 239, 0.94);
-  transform: translateX(-50%) rotate(45deg);
-}
-
-.scene-return.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  pointer-events: auto;
-}
-
-.scene-return.is-pulling {
-  background: rgba(10, 14, 17, 0.84);
-}
-
-.scene-return:hover {
-  background: rgba(10, 14, 17, 0.84);
+  transform: translateY(-3px) scale(1);
 }
 
 @media (max-width: 700px) {
+  body {
+    font-size: 18px;
+  }
+
   .vhs-menu {
     width: min(62vw, 320px);
   }
@@ -568,13 +880,14 @@ body::-webkit-scrollbar {
 
 
 
-/* ------------------------------------------------------------------Секция Сцена с ТВ END---------------------------*/
+/* ------------------------------------------------------------------TV Scene Section END---------------------------*/
 
 
-/* ------------------------------------------------------------------Секция Разделов SCROLL---------------------------*/
+/* ------------------------------------------------------------------Scrolling Sections---------------------------*/
 
 :root{
   --dark-bg:#0a0e11;
+  --dark-bg-rgb: 10, 14, 17;
   --dark-fg:#e8e8e8;
   --light-bg:#ffffff;
   --light-fg:#111111;
@@ -583,31 +896,96 @@ body::-webkit-scrollbar {
   --maxw:1100px;
   --radius:14px;
   --shadow:0 12px 28px rgba(0,0,0,.18);
+  --site-menu-height: 70px;
 }
 
-/* базовая сетка секций */
+/* Base section layout */
 .section{
-  padding: clamp(56px, 9vw, 120px) 6vw;
+  --section-padding-block: clamp(56px, 9vw, 120px);
+  --section-noise-image: none;
+  --section-fill: var(--dark-bg);
+  --section-fill-rgb: var(--dark-bg-rgb);
+
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 100vh;
+  min-block-size: 100svh;
+  padding:
+    var(--section-padding-block)
+    6vw
+    calc(var(--section-padding-block) + var(--site-menu-height));
+  background: var(--section-fill);
+  color: var(--dark-fg);
+}
+
+.section::before,
+.section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.section::before {
+  z-index: 0;
+  background-image: var(--section-noise-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.section::after {
+  z-index: 1;
+  background:
+    linear-gradient(
+      104deg,
+      var(--section-fill) 0%,
+      var(--section-fill) 42%,
+      rgba(var(--section-fill-rgb), 0.88) 56%,
+      rgba(var(--section-fill-rgb), 0.36) 74%,
+      rgba(var(--section-fill-rgb), 0) 100%
+    );
 }
 .section__inner{
+  position: relative;
+  z-index: 2;
   max-width: var(--maxw);
   margin: 0 auto;
 }
+.section h1,
 .section h2{
   margin:0 0 16px;
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: 3rem;
+  font-weight: 400;
   letter-spacing:.02em;
   line-height:1.15;
+  text-transform: uppercase;
 }
 .section p{
   margin:0 0 14px;
-  font-size: clamp(16px, 2.2vw, 18px);
-  line-height:1.75;
+  font-size: 1.2rem;
+  line-height:1.55;
 }
 
-.section--dark{ background: var(--dark-bg); color: var(--dark-fg); }
-.section--light{ background: var(--light-bg); color: var(--light-fg); }
+.section--dark,
+.section--light{ background: var(--dark-bg); color: var(--dark-fg); }
 .lead{ color: var(--muted); max-width: 70ch; }
+
+#about {
+  --section-noise-image: url("../assets/img/wallpaper_about_noise.gif");
+}
+
+#portfolio {
+  --section-noise-image: url("../assets/img/wallpaper_portfolio_noise.gif");
+}
+
+#gallery,
+#services,
+#contact {
+  --section-noise-image: none;
+}
 
 /* Portfolio */
 .portfolio-grid{
@@ -628,7 +1006,7 @@ body::-webkit-scrollbar {
 .card--light .ph-thumb{ background: linear-gradient(135deg,#d9dfe3 0%,#cfd6db 60%,#e8ecef 100%); }
 .card__body{ padding:16px 16px 18px; }
 .tag{
-  display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px;
+  display:inline-block; font-size:15px; padding:4px 8px; border-radius:999px;
   background: rgba(255,215,102,.16); color: var(--accent); margin-bottom:10px;
 }
 
@@ -649,49 +1027,15 @@ body::-webkit-scrollbar {
   border:1px solid rgba(0,0,0,.06);
   background:#fff;
 }
-.service h3{ margin:0 0 8px; font-size:18px; }
+.service h3{ margin:0 0 8px; font-size:24px; }
 .service p{ margin:0; }
-
-/* Team */
-.team{
-  display:grid;
-  grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
-  gap: clamp(14px, 2vw, 22px);
-  margin-top: 14px;
-}
-.member{
-  background:#0f1418; color:#e9eef2; border-radius: var(--radius);
-  overflow:hidden; box-shadow: var(--shadow);
-  display:flex; gap:14px; align-items:center; padding:14px;
-}
-.section--light .member{ background:#f5f7f8; color:#111; }
-.avatar{
-  width:64px; height:64px; border-radius:50%;
-  background: radial-gradient(50% 50% at 50% 35%, #ffd766 0%, #6c5323 60%, #2b2b2b 100%);
-  box-shadow: inset 0 0 0 3px rgba(0,0,0,.12);
-  flex:0 0 64px;
-}
-.member h4{ margin:0 0 4px; font-size:18px; }
-.member .role{ font-size:13px; opacity:.7; margin:0 0 6px; }
-.member .bio{ margin:0; font-size:14px; line-height:1.6; }
-
-/* Awards */
-.awards{ display:grid; gap:14px; margin-top:10px; }
-.award{
-  display:flex; gap:14px; align-items:flex-start;
-  padding:12px 14px; border-left:4px solid var(--accent);
-  background: rgba(255,215,102,.08); border-radius:8px;
-}
-.section--light .award{ background:#fff7da; border-left-color:#b98c00; }
-.award .year{ font-weight:700; min-width:64px; }
-.award p{ margin:0; }
 
 /* Contact */
 .contact{
   display:grid; grid-template-columns: 1fr; gap:12px;
   max-width: 720px; margin-top: 8px;
 }
-.field label{ display:block; font-size:14px; margin:0 0 6px; }
+.field label{ display:block; font-size:18px; margin:0 0 6px; }
 .input,.textarea{
   width:100%; border:1px solid rgba(255,255,255,.16);
   background:#0e1418; color:#e9eef2; border-radius:10px;
@@ -708,6 +1052,16 @@ body::-webkit-scrollbar {
   box-shadow: 0 6px 18px rgba(255,215,102,.35);
 }
 
+@media (max-width: 700px) {
+  .section h1,
+  .section h2 {
+    font-size: 2.5rem;
+  }
+
+  .section p {
+    font-size: 1.05rem;
+  }
+}
 
 
 
@@ -726,4 +1080,5 @@ body::-webkit-scrollbar {
 
 
 
-/* ------------------------------------------------------------------Секция Разделов SCROLL END---------------------------*/
+
+/* ------------------------------------------------------------------Scrolling Sections END---------------------------*/
