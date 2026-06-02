@@ -8,6 +8,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Digital 7";
+  src: url("../assets/fonts/digital-7.regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
@@ -537,7 +545,7 @@ body.menu-open {
 
 .vcr-clock {
   --vcr-clock-left: 50%;
-  --vcr-clock-top: 80.1%;
+  --vcr-clock-top: 79.7%;
   --vcr-clock-scale: 1;
   --vcr-clock-rotate: 0deg;
 
@@ -555,9 +563,9 @@ body.menu-open {
   padding: clamp(1px, 0.16vw, 3px) clamp(4px, 0.42vw, 7px);
   border-radius: 2px;
   color: rgba(95, 255, 142, 0.92);
-  font-family: inherit;
+  font-family: "Digital 7", "Bebas Neue", Arial, sans-serif;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.08em;
   text-shadow:
@@ -791,6 +799,83 @@ body.menu-open {
 .hotspot:focus-visible + .vhs-glow {
   opacity: 1;
 }
+
+/* Remove has-lamp-flicker from .main-area in src/index.html to disable this overlay. */
+.lamp-glow {
+  --lamp-glow-left: 82.7%;
+  --lamp-glow-top: 31.4%;
+  --lamp-glow-width: 13%;
+  --lamp-glow-height: 19%;
+  --lamp-glow-idle-opacity: 0.22;
+  --lamp-glow-flicker-duration: 19s;
+
+  position: absolute;
+  z-index: 2;
+  left: var(--lamp-glow-left);
+  top: var(--lamp-glow-top);
+  width: var(--lamp-glow-width);
+  height: var(--lamp-glow-height);
+  transform: translate(-50%, -50%) rotate(-14deg);
+  transform-origin: center;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(255, 226, 118, 0.7) 0%,
+      rgba(255, 190, 50, 0.34) 42%,
+      rgba(255, 172, 34, 0.12) 70%,
+      rgba(255, 172, 34, 0.0) 100%);
+  filter: blur(20px) brightness(1);
+  opacity: 0;
+  mix-blend-mode: screen;
+  will-change: opacity, filter;
+}
+
+.main-area.has-lamp-flicker .lamp-glow {
+  opacity: var(--lamp-glow-idle-opacity);
+  animation: lamp-bad-contact var(--lamp-glow-flicker-duration) steps(1, end) infinite;
+}
+
+@keyframes lamp-bad-contact {
+  0%,
+  78%,
+  88%,
+  100% {
+    opacity: var(--lamp-glow-idle-opacity);
+    filter: blur(20px) brightness(1);
+  }
+
+  79% {
+    opacity: 0.05;
+    filter: blur(20px) brightness(0.58);
+  }
+
+  80% {
+    opacity: 0.38;
+    filter: blur(20px) brightness(1.3);
+  }
+
+  81% {
+    opacity: 0.08;
+    filter: blur(20px) brightness(0.68);
+  }
+
+  82% {
+    opacity: 0.28;
+    filter: blur(20px) brightness(1.12);
+  }
+
+  83% {
+    opacity: 0.12;
+    filter: blur(20px) brightness(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-area.has-lamp-flicker .lamp-glow {
+    animation: none;
+  }
+}
 /* Remove the browser outline from the link-style hotspot. */
 .hotspot { outline: none; }
 .hotspot:focus,
@@ -800,17 +885,21 @@ body.menu-open {
 /* ====================== VHS MENU =========================== */
 
 .vhs-menu {
+  --vhs-menu-closed-extra-x: 190px;
+  --vhs-menu-slide-duration: 0.58s;
+  --vhs-menu-closed-x: calc(100% + var(--vhs-menu-closed-extra-x));
+
   position: absolute;
   right: 0;
   bottom: clamp(73px, 2vw, 24px);
-  width: clamp(220px, 30vw, 500px);
+  width: clamp(220px, 26vw, 565px);
   aspect-ratio: 1250 / 1600;
   z-index: 5;
   background: url("../assets/img/box-bg.png") center / contain no-repeat;
   filter: drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48));
 
-  transform: translateX(calc(100% + 48px));
-  transition: transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateX(var(--vhs-menu-closed-x));
+  transition: transform var(--vhs-menu-slide-duration) cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
   will-change: transform;
 }
@@ -821,6 +910,16 @@ body.menu-open {
 }
 
 .vhs-menu__content {
+  --vhs-cassette-x: 8px;
+  --vhs-cassette-width: 464px;
+  --vhs-cassette-height-scale: 1.0;
+  --vhs-cassette-gap: 2px;
+  --vhs-cassette-hover-scale: 1.07;
+  --vhs-cassette-backdrop-inset: 1% 3% 3%;
+  --vhs-cassette-backdrop-opacity: 0.88;
+  --vhs-cassette-backdrop-blur: 4px;
+  --vhs-cassette-backdrop-scale: 1.08;
+
   position: absolute;
   top: 4.2%;
   right: 3.6%;
@@ -828,18 +927,59 @@ body.menu-open {
   display: flex;
   flex-direction: column;
   gap: 0;
+  align-items: center;
+  transform: translateX(var(--vhs-cassette-x));
   filter: drop-shadow(0 18px 14px rgba(0, 0, 0, 0.58));
+  isolation: isolate;
+}
+
+.vhs-menu__content::before {
+  content: "";
+  position: absolute;
+  inset: var(--vhs-cassette-backdrop-inset);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 50% 48%,
+      rgba(0, 0, 0, 0.82) 0%,
+      rgba(8, 5, 3, 0.68) 48%,
+      rgba(0, 0, 0, 0.0) 78%),
+    linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.18) 0%,
+      rgba(0, 0, 0, 0.72) 54%,
+      rgba(0, 0, 0, 0.9) 100%);
+  box-shadow:
+    inset 0 20px 42px rgba(0, 0, 0, 0.62),
+    inset 0 -30px 56px rgba(0, 0, 0, 0.86);
+  filter: blur(var(--vhs-cassette-backdrop-blur));
+  opacity: var(--vhs-cassette-backdrop-opacity);
+  transform: scale(var(--vhs-cassette-backdrop-scale));
+  transform-origin: center;
 }
 
 .vhs-menu__cassette {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: 100%;
+  width: var(--vhs-cassette-width);
+  max-width: none;
   height: auto;
+  flex: 0 0 auto;
+  transform: scaleY(var(--vhs-cassette-height-scale));
+  transform-origin: center;
   transition: transform 0.22s ease;
 }
 
+.vhs-menu__cassette + .vhs-menu__cassette {
+  margin-top: var(--vhs-cassette-gap);
+}
+
 .vhs-menu__cassette:hover {
-  transform: scale(1.04);
+  z-index: 3;
+  transform:
+    scale(var(--vhs-cassette-hover-scale))
+    scaleY(var(--vhs-cassette-height-scale));
 }
 
 .scene-loader {
@@ -873,7 +1013,12 @@ body.menu-open {
   }
 
   .vhs-menu {
-    width: min(62vw, 320px);
+    display: none;
+  }
+
+  .hotspot-vhs,
+  .vhs-glow {
+    display: none;
   }
 }
 
