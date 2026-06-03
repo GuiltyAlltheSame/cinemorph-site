@@ -16,7 +16,114 @@ const tvBloom = document.querySelector(".tv-bloom");
 const vcrClock = document.querySelector("#vcrClock");
 const vcrClockHours = document.querySelector(".vcr-clock__hours");
 const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
+const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
+const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
 let tvNoiseController;
+
+if (portfolioCategoryItems.length) {
+  portfolioCategoryItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      portfolioCategoryItems.forEach((categoryItem) => {
+        const isSelected = categoryItem === item;
+
+        categoryItem.classList.toggle("is-active", isSelected);
+        categoryItem.setAttribute("aria-pressed", String(isSelected));
+      });
+    });
+  });
+}
+
+if (portfolioThumbs.length) {
+  const portfolioPlaceholderGif = "assets/img/portfolio_placeholder_test.gif";
+  const gifFadeDuration = 490;
+  const stopTimers = new WeakMap();
+  const posterCache = new Map();
+
+  const getGifPoster = (gifSrc) => {
+    if (posterCache.has(gifSrc)) {
+      return posterCache.get(gifSrc);
+    }
+
+    const posterPromise = new Promise((resolve, reject) => {
+      const source = new Image();
+
+      source.addEventListener("load", () => {
+        const canvas = document.createElement("canvas");
+        const width = source.naturalWidth || 1;
+        const height = source.naturalHeight || 1;
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          reject(new Error("Canvas is unavailable"));
+          return;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(source, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/png"));
+      });
+
+      source.addEventListener("error", reject);
+      source.src = gifSrc;
+    });
+
+    posterCache.set(gifSrc, posterPromise);
+
+    return posterPromise;
+  };
+
+  portfolioThumbs.forEach((thumb) => {
+    const card = thumb.closest(".card");
+    const poster = document.createElement("img");
+    const image = document.createElement("img");
+
+    if (!card) return;
+
+    const gifSrc = thumb.dataset.gif || card.dataset.gif || portfolioPlaceholderGif;
+
+    poster.className = "portfolio-poster";
+    poster.alt = "";
+    poster.decoding = "async";
+    image.className = "portfolio-gif";
+    image.alt = "";
+    image.decoding = "async";
+    thumb.append(poster, image);
+
+    getGifPoster(gifSrc)
+      .then((posterSrc) => {
+        poster.setAttribute("src", posterSrc);
+      })
+      .catch(() => {});
+
+    const playGif = () => {
+      window.clearTimeout(stopTimers.get(image));
+
+      if (!image.getAttribute("src")) {
+        image.setAttribute("src", gifSrc);
+      }
+
+      window.requestAnimationFrame(() => {
+        image.classList.add("is-playing");
+      });
+    };
+
+    const pauseGif = () => {
+      image.classList.remove("is-playing");
+
+      const timer = window.setTimeout(() => {
+        image.removeAttribute("src");
+      }, gifFadeDuration);
+
+      stopTimers.set(image, timer);
+    };
+
+    card.addEventListener("pointerenter", playGif);
+    card.addEventListener("pointerleave", pauseGif);
+    card.addEventListener("focusin", playGif);
+    card.addEventListener("focusout", pauseGif);
+  });
+}
 
 if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   const maxNoiseVolume = 0.01;
