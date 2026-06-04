@@ -1362,6 +1362,71 @@ body.is-vhs-dragging {
   --section-noise-image: url("../assets/img/wallpaper_about_noise.gif");
 }
 
+.about-team {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 22px);
+  margin-top: clamp(34px, 5vw, 62px);
+}
+
+.team-card {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border-radius: 4px;
+  background: #11171b;
+  color: #fff;
+}
+
+.team-card__avatar {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  background: #0b1013;
+  filter: grayscale(1) brightness(.82) contrast(1.08);
+  object-fit: cover;
+  transition:
+    filter .28s ease,
+    transform .28s ease;
+}
+
+.team-card:hover .team-card__avatar,
+.team-card:focus-within .team-card__avatar {
+  filter: grayscale(.25) brightness(.96) contrast(1.02);
+  transform: scale(1.025);
+}
+
+.team-card__body {
+  padding: clamp(14px, 1.7vw, 20px);
+  background: #151c21;
+}
+
+.team-card h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: clamp(22px, 2.3vw, 34px);
+  font-weight: 400;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.team-card p {
+  margin: 8px 0 0;
+  color: #8f9da5;
+  font-family: "Courier New", Courier, monospace;
+  font-size: clamp(11px, .95vw, 14px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 #portfolio {
   --portfolio-bg-shade-opacity:.80;
 
@@ -1506,6 +1571,12 @@ body.is-vhs-dragging {
 }
 
 #contact {
+  --section-bg-shade-image:
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, .18),
+      rgba(0, 0, 0, .64)
+    );
   --section-noise-image: url("../assets/img/wallpaper_contact_noise.gif");
 }
 
@@ -1679,25 +1750,152 @@ body.is-vhs-dragging {
 .service p{ margin:0; }
 
 /* Contact */
-.contact{
-  display:grid; grid-template-columns: 1fr; gap:12px;
-  max-width: 720px; margin-top: 8px;
+#contact .section__inner{
+  min-height: clamp(440px, 62vh, 620px);
 }
-.field label{ display:block; font-size:18px; margin:0 0 6px; }
+.contact{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:18px;
+  max-width: 620px;
+  margin-top: clamp(16px, 2.4vw, 28px);
+}
+.field{
+  position:relative;
+}
+.field label{
+  display:block;
+  margin:0 0 8px;
+  color:rgba(232,232,232,.56);
+  font-size:16px;
+  letter-spacing:.06em;
+  line-height:1;
+  text-transform:uppercase;
+}
 .input,.textarea{
-  width:100%; border:1px solid rgba(255,255,255,.16);
-  background:#0e1418; color:#e9eef2; border-radius:10px;
-  padding:12px 14px; font:inherit; outline:none;
+  width:100%;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:4px;
+  padding:13px 14px;
+  background:rgba(5,8,10,.34);
+  color:#e9eef2;
+  font:inherit;
+  outline:none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  transition:
+    border-color .2s ease,
+    background .2s ease,
+    color .2s ease;
 }
 .section--light .input,.section--light .textarea{
   background:#fff; color:#111; border:1px solid rgba(0,0,0,.12);
 }
-.textarea{ min-height:140px; resize:vertical; }
+.input::placeholder,
+.textarea::placeholder{
+  color:rgba(232,238,242,.30);
+}
+.input:hover,
+.textarea:hover{
+  border-color:rgba(255,255,255,.24);
+  background:rgba(5,8,10,.44);
+}
+.input:focus,
+.textarea:focus{
+  border-color:rgba(255,255,255,.46);
+  background:rgba(5,8,10,.52);
+}
+.textarea{ min-height:154px; resize:vertical; }
 .btn{
-  width:fit-content; border:none; cursor:pointer;
-  padding:12px 18px; border-radius:999px;
-  background: var(--accent); color:#2a240f; font-weight:700;
-  box-shadow: 0 6px 18px rgba(255,215,102,.35);
+  width:fit-content;
+  border:1px solid rgba(255,255,255,.24);
+  border-radius:4px;
+  padding:12px 20px;
+  background:rgba(255,255,255,.08);
+  color:rgba(232,232,232,.86);
+  font-weight:400;
+  letter-spacing:.06em;
+  cursor:pointer;
+  transition:
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease;
+}
+.btn:hover,
+.btn:focus-visible{
+  border-color:rgba(255,255,255,.44);
+  background:rgba(255,255,255,.13);
+  color:#fff;
+}
+.contact-aside{
+  position:absolute;
+  top:0;
+  right:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:min(340px, 29vw);
+  gap: clamp(22px, 3vw, 36px);
+  text-align:center;
+}
+.contact-details{
+  display:grid;
+  gap:7px;
+  width:100%;
+}
+.contact-details p{
+  margin:0;
+  color:rgba(232,232,232,.82);
+  font-family:"Bebas Neue", Arial, sans-serif;
+  font-size:clamp(15px, 1.35vw, 22px);
+  font-weight:400;
+  line-height:1.35;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.contact-social{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: clamp(24px, 3.4vw, 44px);
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.contact-social a{
+  display:grid;
+  place-items:center;
+  width:clamp(44px, 4.8vw, 62px);
+  height:clamp(44px, 4.8vw, 62px);
+  color:rgba(232,232,232,.72);
+  text-decoration:none;
+  outline:0;
+  transition:
+    color .18s ease,
+    transform .18s ease;
+}
+.contact-social svg{
+  display:block;
+  width:clamp(28px, 3.1vw, 40px);
+  height:clamp(28px, 3.1vw, 40px);
+  fill:currentColor;
+}
+.contact-social a:hover,
+.contact-social a:focus-visible{
+  color:#fff;
+  transform:translateY(-2px);
+}
+
+@media (max-width: 1200px) {
+  #contact .section__inner{
+    min-height:0;
+  }
+
+  .contact-aside{
+    position:static;
+    width:min(100%, 520px);
+    margin-top: clamp(20px, 4vw, 34px);
+    transform:none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1708,6 +1906,12 @@ body.is-vhs-dragging {
 
   .section p {
     font-size: 1.05rem;
+  }
+
+  .about-team {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    margin-top: 30px;
   }
 
   .portfolio-grid {
