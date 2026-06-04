@@ -18,6 +18,7 @@ const vcrClockHours = document.querySelector(".vcr-clock__hours");
 const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
 const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
 const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
+const galleryStrip = document.querySelector(".gallery-strip");
 let tvNoiseController;
 
 if (portfolioCategoryItems.length) {
@@ -31,6 +32,127 @@ if (portfolioCategoryItems.length) {
       });
     });
   });
+}
+
+if (galleryStrip) {
+  const galleryItems = Array.from(galleryStrip.querySelectorAll(".gallery-strip__item"));
+  const visibleCount = Math.max(1, Number.parseInt(galleryStrip.dataset.visibleCount || "5", 10));
+  const frameStep = 1;
+  const maxFrame = Math.max(0, galleryItems.length - visibleCount);
+  const frameMedia = window.matchMedia("(min-width: 701px)");
+  const wheelThreshold = 80;
+  const wheelCooldown = 140;
+  let activeFrame = 0;
+  let wheelAccumulator = 0;
+  let wheelDirection = 0;
+  let wheelLocked = false;
+  let wheelUnlockTimer;
+
+  const clampGalleryFrame = (frame) => Math.max(0, Math.min(frame, maxFrame));
+
+  const getGalleryWheelDelta = (event) => {
+    const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+
+    if (event.deltaMode === 1) return rawDelta * 16;
+    if (event.deltaMode === 2) return rawDelta * window.innerWidth;
+
+    return rawDelta;
+  };
+
+  const renderGalleryFrame = (frame = activeFrame) => {
+    const shouldUseFrameMode = frameMedia.matches && maxFrame > 0;
+
+    activeFrame = clampGalleryFrame(frame);
+    galleryStrip.classList.toggle("is-frame-mode", shouldUseFrameMode);
+    galleryStrip.dataset.activeFrame = String(activeFrame);
+
+    galleryItems.forEach((item, index) => {
+      const isVisible = !shouldUseFrameMode || (index >= activeFrame && index < activeFrame + visibleCount);
+
+      item.hidden = !isVisible;
+      item.setAttribute("aria-hidden", String(!isVisible));
+    });
+  };
+
+  const canMoveGallery = (direction) => (
+    direction > 0 ? activeFrame < maxFrame : activeFrame > 0
+  );
+
+  const switchGalleryFrame = (frame) => {
+    galleryStrip.classList.add("is-switching");
+    renderGalleryFrame(frame);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        galleryStrip.classList.remove("is-switching");
+      });
+    });
+  };
+
+  const queueWheelUnlock = () => {
+    window.clearTimeout(wheelUnlockTimer);
+
+    wheelUnlockTimer = window.setTimeout(() => {
+      wheelLocked = false;
+      wheelAccumulator = 0;
+      wheelDirection = 0;
+    }, wheelCooldown);
+  };
+
+  galleryStrip.addEventListener(
+    "wheel",
+    (event) => {
+      if (!frameMedia.matches || maxFrame === 0) {
+        return;
+      }
+
+      const delta = getGalleryWheelDelta(event);
+
+      if (delta === 0) {
+        return;
+      }
+
+      const direction = delta > 0 ? 1 : -1;
+
+      if (!canMoveGallery(direction)) {
+        wheelAccumulator = 0;
+        wheelDirection = 0;
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (wheelLocked) {
+        return;
+      }
+
+      if (wheelDirection !== direction) {
+        wheelDirection = direction;
+        wheelAccumulator = 0;
+      }
+
+      wheelAccumulator += Math.abs(delta);
+
+      if (wheelAccumulator < wheelThreshold) {
+        return;
+      }
+
+      switchGalleryFrame(activeFrame + direction * frameStep);
+      wheelAccumulator = 0;
+      wheelLocked = true;
+      queueWheelUnlock();
+    },
+    { passive: false }
+  );
+
+  if (typeof frameMedia.addEventListener === "function") {
+    frameMedia.addEventListener("change", () => renderGalleryFrame());
+  } else if (typeof frameMedia.addListener === "function") {
+    frameMedia.addListener(() => renderGalleryFrame());
+  }
+
+  renderGalleryFrame(0);
 }
 
 if (portfolioThumbs.length) {
