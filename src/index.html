@@ -92,10 +92,14 @@
     <img class="tv-room-image" src="assets/img/wallpaper2.png" alt="Frame">
     <img class="vhs-box" src="assets/img/box-click.png" alt="VHS Box">
     <div class="vcr-clock" id="vcrClock" aria-label="VCR clock">
-      <span class="vcr-clock__hours">12</span>
-      <span class="vcr-clock__colon">:</span>
-      <span class="vcr-clock__minutes">00</span>
+      <span class="vcr-clock__time">
+        <span class="vcr-clock__hours">12</span>
+        <span class="vcr-clock__colon">:</span>
+        <span class="vcr-clock__minutes">00</span>
+      </span>
+      <span class="vcr-clock__status" aria-hidden="true"></span>
     </div>
+    <div class="vcr-slot-target" id="vcrSlotTarget" aria-hidden="true"></div>
     <button
       class="hotspot hotspot-tv-power"
       type="button"
@@ -115,6 +119,7 @@
     <div class="tv-content">
       <div class="screen" role="img" aria-label="TV screen">
         <span class="screen__signal" aria-hidden="true"></span>
+        <div class="screen__video" data-vhs-player aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -124,16 +129,16 @@
 
   <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
     <div class="vhs-menu__content">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-02.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-03.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-04.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-05.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-06.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-07.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-08.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-09.png" alt="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-10.png" alt="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="VHS tape 01" draggable="false" data-tape-id="tape-01" data-video-title="Tape 01" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-02.png" alt="VHS tape 02" draggable="false" data-tape-id="tape-02" data-video-title="Tape 02" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-03.png" alt="VHS tape 03" draggable="false" data-tape-id="tape-03" data-video-title="Tape 03" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-04.png" alt="VHS tape 04" draggable="false" data-tape-id="tape-04" data-video-title="Tape 04" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-05.png" alt="VHS tape 05" draggable="false" data-tape-id="tape-05" data-video-title="Tape 05" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-06.png" alt="VHS tape 06" draggable="false" data-tape-id="tape-06" data-video-title="Tape 06" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-07.png" alt="VHS tape 07" draggable="false" data-tape-id="tape-07" data-video-title="Tape 07" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-08.png" alt="VHS tape 08" draggable="false" data-tape-id="tape-08" data-video-title="Tape 08" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-09.png" alt="VHS tape 09" draggable="false" data-tape-id="tape-09" data-video-title="Tape 09" data-vimeo-id="" data-video-src="">
+      <img class="vhs-menu__cassette" src="assets/img/vhs-10.png" alt="VHS tape 10" draggable="false" data-tape-id="tape-10" data-video-title="Tape 10" data-vimeo-id="" data-video-src="">
     </div>
   </div>
 </div>
@@ -276,6 +281,9 @@
         <a class="gallery-strip__item" href="https://picsum.photos/seed/cinemorph-gallery-10/1200/1200" target="_blank" rel="noreferrer">
           <img src="https://picsum.photos/seed/cinemorph-gallery-10/900/900" width="900" height="900" alt="Gallery placeholder 10" loading="lazy" decoding="async">
         </a>
+      </div>
+      <div class="gallery-progress" aria-hidden="true">
+        <span class="gallery-progress__thumb"></span>
       </div>
     </div>
   </section>

@@ -1,5 +1,7 @@
 const vhsTrigger = document.querySelector(".hotspot-vhs");
 const vhsMenu = document.querySelector("#vhsMenu");
+const vhsCassettes = document.querySelectorAll(".vhs-menu__cassette");
+const vcrSlotTarget = document.querySelector("#vcrSlotTarget");
 const scene = document.querySelector(".main-area");
 const content = document.querySelector("main");
 const sceneLoader = document.querySelector("#sceneLoader");
@@ -13,13 +15,20 @@ const tvNoise = document.querySelector("#tvNoise");
 const tvPowerClick = document.querySelector("#tvPowerClick");
 const tvPowerButton = document.querySelector(".hotspot-tv-power");
 const tvBloom = document.querySelector(".tv-bloom");
+const tapePlayer = document.querySelector("[data-vhs-player]");
 const vcrClock = document.querySelector("#vcrClock");
 const vcrClockHours = document.querySelector(".vcr-clock__hours");
 const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
+const vcrClockStatus = document.querySelector(".vcr-clock__status");
 const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
 const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
 const galleryStrip = document.querySelector(".gallery-strip");
+const galleryProgress = document.querySelector(".gallery-progress");
 let tvNoiseController;
+let tvPowerController;
+let setVcrDisplayMode = () => {};
+let getVcrDisplayMode = () => "clock";
+let resetVcrState = () => {};
 
 if (portfolioCategoryItems.length) {
   portfolioCategoryItems.forEach((item) => {
@@ -65,6 +74,11 @@ if (galleryStrip) {
     activeFrame = clampGalleryFrame(frame);
     galleryStrip.classList.toggle("is-frame-mode", shouldUseFrameMode);
     galleryStrip.dataset.activeFrame = String(activeFrame);
+    galleryProgress?.toggleAttribute("hidden", !shouldUseFrameMode);
+    galleryProgress?.style.setProperty(
+      "--gallery-progress",
+      String(maxFrame > 0 ? activeFrame / maxFrame : 0)
+    );
 
     galleryItems.forEach((item, index) => {
       const isVisible = !shouldUseFrameMode || (index >= activeFrame && index < activeFrame + visibleCount);
@@ -332,6 +346,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   const powerOffTv = () => {
     window.clearTimeout(tvShutdownTimer);
     tvPoweredOn = false;
+    resetVcrState();
     tvContent.classList.add("is-switching-off");
     tvContent.classList.remove("is-on");
     tvBloom.classList.remove("is-on");
@@ -381,9 +396,89 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
       }
     },
   };
+
+  tvPowerController = {
+    powerOn: powerOnTv,
+    powerOff: powerOffTv,
+    isOn: () => tvPoweredOn,
+  };
 }
 
+const getTapeVideo = (cassette) => ({
+  id: cassette.dataset.tapeId || "",
+  title: cassette.dataset.videoTitle || cassette.alt || "Tape",
+  vimeoId: (cassette.dataset.vimeoId || "").trim(),
+  videoSrc: (cassette.dataset.videoSrc || "").trim(),
+});
+
+const getVimeoPlayerSrc = (vimeoId) => {
+  const cleanId = vimeoId
+    .replace(/^https?:\/\/(?:www\.)?vimeo\.com\/(?:video\/)?/i, "")
+    .split(/[/?#]/)[0];
+
+  return `https://player.vimeo.com/video/${encodeURIComponent(cleanId)}?autoplay=1&title=0&byline=0&portrait=0`;
+};
+
+const loadTapeVideo = (cassette) => {
+  if (!tapePlayer || !cassette) return;
+
+  const tape = getTapeVideo(cassette);
+
+  tvPowerController?.powerOn();
+  tapePlayer.replaceChildren();
+  tapePlayer.classList.remove("has-player");
+  tapePlayer.dataset.activeTape = tape.title;
+  tapePlayer.setAttribute("aria-label", `${tape.title} playback`);
+
+  if (tape.vimeoId) {
+    const iframe = document.createElement("iframe");
+
+    iframe.title = tape.title;
+    iframe.src = getVimeoPlayerSrc(tape.vimeoId);
+    iframe.allow = "autoplay; fullscreen; picture-in-picture";
+    iframe.allowFullscreen = true;
+    iframe.loading = "lazy";
+
+    tapePlayer.append(iframe);
+    tapePlayer.classList.add("has-player");
+  } else if (tape.videoSrc) {
+    const video = document.createElement("video");
+
+    video.src = tape.videoSrc;
+    video.autoplay = true;
+    video.controls = true;
+    video.playsInline = true;
+
+    tapePlayer.append(video);
+    tapePlayer.classList.add("has-player");
+    video.play().catch(() => {});
+  }
+
+  tapePlayer.classList.add("is-active");
+};
+
+const clearTapeVideo = () => {
+  if (!tapePlayer) return;
+
+  tapePlayer.querySelectorAll("video").forEach((video) => {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  });
+  tapePlayer.replaceChildren();
+  tapePlayer.classList.remove("has-player", "is-active");
+  delete tapePlayer.dataset.activeTape;
+  tapePlayer.removeAttribute("aria-label");
+};
+
 if (vhsTrigger && vhsMenu) {
+  const tapeInsertDuration = 620;
+  const tapeFlyAwayDuration = 780;
+  const slotCloseDuration = 520;
+  let activeTapeDrag = null;
+  let insertedCassette = null;
+  let slotResetTimer;
+
   const openVhsMenu = () => {
     vhsMenu.classList.add("is-open");
     vhsMenu.setAttribute("aria-hidden", "false");
@@ -396,6 +491,261 @@ if (vhsTrigger && vhsMenu) {
     vhsTrigger.setAttribute("aria-expanded", "false");
   };
 
+  const pointInRect = (x, y, rect, padding = 0) => (
+    x >= rect.left - padding
+    && x <= rect.right + padding
+    && y >= rect.top - padding
+    && y <= rect.bottom + padding
+  );
+
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const showVcrSlotTarget = () => {
+    if (!vcrSlotTarget) return;
+
+    window.clearTimeout(slotResetTimer);
+    vcrSlotTarget.classList.remove("is-closing", "is-hot");
+    vcrSlotTarget.classList.add("is-awaiting-tape");
+  };
+
+  const hideVcrSlotTarget = () => {
+    if (!vcrSlotTarget) return;
+
+    window.clearTimeout(slotResetTimer);
+    vcrSlotTarget.classList.remove("is-awaiting-tape", "is-closing", "is-hot");
+  };
+
+  const closeVcrSlotTarget = () => {
+    if (!vcrSlotTarget) return;
+
+    window.clearTimeout(slotResetTimer);
+    vcrSlotTarget.classList.remove("is-awaiting-tape", "is-hot");
+    vcrSlotTarget.classList.add("is-closing");
+
+    slotResetTimer = window.setTimeout(() => {
+      vcrSlotTarget.classList.remove("is-closing");
+    }, slotCloseDuration);
+  };
+
+  resetVcrState = () => {
+    if (activeTapeDrag) {
+      const drag = activeTapeDrag;
+
+      activeTapeDrag = null;
+      removeTapeDragListeners();
+      clearDragState(drag);
+      drag.ghost.remove();
+      drag.cassette.classList.remove("is-picked");
+    }
+
+    insertedCassette?.classList.remove("is-picked", "is-in-vcr");
+    insertedCassette = null;
+    hideVcrSlotTarget();
+    clearTapeVideo();
+    setVcrDisplayMode("clock");
+  };
+
+  const getSlotMetrics = (x, y, drag = activeTapeDrag) => {
+    if (!vcrSlotTarget || !drag) {
+      return {
+        progress: 0,
+        targetScale: 0.5,
+        isAccepted: false,
+        rect: null,
+      };
+    }
+
+    const rect = vcrSlotTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const distance = Math.hypot(x - centerX, y - centerY);
+    const attractionRadius = Math.max(rect.width * 3.2, 160);
+    const progress = clamp(1 - distance / attractionRadius, 0, 1);
+    const targetScale = clamp((rect.width / Math.max(drag.originalRect.width, 1)) * 1.04, 0.28, 0.55);
+    const acceptancePadding = Math.max(rect.width * 0.56, 56);
+
+    return {
+      progress,
+      targetScale,
+      isAccepted: pointInRect(x, y, rect, acceptancePadding),
+      rect,
+    };
+  };
+
+  const updateTapeGhost = (event) => {
+    if (!activeTapeDrag) return;
+
+    event.preventDefault?.();
+
+    const { ghost } = activeTapeDrag;
+    const x = event.clientX;
+    const y = event.clientY;
+    const metrics = getSlotMetrics(x, y);
+    const pull = Math.pow(metrics.progress, 1.25);
+    const scale = 1 - (1 - metrics.targetScale) * pull;
+    const isNearVcr = metrics.progress > 0.62 || metrics.isAccepted;
+
+    activeTapeDrag.x = x;
+    activeTapeDrag.y = y;
+    activeTapeDrag.currentScale = scale;
+    ghost.style.left = `${x}px`;
+    ghost.style.top = `${y}px`;
+    ghost.style.setProperty("--vhs-drag-scale", scale.toFixed(3));
+    ghost.classList.toggle("is-near-vcr", isNearVcr);
+    vcrSlotTarget?.classList.toggle("is-hot", isNearVcr);
+
+    if (!activeTapeDrag.menuHasClosed && vhsMenu.classList.contains("is-open")) {
+      const menuRect = vhsMenu.getBoundingClientRect();
+
+      if (!pointInRect(x, y, menuRect)) {
+        activeTapeDrag.menuHasClosed = true;
+        closeVhsMenu();
+      }
+    }
+  };
+
+  const removeTapeDragListeners = () => {
+    document.removeEventListener("pointermove", updateTapeGhost);
+    document.removeEventListener("pointerup", finishTapeDrag);
+    document.removeEventListener("pointercancel", cancelTapeDrag);
+  };
+
+  const clearDragState = (drag) => {
+    document.body.classList.remove("is-vhs-dragging");
+    scene?.classList.remove("is-tape-dragging");
+
+    if (
+      typeof drag.cassette.hasPointerCapture === "function"
+      && drag.cassette.hasPointerCapture(drag.pointerId)
+    ) {
+      drag.cassette.releasePointerCapture(drag.pointerId);
+    }
+  };
+
+  const insertTape = (drag) => {
+    const metrics = getSlotMetrics(drag.x, drag.y, drag);
+
+    closeVhsMenu();
+
+    if (metrics.rect) {
+      const centerX = metrics.rect.left + metrics.rect.width / 2;
+      const centerY = metrics.rect.top + metrics.rect.height / 2;
+
+      drag.ghost.style.left = `${centerX}px`;
+      drag.ghost.style.top = `${centerY}px`;
+      drag.ghost.style.setProperty("--vhs-drag-scale", metrics.targetScale.toFixed(3));
+    }
+
+    drag.ghost.classList.add("is-entering-vcr");
+    closeVcrSlotTarget();
+
+    if (insertedCassette && insertedCassette !== drag.cassette) {
+      insertedCassette.classList.remove("is-picked", "is-in-vcr");
+    }
+
+    insertedCassette = drag.cassette;
+    drag.cassette.classList.add("is-in-vcr");
+    setVcrDisplayMode("play");
+    loadTapeVideo(drag.cassette);
+
+    window.setTimeout(() => {
+      drag.ghost.remove();
+    }, tapeInsertDuration);
+  };
+
+  const rejectTape = (drag) => {
+    hideVcrSlotTarget();
+    drag.ghost.classList.remove("is-near-vcr");
+    drag.ghost.classList.add("is-flying-away");
+    drag.ghost.style.setProperty("--vhs-drag-scale", Math.min(drag.currentScale || 1, 0.72).toFixed(3));
+    drag.ghost.style.left = `${window.innerWidth + drag.originalRect.width}px`;
+    drag.ghost.style.top = `${drag.y - Math.max(24, drag.originalRect.height * 0.24)}px`;
+    setVcrDisplayMode(drag.previousVcrMode === "play" ? "play" : "clock");
+
+    window.setTimeout(() => {
+      drag.ghost.remove();
+      drag.cassette.classList.remove("is-picked");
+    }, tapeFlyAwayDuration);
+  };
+
+  function finishTapeDrag(event) {
+    if (!activeTapeDrag) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const drag = activeTapeDrag;
+    const metrics = getSlotMetrics(drag.x, drag.y, drag);
+
+    activeTapeDrag = null;
+    removeTapeDragListeners();
+    clearDragState(drag);
+
+    if (metrics.isAccepted) {
+      insertTape(drag);
+      return;
+    }
+
+    rejectTape(drag);
+  }
+
+  function cancelTapeDrag() {
+    if (!activeTapeDrag) return;
+
+    const drag = activeTapeDrag;
+
+    activeTapeDrag = null;
+    removeTapeDragListeners();
+    clearDragState(drag);
+    rejectTape(drag);
+  }
+
+  const startTapeDrag = (event) => {
+    if (!vcrSlotTarget) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (activeTapeDrag) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const cassette = event.currentTarget;
+    const rect = cassette.getBoundingClientRect();
+    const ghost = cassette.cloneNode(false);
+
+    ghost.removeAttribute("id");
+    ghost.alt = "";
+    ghost.className = "vhs-drag-ghost";
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.draggable = false;
+    ghost.style.setProperty("--vhs-drag-width", `${rect.width}px`);
+    document.body.append(ghost);
+
+    cassette.classList.add("is-picked");
+    document.body.classList.add("is-vhs-dragging");
+    scene?.classList.add("is-tape-dragging");
+
+    activeTapeDrag = {
+      cassette,
+      ghost,
+      originalRect: rect,
+      pointerId: event.pointerId,
+      previousVcrMode: getVcrDisplayMode(),
+      menuHasClosed: false,
+      x: event.clientX,
+      y: event.clientY,
+      currentScale: 1,
+    };
+
+    cassette.setPointerCapture?.(event.pointerId);
+    setVcrDisplayMode("ready");
+    showVcrSlotTarget();
+    updateTapeGhost(event);
+
+    document.addEventListener("pointermove", updateTapeGhost, { passive: false });
+    document.addEventListener("pointerup", finishTapeDrag);
+    document.addEventListener("pointercancel", cancelTapeDrag);
+  };
+
   vhsTrigger.addEventListener("click", () => {
     if (vhsMenu.classList.contains("is-open")) {
       closeVhsMenu();
@@ -405,7 +755,12 @@ if (vhsTrigger && vhsMenu) {
     openVhsMenu();
   });
 
+  vhsCassettes.forEach((cassette) => {
+    cassette.addEventListener("pointerdown", startTapeDrag);
+  });
+
   document.addEventListener("pointerdown", (event) => {
+    if (activeTapeDrag) return;
     if (!vhsMenu.classList.contains("is-open")) return;
     if (vhsMenu.contains(event.target) || vhsTrigger.contains(event.target)) return;
 
@@ -413,13 +768,34 @@ if (vhsTrigger && vhsMenu) {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeVhsMenu();
+    if (event.key !== "Escape") return;
+
+    if (activeTapeDrag) {
+      cancelTapeDrag();
+      return;
     }
+
+    closeVhsMenu();
   });
 }
 
-if (vcrClock && vcrClockHours && vcrClockMinutes) {
+if (vcrClock && vcrClockHours && vcrClockMinutes && vcrClockStatus) {
+  let vcrDisplayMode = "clock";
+  let currentClockLabel = "VCR clock";
+
+  setVcrDisplayMode = (mode = "clock") => {
+    const nextMode = ["clock", "ready", "play"].includes(mode) ? mode : "clock";
+    const statusText = nextMode === "ready" ? "READY" : "PLAY";
+
+    vcrDisplayMode = nextMode;
+    vcrClock.classList.toggle("is-status", nextMode !== "clock");
+    vcrClockStatus.textContent = nextMode === "clock" ? "" : statusText;
+    vcrClockStatus.setAttribute("aria-hidden", String(nextMode === "clock"));
+    vcrClock.setAttribute("aria-label", nextMode === "clock" ? currentClockLabel : `VCR ${statusText}`);
+  };
+
+  getVcrDisplayMode = () => vcrDisplayMode;
+
   const updateVcrClock = () => {
     const now = new Date();
     const hours = now.getHours() % 12 || 12;
@@ -428,10 +804,15 @@ if (vcrClock && vcrClockHours && vcrClockMinutes) {
 
     vcrClockHours.textContent = String(hours).padStart(2, "0");
     vcrClockMinutes.textContent = String(minutes).padStart(2, "0");
-    vcrClock.setAttribute("aria-label", `VCR clock ${displayTime}`);
+    currentClockLabel = `VCR clock ${displayTime}`;
+
+    if (vcrDisplayMode === "clock") {
+      vcrClock.setAttribute("aria-label", currentClockLabel);
+    }
   };
 
   updateVcrClock();
+  setVcrDisplayMode("clock");
   window.setInterval(updateVcrClock, 1000);
 }
 
