@@ -22,7 +22,7 @@ const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
 const vcrClockStatus = document.querySelector(".vcr-clock__status");
 const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
 const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
-const galleryStrip = document.querySelector(".gallery-strip");
+const galleryStrips = Array.from(document.querySelectorAll(".gallery-strip"));
 const galleryProgress = document.querySelector(".gallery-progress");
 let tvNoiseController;
 let tvPowerController;
@@ -43,11 +43,23 @@ if (portfolioCategoryItems.length) {
   });
 }
 
-if (galleryStrip) {
-  const galleryItems = Array.from(galleryStrip.querySelectorAll(".gallery-strip__item"));
-  const visibleCount = Math.max(1, Number.parseInt(galleryStrip.dataset.visibleCount || "5", 10));
+if (galleryStrips.length) {
+  const galleryRows = galleryStrips
+    .map((strip) => {
+      const items = Array.from(strip.querySelectorAll(".gallery-strip__item"));
+      const visibleCount = Math.max(1, Number.parseInt(strip.dataset.visibleCount || "5", 10));
+
+      return {
+        strip,
+        items,
+        visibleCount,
+        maxFrame: Math.max(0, items.length - visibleCount)
+      };
+    })
+    .filter(({ items }) => items.length);
+  const galleryProgressThumb = galleryProgress?.querySelector(".gallery-progress__thumb");
   const frameStep = 1;
-  const maxFrame = Math.max(0, galleryItems.length - visibleCount);
+  const maxFrame = galleryRows.reduce((max, row) => Math.max(max, row.maxFrame), 0);
   const frameMedia = window.matchMedia("(min-width: 701px)");
   const wheelThreshold = 80;
   const wheelCooldown = 140;
@@ -58,6 +70,7 @@ if (galleryStrip) {
   let wheelUnlockTimer;
 
   const clampGalleryFrame = (frame) => Math.max(0, Math.min(frame, maxFrame));
+  const shouldUseGalleryFrames = () => frameMedia.matches && maxFrame > 0;
 
   const getGalleryWheelDelta = (event) => {
     const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
@@ -68,23 +81,55 @@ if (galleryStrip) {
     return rawDelta;
   };
 
+  const setGallerySwitching = (isSwitching) => {
+    galleryRows.forEach(({ strip }) => {
+      strip.classList.toggle("is-switching", isSwitching);
+    });
+  };
+
+  const updateGalleryProgressA11y = () => {
+    if (!galleryProgress) return;
+
+    galleryProgress.setAttribute("aria-valuemax", String(maxFrame));
+    galleryProgress.setAttribute("aria-valuenow", String(activeFrame));
+    galleryProgress.setAttribute("aria-valuetext", `${activeFrame + 1} of ${maxFrame + 1}`);
+  };
+
+  const getGalleryFrameFromProgress = (clientX) => {
+    if (!galleryProgress) return activeFrame;
+
+    const progressRect = galleryProgress.getBoundingClientRect();
+    const thumbWidth = galleryProgressThumb?.getBoundingClientRect().width || 0;
+    const range = Math.max(1, progressRect.width - thumbWidth);
+    const minX = progressRect.left + thumbWidth / 2;
+    const progress = Math.max(0, Math.min((clientX - minX) / range, 1));
+
+    return clampGalleryFrame(Math.round(progress * maxFrame));
+  };
+
   const renderGalleryFrame = (frame = activeFrame) => {
-    const shouldUseFrameMode = frameMedia.matches && maxFrame > 0;
+    const shouldUseFrameMode = shouldUseGalleryFrames();
 
     activeFrame = clampGalleryFrame(frame);
-    galleryStrip.classList.toggle("is-frame-mode", shouldUseFrameMode);
-    galleryStrip.dataset.activeFrame = String(activeFrame);
     galleryProgress?.toggleAttribute("hidden", !shouldUseFrameMode);
     galleryProgress?.style.setProperty(
       "--gallery-progress",
       String(maxFrame > 0 ? activeFrame / maxFrame : 0)
     );
+    updateGalleryProgressA11y();
 
-    galleryItems.forEach((item, index) => {
-      const isVisible = !shouldUseFrameMode || (index >= activeFrame && index < activeFrame + visibleCount);
+    galleryRows.forEach(({ strip, items, visibleCount, maxFrame: rowMaxFrame }) => {
+      const rowFrame = Math.min(activeFrame, rowMaxFrame);
 
-      item.hidden = !isVisible;
-      item.setAttribute("aria-hidden", String(!isVisible));
+      strip.classList.toggle("is-frame-mode", shouldUseFrameMode);
+      strip.dataset.activeFrame = String(rowFrame);
+
+      items.forEach((item, index) => {
+        const isVisible = !shouldUseFrameMode || (index >= rowFrame && index < rowFrame + visibleCount);
+
+        item.hidden = !isVisible;
+        item.setAttribute("aria-hidden", String(!isVisible));
+      });
     });
   };
 
@@ -93,12 +138,12 @@ if (galleryStrip) {
   );
 
   const switchGalleryFrame = (frame) => {
-    galleryStrip.classList.add("is-switching");
+    setGallerySwitching(true);
     renderGalleryFrame(frame);
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        galleryStrip.classList.remove("is-switching");
+        setGallerySwitching(false);
       });
     });
   };
@@ -113,52 +158,118 @@ if (galleryStrip) {
     }, wheelCooldown);
   };
 
-  galleryStrip.addEventListener(
-    "wheel",
-    (event) => {
-      if (!frameMedia.matches || maxFrame === 0) {
-        return;
-      }
+  const handleGalleryWheel = (event) => {
+    if (!shouldUseGalleryFrames()) {
+      return;
+    }
 
-      const delta = getGalleryWheelDelta(event);
+    const delta = getGalleryWheelDelta(event);
 
-      if (delta === 0) {
-        return;
-      }
+    if (delta === 0) {
+      return;
+    }
 
-      const direction = delta > 0 ? 1 : -1;
+    const direction = delta > 0 ? 1 : -1;
 
-      if (!canMoveGallery(direction)) {
-        wheelAccumulator = 0;
-        wheelDirection = 0;
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (wheelLocked) {
-        return;
-      }
-
-      if (wheelDirection !== direction) {
-        wheelDirection = direction;
-        wheelAccumulator = 0;
-      }
-
-      wheelAccumulator += Math.abs(delta);
-
-      if (wheelAccumulator < wheelThreshold) {
-        return;
-      }
-
-      switchGalleryFrame(activeFrame + direction * frameStep);
+    if (!canMoveGallery(direction)) {
       wheelAccumulator = 0;
-      wheelLocked = true;
-      queueWheelUnlock();
-    },
-    { passive: false }
-  );
+      wheelDirection = 0;
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (wheelLocked) {
+      return;
+    }
+
+    if (wheelDirection !== direction) {
+      wheelDirection = direction;
+      wheelAccumulator = 0;
+    }
+
+    wheelAccumulator += Math.abs(delta);
+
+    if (wheelAccumulator < wheelThreshold) {
+      return;
+    }
+
+    switchGalleryFrame(activeFrame + direction * frameStep);
+    wheelAccumulator = 0;
+    wheelLocked = true;
+    queueWheelUnlock();
+  };
+
+  galleryRows.forEach(({ strip }) => {
+    strip.addEventListener("wheel", handleGalleryWheel, { passive: false });
+  });
+
+  const renderGalleryFromProgressPointer = (event) => {
+    if (!shouldUseGalleryFrames()) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    renderGalleryFrame(getGalleryFrameFromProgress(event.clientX));
+  };
+
+  const stopGalleryProgressDrag = (event) => {
+    if (!galleryProgress || progressPointerId === null || progressPointerId !== event.pointerId) {
+      return;
+    }
+
+    if (typeof galleryProgress.hasPointerCapture === "function" && galleryProgress.hasPointerCapture(event.pointerId)) {
+      galleryProgress.releasePointerCapture(event.pointerId);
+    }
+
+    progressPointerId = null;
+    galleryProgress.classList.remove("is-dragging");
+    document.body.classList.remove("is-gallery-progress-dragging");
+  };
+
+  let progressPointerId = null;
+
+  galleryProgress?.addEventListener("pointerdown", (event) => {
+    if (!shouldUseGalleryFrames() || (event.pointerType === "mouse" && event.button !== 0)) {
+      return;
+    }
+
+    progressPointerId = event.pointerId;
+    galleryProgress.classList.add("is-dragging");
+    document.body.classList.add("is-gallery-progress-dragging");
+    galleryProgress.setPointerCapture?.(event.pointerId);
+    renderGalleryFromProgressPointer(event);
+  });
+
+  galleryProgress?.addEventListener("pointermove", (event) => {
+    if (progressPointerId !== event.pointerId) return;
+
+    renderGalleryFromProgressPointer(event);
+  });
+
+  galleryProgress?.addEventListener("pointerup", stopGalleryProgressDrag);
+  galleryProgress?.addEventListener("pointercancel", stopGalleryProgressDrag);
+
+  galleryProgress?.addEventListener("keydown", (event) => {
+    if (!shouldUseGalleryFrames()) return;
+
+    let nextFrame = activeFrame;
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      nextFrame = activeFrame - frameStep;
+    } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      nextFrame = activeFrame + frameStep;
+    } else if (event.key === "Home") {
+      nextFrame = 0;
+    } else if (event.key === "End") {
+      nextFrame = maxFrame;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    switchGalleryFrame(nextFrame);
+  });
 
   if (typeof frameMedia.addEventListener === "function") {
     frameMedia.addEventListener("change", () => renderGalleryFrame());

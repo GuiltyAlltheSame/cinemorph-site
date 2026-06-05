@@ -325,6 +325,11 @@ body.is-vhs-dragging {
   user-select: none;
 }
 
+body.is-gallery-progress-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
 @media (max-width: 991px) {
   #men,
   #social {
@@ -1364,9 +1369,9 @@ body.is-vhs-dragging {
 
 .about-team {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(14px, 2vw, 22px);
-  margin-top: clamp(34px, 5vw, 62px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(10px, 1.5vw, 16px);
+  margin-top: clamp(24px, 3.5vw, 42px);
 }
 
 .team-card {
@@ -1399,7 +1404,7 @@ body.is-vhs-dragging {
 }
 
 .team-card__body {
-  padding: clamp(14px, 1.7vw, 20px);
+  padding: clamp(10px, 1.2vw, 15px);
   background: #151c21;
 }
 
@@ -1408,7 +1413,7 @@ body.is-vhs-dragging {
   overflow: hidden;
   color: #fff;
   font-family: "Bebas Neue", Arial, sans-serif;
-  font-size: clamp(22px, 2.3vw, 34px);
+  font-size: clamp(18px, 1.8vw, 28px);
   font-weight: 400;
   line-height: 1;
   text-overflow: ellipsis;
@@ -1417,10 +1422,10 @@ body.is-vhs-dragging {
 }
 
 .team-card p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #8f9da5;
   font-family: "Courier New", Courier, monospace;
-  font-size: clamp(11px, .95vw, 14px);
+  font-size: clamp(10px, .78vw, 12px);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: .08em;
@@ -1439,7 +1444,14 @@ body.is-vhs-dragging {
 }
 
 #gallery {
+  --section-padding-block: clamp(54px, 8vw, 112px);
   --section-noise-image: url("../assets/img/wallpaper_gallery_noise.gif");
+}
+
+.gallery-stage {
+  display: grid;
+  gap: clamp(8px, 1.2vmin, 14px);
+  margin: clamp(24px, 3.2vw, 38px) 0 0;
 }
 
 .gallery-strip {
@@ -1452,8 +1464,14 @@ body.is-vhs-dragging {
   justify-content: center;
   gap: var(--gallery-gap);
   width: 100%;
-  height: clamp(280px, 50vmin, 540px);
-  margin: clamp(24px, 4vw, 48px) 0 0;
+  height: clamp(300px, 39vmin, 438px);
+  margin: 0;
+}
+
+.gallery-strip--wide {
+  --gallery-magnifier: 2.8;
+
+  height: clamp(132px, 18vmin, 206px);
 }
 
 .gallery-strip__item {
@@ -1529,13 +1547,26 @@ body.is-vhs-dragging {
 
   position: relative;
   width: min(34vw, 360px);
-  height: 16px;
+  height: 22px;
   margin: clamp(14px, 2vw, 24px) auto 0;
   opacity: .82;
+  cursor: grab;
+  outline: 0;
+  touch-action: none;
+  user-select: none;
 }
 
 .gallery-progress[hidden] {
   display: none;
+}
+
+.gallery-progress:focus-visible {
+  opacity: 1;
+}
+
+.gallery-progress.is-dragging {
+  cursor: grabbing;
+  opacity: 1;
 }
 
 .gallery-progress::before {
@@ -1564,6 +1595,10 @@ body.is-vhs-dragging {
     0 0 14px rgba(232, 232, 232, .18);
   transform: translateY(-50%);
   transition: left .18s ease;
+}
+
+.gallery-progress.is-dragging .gallery-progress__thumb {
+  transition: none;
 }
 
 #services {
@@ -1746,7 +1781,7 @@ body.is-vhs-dragging {
   border:1px solid rgba(0,0,0,.06);
   background:#fff;
 }
-.service h3{ margin:0 0 8px; font-size:24px; }
+.service h3{ margin:0 0 8px; font-size:30px; }
 .service p{ margin:0; }
 
 /* Contact */
@@ -1909,9 +1944,9 @@ body.is-vhs-dragging {
   }
 
   .about-team {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
-    margin-top: 30px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 24px;
   }
 
   .portfolio-grid {
@@ -1951,6 +1986,11 @@ body.is-vhs-dragging {
     scroll-snap-type: none;
   }
 
+  .gallery-stage {
+    gap: 14px;
+    margin-top: 22px;
+  }
+
   .gallery-strip__item {
     flex: 0 0 auto;
     width: 100%;
@@ -1974,7 +2014,8 @@ body.is-vhs-dragging {
 
 @media (prefers-reduced-motion: reduce) {
   .gallery-strip__item,
-  .gallery-strip__item img {
+  .gallery-strip__item img,
+  .gallery-progress__thumb {
     transition: none;
   }
 }
