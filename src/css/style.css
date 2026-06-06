@@ -1861,6 +1861,30 @@ body.is-gallery-progress-dragging {
   background:rgba(255,255,255,.13);
   color:#fff;
 }
+.btn[disabled]{
+  cursor:wait;
+  opacity:.56;
+}
+.contact__status{
+  min-height:1.25em;
+  margin:0;
+  color:rgba(232,232,232,.62);
+  font-family:"Courier New", Courier, monospace;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.35;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.contact__status:empty{
+  display:none;
+}
+.contact__status.is-success{
+  color:rgba(155, 255, 193, .84);
+}
+.contact__status.is-error{
+  color:rgba(255, 176, 156, .86);
+}
 .contact-aside{
   position:absolute;
   top:0;

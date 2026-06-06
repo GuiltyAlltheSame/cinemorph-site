@@ -392,20 +392,21 @@
       <h2>Contact</h2>
       <p>Briefly describe the task, timeline, and references.</p>
 
-      <form class="contact" action="#" method="post">
+      <form class="contact" action="#" method="post" data-contact-form novalidate>
         <div class="field">
           <label for="name">Name</label>
-          <input class="input" type="text" id="name" name="name" placeholder="Your name">
+          <input class="input" type="text" id="name" name="name" placeholder="Your name" autocomplete="name" required>
         </div>
         <div class="field">
-          <label for="email">Email</label>
-          <input class="input" type="email" id="email" name="email" placeholder="you@example.com">
+          <label for="contact-field">Email / Phone</label>
+          <input class="input" type="text" id="contact-field" name="contact" placeholder="you@example.com or +1 555 010 2030" autocomplete="email" required>
         </div>
         <div class="field">
           <label for="msg">Message</label>
-          <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..."></textarea>
+          <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..." required></textarea>
         </div>
-        <button class="btn" type="submit">Send</button>
+        <button class="btn" type="submit" data-contact-submit>Send</button>
+        <p class="contact__status" data-contact-status role="status" aria-live="polite"></p>
       </form>
       <div class="contact-aside" aria-label="Contact details and social links">
         <div class="contact-details">
@@ -441,6 +442,7 @@
   </section>
 </main>
 
+<script src="js/supabase-config.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>

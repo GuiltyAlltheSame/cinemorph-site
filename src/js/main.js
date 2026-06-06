@@ -24,11 +24,90 @@ const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories_
 const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
 const galleryStrips = Array.from(document.querySelectorAll(".gallery-strip"));
 const galleryProgress = document.querySelector(".gallery-progress");
+const contactForm = document.querySelector("[data-contact-form]");
+const contactStatus = document.querySelector("[data-contact-status]");
+const contactSubmit = document.querySelector("[data-contact-submit]");
 let tvNoiseController;
 let tvPowerController;
 let setVcrDisplayMode = () => {};
 let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
+
+const getSupabaseConfig = () => window.CINEMORPH_SUPABASE_CONFIG || {};
+
+const isSupabaseConfigured = () => {
+  const config = getSupabaseConfig();
+
+  return Boolean(config.enabled && config.url && config.anonKey);
+};
+
+const setContactStatus = (message, type = "neutral") => {
+  if (!contactStatus) return;
+
+  contactStatus.textContent = message;
+  contactStatus.classList.toggle("is-success", type === "success");
+  contactStatus.classList.toggle("is-error", type === "error");
+};
+
+const postSupabaseRow = async (tableName, payload) => {
+  const config = getSupabaseConfig();
+  const baseUrl = config.url.replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/rest/v1/${tableName}`, {
+    method: "POST",
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${config.anonKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(detail || "Supabase request failed");
+
+    error.status = response.status;
+    throw error;
+  }
+};
+
+if (contactForm) {
+  contactForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(contactForm);
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      contact: String(formData.get("contact") || "").trim(),
+      message: String(formData.get("message") || "").trim()
+    };
+
+    if (!payload.name || !payload.contact || !payload.message) {
+      setContactStatus("Please fill in your name, contact, and message.", "error");
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setContactStatus("Message system is not configured yet. Please use the contact details on this page.", "error");
+      return;
+    }
+
+    contactSubmit?.setAttribute("disabled", "true");
+    setContactStatus("Sending...");
+
+    try {
+      await postSupabaseRow(getSupabaseConfig().tables?.messages || "messages", payload);
+      contactForm.reset();
+      setContactStatus("Message sent. We will get back to you soon.", "success");
+    } catch (error) {
+      console.error("Contact form Supabase error:", error);
+      setContactStatus(`Message could not be sent. Supabase status: ${error.status || "network"}.`, "error");
+    } finally {
+      contactSubmit?.removeAttribute("disabled");
+    }
+  });
+}
 
 if (portfolioCategoryItems.length) {
   portfolioCategoryItems.forEach((item) => {
