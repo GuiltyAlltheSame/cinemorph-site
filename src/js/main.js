@@ -21,8 +21,9 @@ const vcrClockHours = document.querySelector(".vcr-clock__hours");
 const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
 const vcrClockStatus = document.querySelector(".vcr-clock__status");
 const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
-const portfolioThumbs = document.querySelectorAll(".portfolio-grid .ph-thumb");
-const galleryStrips = Array.from(document.querySelectorAll(".gallery-strip"));
+const portfolioGrid = document.querySelector("[data-portfolio-grid]");
+const galleryStage = document.querySelector("[data-gallery-stage]");
+const galleryStrips = Array.from(document.querySelectorAll("[data-gallery-strip]"));
 const galleryProgress = document.querySelector(".gallery-progress");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
@@ -122,79 +123,244 @@ if (portfolioCategoryItems.length) {
   });
 }
 
-if (galleryStrips.length) {
-  const galleryRows = galleryStrips
-    .map((strip) => {
-      const items = Array.from(strip.querySelectorAll(".gallery-strip__item"));
-      const visibleCount = Math.max(1, Number.parseInt(strip.dataset.visibleCount || "5", 10));
+const createEmptyState = (message) => {
+  const empty = document.createElement("div");
 
-      return {
-        strip,
-        items,
-        visibleCount,
-        maxFrame: Math.max(0, items.length - visibleCount)
-      };
-    })
-    .filter(({ items }) => items.length);
-  const galleryProgressThumb = galleryProgress?.querySelector(".gallery-progress__thumb");
-  const frameStep = 1;
-  const maxFrame = galleryRows.reduce((max, row) => Math.max(max, row.maxFrame), 0);
+  empty.className = "media-empty";
+  empty.textContent = message;
+
+  return empty;
+};
+
+const getGalleryFormatType = (value) => {
+  const format = String(value || "").trim().toLowerCase();
+
+  if (["16:9", "16-9", "wide", "landscape"].includes(format)) {
+    return "landscape";
+  }
+
+  return "portrait";
+};
+
+const getSupabaseImagePreviewUrl = (imageUrl, options = {}) => {
+  const url = String(imageUrl || "").trim();
+
+  if (!url || !url.includes("/storage/v1/object/public/")) {
+    return url;
+  }
+
+  try {
+    const transformUrl = new URL(url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/"));
+    const width = options.width || 1200;
+    const quality = options.quality || 72;
+
+    transformUrl.searchParams.set("width", String(width));
+    transformUrl.searchParams.set("quality", String(quality));
+    transformUrl.searchParams.set("resize", options.resize || "contain");
+
+    return transformUrl.toString();
+  } catch {
+    return url;
+  }
+};
+
+const setImageSourceWithFallback = (image, src, fallbackSrc) => {
+  if (!image || !src) return;
+
+  if (fallbackSrc && src !== fallbackSrc && !image.dataset.fallbackReady) {
+    image.dataset.fallbackReady = "true";
+    image.addEventListener("error", () => {
+      if (image.dataset.fallbackSrc && image.src !== image.dataset.fallbackSrc) {
+        image.src = image.dataset.fallbackSrc;
+      }
+    });
+  }
+
+  if (fallbackSrc) {
+    image.dataset.fallbackSrc = fallbackSrc;
+  }
+
+  image.src = src;
+};
+
+const fetchSupabaseRows = async (tableName, order) => {
+  if (!isSupabaseConfigured()) return [];
+
+  const config = getSupabaseConfig();
+  const baseUrl = config.url.replace(/\/$/, "");
+  const url = new URL(`${baseUrl}/rest/v1/${tableName}`);
+
+  url.searchParams.set("select", "*");
+  if (order) {
+    url.searchParams.set("order", order);
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${config.anonKey}`
+    }
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(detail || "Supabase request failed");
+
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};
+
+const loadPublicMedia = async () => {
+  const tables = getSupabaseConfig().tables || {};
+  const [gallery, videos] = await Promise.all([
+    fetchSupabaseRows(tables.gallery || "gallery_items", "sort_order.asc.nullslast,created_at.desc"),
+    fetchSupabaseRows(tables.videos || "portfolio_videos", "sort_order.asc.nullslast,created_at.desc")
+  ]);
+
+  return { gallery, videos };
+};
+
+const createGalleryItem = (item) => {
+  const imageUrl = String(item.image_url || "").trim();
+
+  if (!imageUrl) return null;
+
+  const formatType = getGalleryFormatType(item.placement);
+  const title = item.title || item.file_name || "Gallery image";
+  const link = document.createElement("a");
+  const image = document.createElement("img");
+  const previewWidth = formatType === "landscape" ? 1600 : 900;
+  const previewUrl = getSupabaseImagePreviewUrl(imageUrl, {
+    width: previewWidth,
+    quality: 72
+  });
+
+  link.className = `gallery-strip__item gallery-strip__item--${formatType}`;
+  link.href = imageUrl;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.setAttribute("aria-label", title);
+
+  image.dataset.src = previewUrl;
+  image.dataset.fallbackSrc = imageUrl;
+  image.alt = item.alt_text || title;
+  image.loading = "lazy";
+  image.decoding = "async";
+  image.width = previewWidth;
+  image.height = formatType === "landscape" ? 900 : 1600;
+
+  link.append(image);
+
+  return link;
+};
+
+const loadGalleryImage = (item) => {
+  const image = item.querySelector("img[data-src]");
+
+  if (!image) return;
+
+  setImageSourceWithFallback(image, image.dataset.src, image.dataset.fallbackSrc);
+  image.removeAttribute("data-src");
+};
+
+const renderGallery = (items) => {
+  if (!galleryStrips.length || !galleryStage) return;
+
+  const galleryItems = items.filter((item) => String(item.image_url || "").trim());
+
+  galleryStage.classList.toggle("is-empty", !galleryItems.length);
+
+  galleryStrips.forEach((strip) => {
+    const stripFormat = strip.dataset.galleryFormat || "portrait";
+    const rowItems = galleryItems.filter((item) => getGalleryFormatType(item.placement) === stripFormat);
+
+    strip.replaceChildren();
+    strip.classList.toggle("is-empty-row", !rowItems.length);
+
+    rowItems.forEach((item) => {
+      const galleryItem = createGalleryItem(item);
+
+      if (galleryItem) {
+        strip.append(galleryItem);
+      }
+    });
+  });
+
+  if (!galleryItems.length) {
+    galleryStrips[0].classList.remove("is-empty-row");
+    galleryStrips[0].append(createEmptyState("No gallery uploads yet"));
+    galleryProgress?.toggleAttribute("hidden", true);
+  }
+};
+
+const setupGalleryScroller = () => {
+  if (!galleryStrips.length || !galleryProgress) return;
+
+  const galleryProgressThumb = galleryProgress.querySelector(".gallery-progress__thumb");
   const frameMedia = window.matchMedia("(min-width: 701px)");
   const wheelThreshold = 80;
   const wheelCooldown = 140;
+  let galleryRows = [];
   let activeFrame = 0;
+  let progressPointerId = null;
   let wheelAccumulator = 0;
   let wheelDirection = 0;
   let wheelLocked = false;
   let wheelUnlockTimer;
 
-  const clampGalleryFrame = (frame) => Math.max(0, Math.min(frame, maxFrame));
-  const shouldUseGalleryFrames = () => frameMedia.matches && maxFrame > 0;
+  const buildGalleryRows = () => {
+    galleryRows = galleryStrips
+      .map((strip) => {
+        const items = Array.from(strip.querySelectorAll(".gallery-strip__item"));
+        const visibleCount = Math.max(1, Number.parseInt(strip.dataset.visibleCount || "5", 10));
 
-  const getGalleryWheelDelta = (event) => {
-    const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-
-    if (event.deltaMode === 1) return rawDelta * 16;
-    if (event.deltaMode === 2) return rawDelta * window.innerWidth;
-
-    return rawDelta;
+        return {
+          strip,
+          items,
+          visibleCount,
+          maxFrame: Math.max(0, items.length - visibleCount)
+        };
+      })
+      .filter(({ items }) => items.length);
   };
 
-  const setGallerySwitching = (isSwitching) => {
-    galleryRows.forEach(({ strip }) => {
-      strip.classList.toggle("is-switching", isSwitching);
-    });
-  };
+  const maxFrame = () => galleryRows.reduce((max, row) => Math.max(max, row.maxFrame), 0);
+  const clampGalleryFrame = (frame) => Math.max(0, Math.min(frame, maxFrame()));
+  const shouldUseGalleryFrames = () => frameMedia.matches && maxFrame() > 0;
 
   const updateGalleryProgressA11y = () => {
-    if (!galleryProgress) return;
+    const frameMax = maxFrame();
 
-    galleryProgress.setAttribute("aria-valuemax", String(maxFrame));
+    galleryProgress.setAttribute("aria-valuemax", String(frameMax));
     galleryProgress.setAttribute("aria-valuenow", String(activeFrame));
-    galleryProgress.setAttribute("aria-valuetext", `${activeFrame + 1} of ${maxFrame + 1}`);
+    galleryProgress.setAttribute("aria-valuetext", `${activeFrame + 1} of ${frameMax + 1}`);
   };
 
-  const getGalleryFrameFromProgress = (clientX) => {
-    if (!galleryProgress) return activeFrame;
+  const updateGalleryProgressThumb = () => {
+    const largestRow = galleryRows.reduce((best, row) => (
+      row.items.length > best.items.length ? row : best
+    ), { items: [], visibleCount: 1 });
+    const thumbRatio = largestRow.items.length
+      ? Math.max(0.12, Math.min(largestRow.visibleCount / largestRow.items.length, 1))
+      : 1;
 
-    const progressRect = galleryProgress.getBoundingClientRect();
-    const thumbWidth = galleryProgressThumb?.getBoundingClientRect().width || 0;
-    const range = Math.max(1, progressRect.width - thumbWidth);
-    const minX = progressRect.left + thumbWidth / 2;
-    const progress = Math.max(0, Math.min((clientX - minX) / range, 1));
-
-    return clampGalleryFrame(Math.round(progress * maxFrame));
+    galleryProgress.style.setProperty("--gallery-progress-size", `${thumbRatio * 100}%`);
   };
 
   const renderGalleryFrame = (frame = activeFrame) => {
+    const frameMax = maxFrame();
     const shouldUseFrameMode = shouldUseGalleryFrames();
 
     activeFrame = clampGalleryFrame(frame);
-    galleryProgress?.toggleAttribute("hidden", !shouldUseFrameMode);
-    galleryProgress?.style.setProperty(
+    galleryProgress.toggleAttribute("hidden", !shouldUseFrameMode);
+    galleryProgress.style.setProperty(
       "--gallery-progress",
-      String(maxFrame > 0 ? activeFrame / maxFrame : 0)
+      String(frameMax > 0 ? activeFrame / frameMax : 0)
     );
+    updateGalleryProgressThumb();
     updateGalleryProgressA11y();
 
     galleryRows.forEach(({ strip, items, visibleCount, maxFrame: rowMaxFrame }) => {
@@ -205,6 +371,11 @@ if (galleryStrips.length) {
 
       items.forEach((item, index) => {
         const isVisible = !shouldUseFrameMode || (index >= rowFrame && index < rowFrame + visibleCount);
+        const shouldPreload = !shouldUseFrameMode || (index >= rowFrame - 1 && index < rowFrame + visibleCount + 1);
+
+        if (shouldPreload) {
+          loadGalleryImage(item);
+        }
 
         item.hidden = !isVisible;
         item.setAttribute("aria-hidden", String(!isVisible));
@@ -212,13 +383,29 @@ if (galleryStrips.length) {
     });
   };
 
-  const canMoveGallery = (direction) => (
-    direction > 0 ? activeFrame < maxFrame : activeFrame > 0
-  );
+  const getGalleryFrameFromProgress = (clientX) => {
+    const progressRect = galleryProgress.getBoundingClientRect();
+    const thumbWidth = galleryProgressThumb?.getBoundingClientRect().width || 0;
+    const range = Math.max(1, progressRect.width - thumbWidth);
+    const minX = progressRect.left + thumbWidth / 2;
+    const progress = Math.max(0, Math.min((clientX - minX) / range, 1));
+
+    return clampGalleryFrame(Math.round(progress * maxFrame()));
+  };
+
+  const setGallerySwitching = (isSwitching) => {
+    galleryRows.forEach(({ strip }) => {
+      strip.classList.toggle("is-switching", isSwitching);
+    });
+  };
 
   const switchGalleryFrame = (frame) => {
+    const nextFrame = clampGalleryFrame(frame);
+
+    if (nextFrame === activeFrame) return;
+
     setGallerySwitching(true);
-    renderGalleryFrame(frame);
+    renderGalleryFrame(nextFrame);
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
@@ -226,6 +413,10 @@ if (galleryStrips.length) {
       });
     });
   };
+
+  const canMoveGallery = (direction) => (
+    direction > 0 ? activeFrame < maxFrame() : activeFrame > 0
+  );
 
   const queueWheelUnlock = () => {
     window.clearTimeout(wheelUnlockTimer);
@@ -237,16 +428,21 @@ if (galleryStrips.length) {
     }, wheelCooldown);
   };
 
+  const getGalleryWheelDelta = (event) => {
+    const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+
+    if (event.deltaMode === 1) return rawDelta * 16;
+    if (event.deltaMode === 2) return rawDelta * window.innerWidth;
+
+    return rawDelta;
+  };
+
   const handleGalleryWheel = (event) => {
-    if (!shouldUseGalleryFrames()) {
-      return;
-    }
+    if (!shouldUseGalleryFrames()) return;
 
     const delta = getGalleryWheelDelta(event);
 
-    if (delta === 0) {
-      return;
-    }
+    if (delta === 0) return;
 
     const direction = delta > 0 ? 1 : -1;
 
@@ -259,9 +455,7 @@ if (galleryStrips.length) {
     event.preventDefault();
     event.stopPropagation();
 
-    if (wheelLocked) {
-      return;
-    }
+    if (wheelLocked) return;
 
     if (wheelDirection !== direction) {
       wheelDirection = direction;
@@ -270,32 +464,24 @@ if (galleryStrips.length) {
 
     wheelAccumulator += Math.abs(delta);
 
-    if (wheelAccumulator < wheelThreshold) {
-      return;
-    }
+    if (wheelAccumulator < wheelThreshold) return;
 
-    switchGalleryFrame(activeFrame + direction * frameStep);
+    switchGalleryFrame(activeFrame + direction);
     wheelAccumulator = 0;
     wheelLocked = true;
     queueWheelUnlock();
   };
-
-  galleryRows.forEach(({ strip }) => {
-    strip.addEventListener("wheel", handleGalleryWheel, { passive: false });
-  });
 
   const renderGalleryFromProgressPointer = (event) => {
     if (!shouldUseGalleryFrames()) return;
 
     event.preventDefault();
     event.stopPropagation();
-    renderGalleryFrame(getGalleryFrameFromProgress(event.clientX));
+    switchGalleryFrame(getGalleryFrameFromProgress(event.clientX));
   };
 
   const stopGalleryProgressDrag = (event) => {
-    if (!galleryProgress || progressPointerId === null || progressPointerId !== event.pointerId) {
-      return;
-    }
+    if (progressPointerId === null || progressPointerId !== event.pointerId) return;
 
     if (typeof galleryProgress.hasPointerCapture === "function" && galleryProgress.hasPointerCapture(event.pointerId)) {
       galleryProgress.releasePointerCapture(event.pointerId);
@@ -306,12 +492,14 @@ if (galleryStrips.length) {
     document.body.classList.remove("is-gallery-progress-dragging");
   };
 
-  let progressPointerId = null;
+  buildGalleryRows();
 
-  galleryProgress?.addEventListener("pointerdown", (event) => {
-    if (!shouldUseGalleryFrames() || (event.pointerType === "mouse" && event.button !== 0)) {
-      return;
-    }
+  galleryRows.forEach(({ strip }) => {
+    strip.addEventListener("wheel", handleGalleryWheel, { passive: false });
+  });
+
+  galleryProgress.addEventListener("pointerdown", (event) => {
+    if (!shouldUseGalleryFrames() || (event.pointerType === "mouse" && event.button !== 0)) return;
 
     progressPointerId = event.pointerId;
     galleryProgress.classList.add("is-dragging");
@@ -320,28 +508,28 @@ if (galleryStrips.length) {
     renderGalleryFromProgressPointer(event);
   });
 
-  galleryProgress?.addEventListener("pointermove", (event) => {
+  galleryProgress.addEventListener("pointermove", (event) => {
     if (progressPointerId !== event.pointerId) return;
 
     renderGalleryFromProgressPointer(event);
   });
 
-  galleryProgress?.addEventListener("pointerup", stopGalleryProgressDrag);
-  galleryProgress?.addEventListener("pointercancel", stopGalleryProgressDrag);
+  galleryProgress.addEventListener("pointerup", stopGalleryProgressDrag);
+  galleryProgress.addEventListener("pointercancel", stopGalleryProgressDrag);
 
-  galleryProgress?.addEventListener("keydown", (event) => {
+  galleryProgress.addEventListener("keydown", (event) => {
     if (!shouldUseGalleryFrames()) return;
 
     let nextFrame = activeFrame;
 
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
-      nextFrame = activeFrame - frameStep;
+      nextFrame = activeFrame - 1;
     } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
-      nextFrame = activeFrame + frameStep;
+      nextFrame = activeFrame + 1;
     } else if (event.key === "Home") {
       nextFrame = 0;
     } else if (event.key === "End") {
-      nextFrame = maxFrame;
+      nextFrame = maxFrame();
     } else {
       return;
     }
@@ -356,99 +544,130 @@ if (galleryStrips.length) {
     frameMedia.addListener(() => renderGalleryFrame());
   }
 
+  window.addEventListener("resize", () => renderGalleryFrame(), { passive: true });
   renderGalleryFrame(0);
-}
+};
 
-if (portfolioThumbs.length) {
-  const portfolioPlaceholderGif = "assets/img/portfolio_placeholder_test.gif";
-  const gifFadeDuration = 490;
-  const stopTimers = new WeakMap();
-  const posterCache = new Map();
+const getPortfolioHref = (url) => {
+  const cleanUrl = String(url || "").trim();
 
-  const getGifPoster = (gifSrc) => {
-    if (posterCache.has(gifSrc)) {
-      return posterCache.get(gifSrc);
+  if (!cleanUrl) return "";
+  if (/^https?:\/\//i.test(cleanUrl)) return cleanUrl;
+
+  return `https://vimeo.com/${encodeURIComponent(cleanUrl)}`;
+};
+
+const gifFadeDuration = 490;
+const stopTimers = new WeakMap();
+
+const setupPortfolioGif = (card, thumb, gifSrc) => {
+  if (!gifSrc) return;
+
+  const image = document.createElement("img");
+
+  image.className = "portfolio-gif";
+  image.alt = "";
+  image.decoding = "async";
+  thumb.append(image);
+
+  const playGif = () => {
+    window.clearTimeout(stopTimers.get(image));
+
+    if (!image.getAttribute("src")) {
+      image.setAttribute("src", gifSrc);
     }
 
-    const posterPromise = new Promise((resolve, reject) => {
-      const source = new Image();
-
-      source.addEventListener("load", () => {
-        const canvas = document.createElement("canvas");
-        const width = source.naturalWidth || 1;
-        const height = source.naturalHeight || 1;
-        const context = canvas.getContext("2d");
-
-        if (!context) {
-          reject(new Error("Canvas is unavailable"));
-          return;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        context.drawImage(source, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/png"));
-      });
-
-      source.addEventListener("error", reject);
-      source.src = gifSrc;
+    window.requestAnimationFrame(() => {
+      image.classList.add("is-playing");
     });
-
-    posterCache.set(gifSrc, posterPromise);
-
-    return posterPromise;
   };
 
-  portfolioThumbs.forEach((thumb) => {
-    const card = thumb.closest(".card");
-    const poster = document.createElement("img");
-    const image = document.createElement("img");
+  const pauseGif = () => {
+    image.classList.remove("is-playing");
 
-    if (!card) return;
+    const timer = window.setTimeout(() => {
+      image.removeAttribute("src");
+    }, gifFadeDuration);
 
-    const gifSrc = thumb.dataset.gif || card.dataset.gif || portfolioPlaceholderGif;
+    stopTimers.set(image, timer);
+  };
 
-    poster.className = "portfolio-poster";
-    poster.alt = "";
-    poster.decoding = "async";
-    image.className = "portfolio-gif";
-    image.alt = "";
-    image.decoding = "async";
-    thumb.append(poster, image);
+  card.addEventListener("pointerenter", playGif);
+  card.addEventListener("pointerleave", pauseGif);
+  card.addEventListener("focusin", playGif);
+  card.addEventListener("focusout", pauseGif);
+};
 
-    getGifPoster(gifSrc)
-      .then((posterSrc) => {
-        poster.setAttribute("src", posterSrc);
-      })
-      .catch(() => {});
+const renderPortfolio = (videos) => {
+  if (!portfolioGrid) return;
 
-    const playGif = () => {
-      window.clearTimeout(stopTimers.get(image));
+  portfolioGrid.replaceChildren();
+  portfolioGrid.classList.toggle("is-empty", !videos.length);
 
-      if (!image.getAttribute("src")) {
-        image.setAttribute("src", gifSrc);
-      }
+  if (!videos.length) {
+    portfolioGrid.append(createEmptyState("No portfolio uploads yet"));
+    return;
+  }
 
-      window.requestAnimationFrame(() => {
-        image.classList.add("is-playing");
+  videos.forEach((video) => {
+    const card = document.createElement("article");
+    const body = document.createElement("div");
+    const title = document.createElement("h3");
+    const thumb = document.createElement(video.vimeo_url ? "a" : "div");
+    const posterUrl = String(video.poster_url || "").trim();
+    const gifUrl = String(video.thumbnail_gif_url || "").trim();
+    const projectTitle = video.title || "Untitled project";
+    const href = getPortfolioHref(video.vimeo_url);
+
+    card.className = video.featured ? "card card--feature" : "card";
+    body.className = "card__body";
+    title.textContent = projectTitle;
+    thumb.className = "ph-thumb";
+
+    if (href && thumb instanceof HTMLAnchorElement) {
+      thumb.href = href;
+      thumb.target = "_blank";
+      thumb.rel = "noreferrer";
+      thumb.setAttribute("aria-label", projectTitle);
+    }
+
+    if (posterUrl) {
+      const poster = document.createElement("img");
+      const posterPreviewUrl = getSupabaseImagePreviewUrl(posterUrl, {
+        width: video.featured ? 1600 : 900,
+        quality: 72
       });
-    };
 
-    const pauseGif = () => {
-      image.classList.remove("is-playing");
+      poster.className = "portfolio-poster";
+      poster.alt = projectTitle;
+      poster.loading = "lazy";
+      poster.decoding = "async";
+      thumb.append(poster);
+      setImageSourceWithFallback(poster, posterPreviewUrl, posterUrl);
+    } else {
+      thumb.classList.add("ph-thumb--empty");
+    }
 
-      const timer = window.setTimeout(() => {
-        image.removeAttribute("src");
-      }, gifFadeDuration);
-
-      stopTimers.set(image, timer);
-    };
-
-    card.addEventListener("pointerenter", playGif);
-    card.addEventListener("pointerleave", pauseGif);
-    card.addEventListener("focusin", playGif);
-    card.addEventListener("focusout", pauseGif);
+    setupPortfolioGif(card, thumb, gifUrl);
+    body.append(title);
+    card.append(body, thumb);
+    portfolioGrid.append(card);
   });
+};
+
+if (galleryStrips.length || portfolioGrid) {
+  loadPublicMedia()
+    .then(({ gallery, videos }) => {
+      renderGallery(gallery);
+      renderPortfolio(videos);
+      setupGalleryScroller();
+    })
+    .catch((error) => {
+      console.error("Public media Supabase error:", error);
+      renderGallery([]);
+      renderPortfolio([]);
+      setupGalleryScroller();
+    });
 }
 
 if (tvContent && tvNoise && tvPowerButton && tvBloom) {

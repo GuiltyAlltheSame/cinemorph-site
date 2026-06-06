@@ -12,7 +12,7 @@ const state = {
   messages: [],
   gallery: [],
   videos: [],
-  pendingDeleteId: null
+  pendingDelete: null
 };
 
 const dom = {
@@ -106,18 +106,6 @@ const sanitizeFileName = (name) => String(name || "upload")
   .replace(/[^a-z0-9._-]+/g, "-")
   .replace(/^-+|-+$/g, "");
 
-const createMockImage = (label, background, foreground = "#e8edf1") => {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
-      <rect width="1280" height="720" fill="${background}"/>
-      <path d="M0 560 280 360 440 480 660 260 1280 650v70H0z" fill="rgba(255,255,255,.14)"/>
-      <text x="64" y="112" fill="${foreground}" font-family="Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="4">${label}</text>
-    </svg>
-  `;
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-};
-
 const galleryFormats = {
   "9:16": {
     label: "9:16",
@@ -151,6 +139,89 @@ const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+const imageUploadDefaults = {
+  galleryMaxLongEdge: 1800,
+  posterMaxLongEdge: 1600,
+  quality: 0.82
+};
+
+const getOptimizedFileName = (fileName, extension = "webp") => {
+  const cleanName = String(fileName || "upload").replace(/\.[^.]+$/, "");
+
+  return `${cleanName || "upload"}.${extension}`;
+};
+
+const canOptimizeImageFile = (file) => (
+  file
+  && ["image/jpeg", "image/png", "image/webp"].includes(file.type)
+);
+
+const loadImageElement = (file) => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+
+  image.addEventListener("load", () => {
+    URL.revokeObjectURL(url);
+    resolve(image);
+  });
+
+  image.addEventListener("error", () => {
+    URL.revokeObjectURL(url);
+    reject(new Error("Could not read image for optimization"));
+  });
+
+  image.src = url;
+});
+
+const getResizedDimensions = (width, height, maxLongEdge) => {
+  const longEdge = Math.max(width, height);
+
+  if (!longEdge || longEdge <= maxLongEdge) {
+    return { width, height };
+  }
+
+  const scale = maxLongEdge / longEdge;
+
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale))
+  };
+};
+
+const canvasToBlob = (canvas, type, quality) => new Promise((resolve) => {
+  canvas.toBlob(resolve, type, quality);
+});
+
+const optimizeImageFile = async (file, options = {}) => {
+  if (!canOptimizeImageFile(file)) return file;
+
+  const image = await loadImageElement(file);
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  const maxLongEdge = options.maxLongEdge || imageUploadDefaults.galleryMaxLongEdge;
+  const quality = options.quality || imageUploadDefaults.quality;
+  const dimensions = getResizedDimensions(sourceWidth, sourceHeight, maxLongEdge);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) return file;
+
+  canvas.width = dimensions.width;
+  canvas.height = dimensions.height;
+  context.drawImage(image, 0, 0, dimensions.width, dimensions.height);
+
+  const blob = await canvasToBlob(canvas, "image/webp", quality);
+
+  if (!blob || (blob.size >= file.size && dimensions.width === sourceWidth && dimensions.height === sourceHeight)) {
+    return file;
+  }
+
+  return new File([blob], getOptimizedFileName(file.name), {
+    type: blob.type || "image/webp",
+    lastModified: Date.now()
+  });
+};
+
 const getSupabaseClient = () => {
   if (!hasSupabaseConfig()) {
     throw new Error("Supabase config is missing");
@@ -168,83 +239,9 @@ const getSupabaseClient = () => {
 };
 
 const getDefaultMockState = () => ({
-  messages: [
-    {
-      id: "msg_001",
-      name: "Jordan Miles",
-      contact: "jordan@example.com",
-      message: "We need a short launch film and a few cutdowns for social. Timeline is flexible, references are ready.",
-      is_read: false,
-      archived_at: null,
-      created_at: new Date(Date.now() - 1000 * 60 * 42).toISOString()
-    },
-    {
-      id: "msg_002",
-      name: "Mina Park",
-      contact: "+1 360 555 0142",
-      message: "Can you help with a moody product shoot next month?",
-      is_read: true,
-      archived_at: null,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString()
-    },
-    {
-      id: "msg_003",
-      name: "Alex Rivera",
-      contact: "alex.rivera@example.com",
-      message: "Looking for editing and color for a music video. We have rough footage and a locked track.",
-      is_read: false,
-      archived_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString()
-    }
-  ],
-  gallery: [
-    {
-      id: "gal_001",
-      title: "16:9 still",
-      alt_text: "16:9 gallery placeholder",
-      placement: "16:9",
-      image_url: createMockImage("16:9 STILL", "#18222b"),
-      file_name: "mock-16-9.svg",
-      sort_order: 1,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString()
-    },
-    {
-      id: "gal_002",
-      title: "9:16 still",
-      alt_text: "9:16 gallery placeholder",
-      placement: "9:16",
-      image_url: createMockImage("9:16 STILL", "#211b24"),
-      file_name: "mock-9-16.svg",
-      sort_order: 2,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString()
-    }
-  ],
-  videos: [
-    {
-      id: "vid_001",
-      title: "Featured reel",
-      vimeo_url: "https://vimeo.com/123456789",
-      featured: true,
-      thumbnail_gif_url: "",
-      poster_url: "",
-      thumbnail_gif_file_name: "",
-      poster_file_name: "",
-      sort_order: 1,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString()
-    },
-    {
-      id: "vid_002",
-      title: "Poster only test",
-      vimeo_url: "https://vimeo.com/987654321",
-      featured: false,
-      thumbnail_gif_url: "",
-      poster_url: createMockImage("POSTER", "#14231d"),
-      thumbnail_gif_file_name: "",
-      poster_file_name: "mock-poster.svg",
-      sort_order: 2,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
-    }
-  ]
+  messages: [],
+  gallery: [],
+  videos: []
 });
 
 const loadMockState = () => {
@@ -291,6 +288,63 @@ const uploadSupabaseFile = async (bucket, folder, file) => {
     path,
     publicUrl: data.publicUrl
   };
+};
+
+const getSupabaseStoragePathFromUrl = (fileUrl, bucket) => {
+  const cleanUrl = String(fileUrl || "").trim();
+
+  if (!cleanUrl || !bucket) return "";
+
+  try {
+    const url = new URL(cleanUrl);
+    const pathMarkers = [
+      `/storage/v1/object/public/${bucket}/`,
+      `/storage/v1/render/image/public/${bucket}/`
+    ];
+    const marker = pathMarkers.find((item) => url.pathname.includes(item));
+
+    if (!marker) return "";
+
+    return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
+  } catch {
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const path = cleanUrl.split(marker)[1] || "";
+
+    return decodeURIComponent(path.split("?")[0] || "").replace(/^\/+/, "");
+  }
+};
+
+const removeSupabaseFiles = async (bucket, paths) => {
+  const cleanPaths = Array.from(new Set(
+    paths
+      .map((path) => String(path || "").trim().replace(/^\/+/, ""))
+      .filter(Boolean)
+  ));
+
+  if (!bucket) {
+    throw new Error("Storage bucket is missing");
+  }
+
+  if (!cleanPaths.length) {
+    throw new Error("Storage file path is missing");
+  }
+
+  console.info("Deleting Supabase storage files", { bucket, paths: cleanPaths });
+
+  const { data, error } = await getSupabaseClient()
+    .storage
+    .from(bucket)
+    .remove(cleanPaths);
+
+  if (error) throw error;
+
+  console.info("Deleted Supabase storage files", { bucket, paths: cleanPaths, deleted: data });
+
+  if (Array.isArray(data) && data.length < cleanPaths.length) {
+    throw new Error(`Storage file was not deleted: ${cleanPaths.join(", ")}`);
+  }
+
+  return data || [];
 };
 
 const service = {
@@ -406,14 +460,86 @@ const service = {
     state.messages = state.messages.filter((item) => item.id !== id);
   },
 
-  async createGalleryItem(payload, file) {
+  async deleteGalleryItem(id) {
+    const item = state.gallery.find((galleryItem) => galleryItem.id === id);
+
+    if (!item) return;
+
     if (isMockMode()) {
-      const imageUrl = await readFileAsDataUrl(file);
+      state.gallery = state.gallery.filter((galleryItem) => galleryItem.id !== id);
+      saveMockState();
+      return;
+    }
+
+    const bucket = item.storage_bucket || config.supabase.storage.galleryBucket;
+    const imagePath = item.storage_path || getSupabaseStoragePathFromUrl(item.image_url, bucket);
+
+    if (!imagePath) {
+      throw new Error("Gallery image storage path is missing");
+    }
+
+    await removeSupabaseFiles(bucket, [imagePath]);
+
+    const { error } = await getSupabaseClient()
+      .from(config.supabase.tables.gallery)
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    state.gallery = state.gallery.filter((galleryItem) => galleryItem.id !== id);
+  },
+
+  async deleteVideoItem(id) {
+    const item = state.videos.find((videoItem) => videoItem.id === id);
+
+    if (!item) return;
+
+    if (isMockMode()) {
+      state.videos = state.videos.filter((videoItem) => videoItem.id !== id);
+      saveMockState();
+      return;
+    }
+
+    const bucket = config.supabase.storage.videoBucket;
+    const gifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
+    const posterPath = item.poster_storage_path || getSupabaseStoragePathFromUrl(item.poster_url, bucket);
+
+    if (item.thumbnail_gif_url && !gifPath) {
+      throw new Error("Video GIF storage path is missing");
+    }
+
+    if (item.poster_url && !posterPath) {
+      throw new Error("Video poster storage path is missing");
+    }
+
+    if (gifPath || posterPath) {
+      await removeSupabaseFiles(bucket, [gifPath, posterPath]);
+    }
+
+    const { error } = await getSupabaseClient()
+      .from(config.supabase.tables.videos)
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    state.videos = state.videos.filter((videoItem) => videoItem.id !== id);
+  },
+
+  async createGalleryItem(payload, file) {
+    const uploadFile = await optimizeImageFile(file, {
+      maxLongEdge: imageUploadDefaults.galleryMaxLongEdge,
+      quality: imageUploadDefaults.quality
+    });
+
+    if (isMockMode()) {
+      const imageUrl = await readFileAsDataUrl(uploadFile);
       const item = {
         id: createId("gal"),
         ...payload,
         image_url: imageUrl,
-        file_name: file.name,
+        file_name: uploadFile.name,
         created_at: new Date().toISOString()
       };
 
@@ -423,13 +549,13 @@ const service = {
     }
 
     const bucket = config.supabase.storage.galleryBucket;
-    const upload = await uploadSupabaseFile(bucket, getGalleryFormat(payload.placement).storageFolder, file);
+    const upload = await uploadSupabaseFile(bucket, getGalleryFormat(payload.placement).storageFolder, uploadFile);
     const item = {
       ...payload,
       image_url: upload.publicUrl,
       storage_bucket: bucket,
       storage_path: upload.path,
-      file_name: file.name
+      file_name: uploadFile.name
     };
     const { data, error } = await getSupabaseClient()
       .from(config.supabase.tables.gallery)
@@ -444,16 +570,26 @@ const service = {
   },
 
   async createVideoItem(payload, files) {
+    const uploadFiles = {
+      thumbnailGif: files.thumbnailGif,
+      poster: files.poster
+        ? await optimizeImageFile(files.poster, {
+            maxLongEdge: imageUploadDefaults.posterMaxLongEdge,
+            quality: imageUploadDefaults.quality
+          })
+        : null
+    };
+
     if (isMockMode()) {
-      const thumbnailGifUrl = files.thumbnailGif ? await readFileAsDataUrl(files.thumbnailGif) : "";
-      const posterUrl = files.poster ? await readFileAsDataUrl(files.poster) : "";
+      const thumbnailGifUrl = uploadFiles.thumbnailGif ? await readFileAsDataUrl(uploadFiles.thumbnailGif) : "";
+      const posterUrl = uploadFiles.poster ? await readFileAsDataUrl(uploadFiles.poster) : "";
       const item = {
         id: createId("vid"),
         ...payload,
         thumbnail_gif_url: thumbnailGifUrl,
         poster_url: posterUrl,
-        thumbnail_gif_file_name: files.thumbnailGif?.name || "",
-        poster_file_name: files.poster?.name || "",
+        thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
+        poster_file_name: uploadFiles.poster?.name || "",
         created_at: new Date().toISOString()
       };
 
@@ -463,16 +599,16 @@ const service = {
     }
 
     const bucket = config.supabase.storage.videoBucket;
-    const gifUpload = files.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", files.thumbnailGif) : null;
-    const posterUpload = files.poster ? await uploadSupabaseFile(bucket, "posters", files.poster) : null;
+    const gifUpload = uploadFiles.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif) : null;
+    const posterUpload = uploadFiles.poster ? await uploadSupabaseFile(bucket, "posters", uploadFiles.poster) : null;
     const item = {
       ...payload,
       thumbnail_gif_url: gifUpload?.publicUrl || "",
       thumbnail_gif_storage_path: gifUpload?.path || "",
-      thumbnail_gif_file_name: files.thumbnailGif?.name || "",
+      thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
       poster_url: posterUpload?.publicUrl || "",
       poster_storage_path: posterUpload?.path || "",
-      poster_file_name: files.poster?.name || ""
+      poster_file_name: uploadFiles.poster?.name || ""
     };
     const { data, error } = await getSupabaseClient()
       .from(config.supabase.tables.videos)
@@ -562,9 +698,14 @@ const renderGallery = () => {
       </div>
       <div class="media-card__body">
         <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
-        <div class="media-card__meta">
-          <span class="pill">${escapeHtml(getGalleryPlacementLabel(item.placement))}</span>
-          <span class="pill">Order ${escapeHtml(item.sort_order ?? 0)}</span>
+        <div class="media-card__bottom">
+          <div class="media-card__meta">
+            <span class="pill">${escapeHtml(getGalleryPlacementLabel(item.placement))}</span>
+            <span class="pill">Order ${escapeHtml(item.sort_order ?? 0)}</span>
+          </div>
+          <button class="icon-button media-card__delete" type="button" data-delete-gallery="${escapeHtml(item.id)}" title="Delete image" aria-label="Delete image">
+            <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+          </button>
         </div>
       </div>
     </article>
@@ -602,11 +743,16 @@ const renderVideos = () => {
         </a>
         <div class="media-card__body">
           <h3>${escapeHtml(video.title)}</h3>
-          <div class="media-card__meta">
-            ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
-            ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
-            ${video.poster_url ? `<span class="pill">Poster</span>` : ""}
-            ${!video.thumbnail_gif_url && !video.poster_url ? `<span class="pill">No image</span>` : ""}
+          <div class="media-card__bottom">
+            <div class="media-card__meta">
+              ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
+              ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
+              ${video.poster_url ? `<span class="pill">Poster</span>` : ""}
+              ${!video.thumbnail_gif_url && !video.poster_url ? `<span class="pill">No image</span>` : ""}
+            </div>
+            <button class="icon-button media-card__delete" type="button" data-delete-video="${escapeHtml(video.id)}" title="Delete video" aria-label="Delete video">
+              <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+            </button>
           </div>
         </div>
       </article>
@@ -710,22 +856,81 @@ const updateVideoPreview = () => {
   `;
 };
 
-const openDeleteModal = (id) => {
-  const message = state.messages.find((item) => item.id === id);
+const getDeleteContext = (type, id) => {
+  if (type === "message") {
+    const message = state.messages.find((item) => item.id === id);
 
-  if (!message || !dom.deleteModal) return;
+    if (!message) return null;
 
-  state.pendingDeleteId = id;
+    return {
+      title: "Delete message?",
+      description: `${message.name} - ${message.contact}`,
+      permanentLabel: "Delete permanently",
+      canArchive: true
+    };
+  }
+
+  if (type === "gallery") {
+    const item = state.gallery.find((galleryItem) => galleryItem.id === id);
+
+    if (!item) return null;
+
+    return {
+      title: "Delete image?",
+      description: item.title || item.file_name || "Untitled image",
+      permanentLabel: "Delete image",
+      canArchive: false
+    };
+  }
+
+  if (type === "video") {
+    const item = state.videos.find((videoItem) => videoItem.id === id);
+
+    if (!item) return null;
+
+    return {
+      title: "Delete video?",
+      description: item.title || item.vimeo_url || "Untitled video",
+      permanentLabel: "Delete video",
+      canArchive: false
+    };
+  }
+
+  return null;
+};
+
+const openDeleteModal = (type, id) => {
+  const context = getDeleteContext(type, id);
+
+  if (!context || !dom.deleteModal) return;
+
+  state.pendingDelete = { type, id };
+
+  const title = dom.deleteModal.querySelector("[data-delete-title]");
+  const archiveButton = dom.deleteModal.querySelector("[data-delete-action='archive']");
+  const permanentLabel = dom.deleteModal.querySelector("[data-delete-action='permanent'] span");
+
+  if (title) {
+    title.textContent = context.title;
+  }
 
   if (dom.deleteMessageTitle) {
-    dom.deleteMessageTitle.textContent = `${message.name} - ${message.contact}`;
+    dom.deleteMessageTitle.textContent = context.description;
+  }
+
+  if (archiveButton) {
+    archiveButton.hidden = !context.canArchive;
+  }
+
+  if (permanentLabel) {
+    permanentLabel.textContent = context.permanentLabel;
   }
 
   dom.deleteModal.hidden = false;
 };
 
 const closeDeleteModal = () => {
-  state.pendingDeleteId = null;
+  state.pendingDelete = null;
 
   if (dom.deleteModal) {
     dom.deleteModal.hidden = true;
@@ -803,7 +1008,23 @@ dom.messageList?.addEventListener("click", async (event) => {
   }
 
   if (deleteButton) {
-    openDeleteModal(deleteButton.dataset.deleteMessage);
+    openDeleteModal("message", deleteButton.dataset.deleteMessage);
+  }
+});
+
+dom.galleryList?.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-gallery]");
+
+  if (deleteButton) {
+    openDeleteModal("gallery", deleteButton.dataset.deleteGallery);
+  }
+});
+
+dom.videoList?.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-video]");
+
+  if (deleteButton) {
+    openDeleteModal("video", deleteButton.dataset.deleteVideo);
   }
 });
 
@@ -816,21 +1037,34 @@ dom.deleteModal?.addEventListener("click", async (event) => {
     return;
   }
 
-  if (!actionButton || !state.pendingDeleteId) return;
+  if (!actionButton || !state.pendingDelete) return;
+
+  const { type, id } = state.pendingDelete;
 
   try {
     if (actionButton.dataset.deleteAction === "archive") {
-      await service.archiveMessage(state.pendingDeleteId);
+      if (type !== "message") return;
+
+      await service.archiveMessage(id);
       showToast("Message archived");
     } else {
-      await service.deleteMessage(state.pendingDeleteId);
-      showToast("Message deleted permanently");
+      if (type === "message") {
+        await service.deleteMessage(id);
+        showToast("Message deleted permanently");
+      } else if (type === "gallery") {
+        await service.deleteGalleryItem(id);
+        showToast("Image deleted");
+      } else if (type === "video") {
+        await service.deleteVideoItem(id);
+        showToast("Video deleted");
+      }
     }
 
     closeDeleteModal();
-    renderMessages();
+    renderAll();
   } catch (error) {
-    showToast(error.message || "Could not delete message");
+    console.error("Admin delete error:", error);
+    showToast(error.message || "Could not delete item");
   }
 });
 

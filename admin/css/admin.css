@@ -694,6 +694,35 @@ textarea:focus {
   gap: 6px;
 }
 
+.media-card__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.media-card__delete {
+  width: 38px;
+  height: 32px;
+  border-color: rgba(255, 42, 42, .92);
+  border-width: 2px;
+  background: rgba(255, 42, 42, .025);
+  color: #ff3b35;
+}
+
+.media-card__delete .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.media-card__delete:hover,
+.media-card__delete:focus-visible {
+  border-color: rgba(255, 74, 68, 1);
+  background: rgba(255, 42, 42, .12);
+  color: #ff675f;
+  outline: 0;
+}
+
 .pill {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -784,6 +813,10 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.modal__actions [hidden] {
+  display: none;
 }
 
 @media (max-width: 980px) {
