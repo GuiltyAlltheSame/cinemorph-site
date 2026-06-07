@@ -436,7 +436,7 @@ button.admin-mode:focus-visible {
 
 .message-card {
   display: grid;
-  grid-template-columns: minmax(190px, .7fr) minmax(260px, 1.3fr) auto;
+  grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr) auto;
   align-items: stretch;
   gap: 12px;
   border: 1px solid var(--line);
@@ -481,8 +481,11 @@ button.admin-mode:focus-visible {
 }
 
 .message-text {
+  min-width: 0;
   margin: 0;
   color: rgba(232, 238, 242, .84);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message-actions {

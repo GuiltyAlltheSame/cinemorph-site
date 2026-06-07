@@ -834,6 +834,13 @@ const renderMessages = () => {
           </button>
         `
       : "";
+    const archiveButton = message.archived_at
+      ? ""
+      : `
+          <button class="icon-button" type="button" data-archive-message="${escapeHtml(message.id)}" title="Archive" aria-label="Archive">
+            <svg class="icon" aria-hidden="true"><use href="#icon-archive"></use></svg>
+          </button>
+        `;
 
     return `
       <article class="message-card ${message.is_read ? "is-read" : ""} ${message.archived_at ? "is-archived" : ""}">
@@ -847,6 +854,7 @@ const renderMessages = () => {
           <button class="icon-button" type="button" data-toggle-read="${escapeHtml(message.id)}" title="${readLabel}" aria-label="${readLabel}">
             <svg class="icon" aria-hidden="true"><use href="#${readIcon}"></use></svg>
           </button>
+          ${archiveButton}
           ${restoreButton}
           <button class="icon-button" type="button" data-delete-message="${escapeHtml(message.id)}" title="Delete" aria-label="Delete">
             <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
@@ -1148,7 +1156,7 @@ const getDeleteContext = (type, id) => {
       title: "Delete message?",
       description: `${message.name} - ${message.contact}`,
       permanentLabel: "Delete permanently",
-      canArchive: true
+      canArchive: !message.archived_at
     };
   }
 
@@ -1296,6 +1304,7 @@ dom.messageFilters?.addEventListener("click", (event) => {
 
 dom.messageList?.addEventListener("click", async (event) => {
   const readButton = event.target.closest("[data-toggle-read]");
+  const archiveButton = event.target.closest("[data-archive-message]");
   const restoreButton = event.target.closest("[data-restore-message]");
   const deleteButton = event.target.closest("[data-delete-message]");
 
@@ -1306,6 +1315,20 @@ dom.messageList?.addEventListener("click", async (event) => {
     } catch (error) {
       showToast(error.message || "Could not update message");
     }
+
+    return;
+  }
+
+  if (archiveButton) {
+    try {
+      await service.archiveMessage(archiveButton.dataset.archiveMessage);
+      renderMessages();
+      showToast("Message archived");
+    } catch (error) {
+      showToast(error.message || "Could not archive message");
+    }
+
+    return;
   }
 
   if (restoreButton) {
@@ -1316,10 +1339,12 @@ dom.messageList?.addEventListener("click", async (event) => {
     } catch (error) {
       showToast(error.message || "Could not restore message");
     }
+
+    return;
   }
 
   if (deleteButton) {
-    await deleteItemImmediately("message", deleteButton.dataset.deleteMessage);
+    openDeleteModal("message", deleteButton.dataset.deleteMessage);
   }
 });
 
