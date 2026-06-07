@@ -1,5 +1,4 @@
 const config = window.CINEMORPH_ADMIN_CONFIG || {};
-const storageKey = "cinemorph-admin-mock-state-v1";
 const panelTitles = {
   messages: "Messages",
   gallery: "Gallery",
@@ -11,22 +10,35 @@ const state = {
   messageFilter: "active",
   messages: [],
   gallery: [],
+  galleryFocus: {
+    x: 50,
+    y: 50
+  },
   videos: [],
   pendingDelete: null
 };
 
 const dom = {
   mode: document.querySelector("[data-admin-mode]"),
-  mockMode: document.querySelector("[data-mock-mode]"),
   panelTitle: document.querySelector("[data-panel-title]"),
   navItems: Array.from(document.querySelectorAll("[data-panel-target]")),
   panels: Array.from(document.querySelectorAll("[data-panel]")),
   refresh: document.querySelector("[data-refresh]"),
   messageCount: document.querySelector("[data-message-count]"),
+  videoTotal: document.querySelector("[data-video-total]"),
+  photoTotal: document.querySelector("[data-photo-total]"),
+  watcherOpen: document.querySelector("[data-watcher-open]"),
+  watcherModal: document.querySelector("[data-watcher-modal]"),
+  watcherSummary: document.querySelector("[data-watcher-summary]"),
+  watcherList: document.querySelector("[data-watcher-list]"),
   messageFilters: document.querySelector("[data-message-filters]"),
   messageList: document.querySelector("[data-message-list]"),
   galleryForm: document.querySelector("[data-gallery-form]"),
   galleryPreview: document.querySelector("[data-gallery-preview]"),
+  galleryFocusPanel: document.querySelector("[data-gallery-focus-panel]"),
+  galleryFocusPreview: document.querySelector("[data-gallery-focus-preview]"),
+  galleryFocusReadout: document.querySelector("[data-gallery-focus-readout]"),
+  galleryFocusReset: document.querySelector("[data-gallery-focus-reset]"),
   galleryList: document.querySelector("[data-gallery-list]"),
   videoForm: document.querySelector("[data-video-form]"),
   videoPreview: document.querySelector("[data-video-preview]"),
@@ -36,31 +48,15 @@ const dom = {
   deleteMessageTitle: document.querySelector("[data-delete-message-title]")
 };
 
-const isMockMode = () => Boolean(config.useMock);
-
 const hasSupabaseConfig = () => Boolean(config.supabase?.url && config.supabase?.anonKey);
 
 const setConnectionStatus = (status, message) => {
   if (!dom.mode) return;
 
-  dom.mode.classList.remove("is-checking", "is-connected", "is-error", "is-mock");
+  dom.mode.classList.remove("is-checking", "is-connected", "is-error");
   dom.mode.classList.add(`is-${status}`);
   dom.mode.textContent = message;
   dom.mode.removeAttribute("title");
-};
-
-const setMockStatus = () => {
-  if (!dom.mockMode) return;
-
-  const isEnabled = isMockMode();
-
-  dom.mockMode.classList.toggle("is-mock-on", isEnabled);
-  dom.mockMode.classList.toggle("is-mock-off", !isEnabled);
-  dom.mockMode.textContent = isEnabled ? "Mock on" : "Mock off";
-  dom.mockMode.setAttribute(
-    "title",
-    isEnabled ? "Admin uses local mock data" : "Admin uses Supabase data"
-  );
 };
 
 const escapeHtml = (value) => String(value ?? "")
@@ -77,8 +73,6 @@ const formatDate = (value) => new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   minute: "2-digit"
 }).format(new Date(value));
-
-const createId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
 const showToast = (message) => {
   if (!dom.toast) return;
@@ -130,14 +124,60 @@ const galleryFormats = {
 };
 
 const getGalleryFormat = (placement) => galleryFormats[placement] || galleryFormats["9:16"];
+const galleryFocusDefault = { x: 50, y: 50 };
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
+const normalizeGalleryFocusValue = (value) => {
+  const number = Number.parseFloat(value);
 
-  reader.addEventListener("load", () => resolve(String(reader.result || "")));
-  reader.addEventListener("error", reject);
-  reader.readAsDataURL(file);
+  if (!Number.isFinite(number)) return 50;
+
+  return Math.max(0, Math.min(100, Math.round(number)));
+};
+
+const getGalleryFocus = (item = {}) => ({
+  x: normalizeGalleryFocusValue(item.focus_x ?? item.x ?? galleryFocusDefault.x),
+  y: normalizeGalleryFocusValue(item.focus_y ?? item.y ?? galleryFocusDefault.y)
 });
+
+const getGalleryFocusStyle = (item = {}) => {
+  const focus = getGalleryFocus(item);
+
+  return `object-position: ${focus.x}% ${focus.y}%; transform-origin: ${focus.x}% ${focus.y}%;`;
+};
+
+const syncGalleryFocusUi = () => {
+  const focus = getGalleryFocus(state.galleryFocus);
+
+  state.galleryFocus = focus;
+
+  if (dom.galleryForm?.elements.focus_x) {
+    dom.galleryForm.elements.focus_x.value = String(focus.x);
+  }
+
+  if (dom.galleryForm?.elements.focus_y) {
+    dom.galleryForm.elements.focus_y.value = String(focus.y);
+  }
+
+  if (dom.galleryFocusPanel) {
+    dom.galleryFocusPanel.style.setProperty("--focus-x", `${focus.x}%`);
+    dom.galleryFocusPanel.style.setProperty("--focus-y", `${focus.y}%`);
+  }
+
+  if (dom.galleryFocusReadout) {
+    dom.galleryFocusReadout.textContent = `X ${focus.x}% / Y ${focus.y}%`;
+  }
+};
+
+const setGalleryFocus = (nextFocus = galleryFocusDefault) => {
+  state.galleryFocus = {
+    x: normalizeGalleryFocusValue(nextFocus.x ?? state.galleryFocus.x),
+    y: normalizeGalleryFocusValue(nextFocus.y ?? state.galleryFocus.y)
+  };
+
+  syncGalleryFocusUi();
+};
+
+const resetGalleryFocus = () => setGalleryFocus(galleryFocusDefault);
 
 const imageUploadDefaults = {
   galleryMaxLongEdge: 1800,
@@ -238,40 +278,6 @@ const getSupabaseClient = () => {
   return getSupabaseClient.client;
 };
 
-const getDefaultMockState = () => ({
-  messages: [],
-  gallery: [],
-  videos: []
-});
-
-const loadMockState = () => {
-  const saved = localStorage.getItem(storageKey);
-
-  if (!saved) {
-    const defaults = getDefaultMockState();
-    localStorage.setItem(storageKey, JSON.stringify(defaults));
-    return defaults;
-  }
-
-  try {
-    return JSON.parse(saved);
-  } catch {
-    const defaults = getDefaultMockState();
-    localStorage.setItem(storageKey, JSON.stringify(defaults));
-    return defaults;
-  }
-};
-
-const saveMockState = () => {
-  if (!isMockMode()) return;
-
-  localStorage.setItem(storageKey, JSON.stringify({
-    messages: state.messages,
-    gallery: state.gallery,
-    videos: state.videos
-  }));
-};
-
 const uploadSupabaseFile = async (bucket, folder, file) => {
   const client = getSupabaseClient();
   const path = `${folder}/${Date.now()}-${sanitizeFileName(file.name)}`;
@@ -349,10 +355,6 @@ const removeSupabaseFiles = async (bucket, paths) => {
 
 const service = {
   async loadAll() {
-    if (isMockMode()) {
-      return loadMockState();
-    }
-
     const client = getSupabaseClient();
     const tables = config.supabase.tables;
     const [
@@ -383,12 +385,6 @@ const service = {
 
     const nextReadState = !message.is_read;
 
-    if (isMockMode()) {
-      message.is_read = nextReadState;
-      saveMockState();
-      return;
-    }
-
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.messages)
       .update({ is_read: nextReadState })
@@ -406,12 +402,6 @@ const service = {
 
     const archivedAt = new Date().toISOString();
 
-    if (isMockMode()) {
-      message.archived_at = archivedAt;
-      saveMockState();
-      return;
-    }
-
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.messages)
       .update({ archived_at: archivedAt })
@@ -427,12 +417,6 @@ const service = {
 
     if (!message) return;
 
-    if (isMockMode()) {
-      message.archived_at = null;
-      saveMockState();
-      return;
-    }
-
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.messages)
       .update({ archived_at: null })
@@ -444,12 +428,6 @@ const service = {
   },
 
   async deleteMessage(id) {
-    if (isMockMode()) {
-      state.messages = state.messages.filter((item) => item.id !== id);
-      saveMockState();
-      return;
-    }
-
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.messages)
       .delete()
@@ -464,12 +442,6 @@ const service = {
     const item = state.gallery.find((galleryItem) => galleryItem.id === id);
 
     if (!item) return;
-
-    if (isMockMode()) {
-      state.gallery = state.gallery.filter((galleryItem) => galleryItem.id !== id);
-      saveMockState();
-      return;
-    }
 
     const bucket = item.storage_bucket || config.supabase.storage.galleryBucket;
     const imagePath = item.storage_path || getSupabaseStoragePathFromUrl(item.image_url, bucket);
@@ -490,16 +462,24 @@ const service = {
     state.gallery = state.gallery.filter((galleryItem) => galleryItem.id !== id);
   },
 
+  async updateGalleryOrder(placement, orderedIds) {
+    const table = config.supabase.tables.gallery;
+    const client = getSupabaseClient();
+    const results = await Promise.all(orderedIds.map((id, index) => client
+      .from(table)
+      .update({ sort_order: index + 1 })
+      .eq("id", id)));
+    const errorResult = results.find((result) => result.error);
+
+    if (errorResult?.error) {
+      throw errorResult.error;
+    }
+  },
+
   async deleteVideoItem(id) {
     const item = state.videos.find((videoItem) => videoItem.id === id);
 
     if (!item) return;
-
-    if (isMockMode()) {
-      state.videos = state.videos.filter((videoItem) => videoItem.id !== id);
-      saveMockState();
-      return;
-    }
 
     const bucket = config.supabase.storage.videoBucket;
     const gifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
@@ -533,21 +513,6 @@ const service = {
       quality: imageUploadDefaults.quality
     });
 
-    if (isMockMode()) {
-      const imageUrl = await readFileAsDataUrl(uploadFile);
-      const item = {
-        id: createId("gal"),
-        ...payload,
-        image_url: imageUrl,
-        file_name: uploadFile.name,
-        created_at: new Date().toISOString()
-      };
-
-      state.gallery.unshift(item);
-      saveMockState();
-      return item;
-    }
-
     const bucket = config.supabase.storage.galleryBucket;
     const upload = await uploadSupabaseFile(bucket, getGalleryFormat(payload.placement).storageFolder, uploadFile);
     const item = {
@@ -569,6 +534,24 @@ const service = {
     return data;
   },
 
+  async updateGalleryItem(id, payload) {
+    const item = state.gallery.find((galleryItem) => galleryItem.id === id);
+
+    if (!item) return null;
+
+    const { data, error } = await getSupabaseClient()
+      .from(config.supabase.tables.gallery)
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    Object.assign(item, data);
+    return data;
+  },
+
   async createVideoItem(payload, files) {
     const uploadFiles = {
       thumbnailGif: files.thumbnailGif,
@@ -579,24 +562,6 @@ const service = {
           })
         : null
     };
-
-    if (isMockMode()) {
-      const thumbnailGifUrl = uploadFiles.thumbnailGif ? await readFileAsDataUrl(uploadFiles.thumbnailGif) : "";
-      const posterUrl = uploadFiles.poster ? await readFileAsDataUrl(uploadFiles.poster) : "";
-      const item = {
-        id: createId("vid"),
-        ...payload,
-        thumbnail_gif_url: thumbnailGifUrl,
-        poster_url: posterUrl,
-        thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
-        poster_file_name: uploadFiles.poster?.name || "",
-        created_at: new Date().toISOString()
-      };
-
-      state.videos.unshift(item);
-      saveMockState();
-      return item;
-    }
 
     const bucket = config.supabase.storage.videoBucket;
     const gifUpload = uploadFiles.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif) : null;
@@ -620,6 +585,53 @@ const service = {
 
     state.videos.unshift(data);
     return data;
+  },
+
+  async updateVideoItem(id, payload, files = {}) {
+    const item = state.videos.find((videoItem) => videoItem.id === id);
+
+    if (!item) return null;
+
+    const uploadFiles = {
+      thumbnailGif: files.thumbnailGif || null,
+      poster: files.poster
+        ? await optimizeImageFile(files.poster, {
+            maxLongEdge: imageUploadDefaults.posterMaxLongEdge,
+            quality: imageUploadDefaults.quality
+          })
+        : null
+    };
+    const nextPayload = { ...payload };
+
+    const bucket = config.supabase.storage.videoBucket;
+
+    if (uploadFiles.thumbnailGif) {
+      const gifUpload = await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif);
+
+      nextPayload.thumbnail_gif_url = gifUpload.publicUrl;
+      nextPayload.thumbnail_gif_storage_path = gifUpload.path;
+      nextPayload.thumbnail_gif_file_name = uploadFiles.thumbnailGif.name;
+    }
+
+    if (uploadFiles.poster) {
+      const posterUpload = await uploadSupabaseFile(bucket, "posters", uploadFiles.poster);
+
+      nextPayload.poster_url = posterUpload.publicUrl;
+      nextPayload.poster_storage_path = posterUpload.path;
+      nextPayload.poster_file_name = uploadFiles.poster.name;
+    }
+
+    const { data, error } = await getSupabaseClient()
+      .from(config.supabase.tables.videos)
+      .update(nextPayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    Object.assign(item, data);
+    return data;
   }
 };
 
@@ -632,6 +644,181 @@ const getFilteredMessages = () => state.messages.filter((message) => {
 
   return !isArchived;
 });
+
+const isBlank = (value) => !String(value ?? "").trim();
+
+const getWatcherIssues = () => {
+  const galleryIssues = state.gallery
+    .map((item) => {
+      const missing = [];
+
+      if (isBlank(item.title)) {
+        missing.push({ key: "title", label: "Title" });
+      }
+
+      if (isBlank(item.alt_text)) {
+        missing.push({ key: "alt_text", label: "Alt text" });
+      }
+
+      return {
+        id: item.id,
+        type: "gallery",
+        typeLabel: "Photo",
+        item,
+        label: item.title || item.file_name || "Untitled image",
+        missing
+      };
+    })
+    .filter((issue) => issue.missing.length);
+  const videoIssues = state.videos
+    .map((item) => {
+      const missing = [];
+
+      if (isBlank(item.title)) {
+        missing.push({ key: "title", label: "Title" });
+      }
+
+      if (isBlank(item.vimeo_url)) {
+        missing.push({ key: "vimeo_url", label: "Vimeo URL" });
+      }
+
+      if (isBlank(item.thumbnail_gif_url)) {
+        missing.push({ key: "thumbnail_gif", label: "GIF" });
+      }
+
+      if (isBlank(item.poster_url)) {
+        missing.push({ key: "poster", label: "Poster" });
+      }
+
+      return {
+        id: item.id,
+        type: "video",
+        typeLabel: "Video",
+        item,
+        label: item.title || item.vimeo_url || "Untitled video",
+        missing
+      };
+    })
+    .filter((issue) => issue.missing.length);
+
+  return [...galleryIssues, ...videoIssues];
+};
+
+const renderWatcherFields = (issue) => {
+  const hasMissing = (key) => issue.missing.some((item) => item.key === key);
+  const fields = [];
+
+  if (hasMissing("title")) {
+    fields.push(`
+      <label class="watcher-field">
+        <span>Title</span>
+        <input type="text" name="title" value="${escapeHtml(issue.item.title || "")}" placeholder="Project title">
+      </label>
+    `);
+  }
+
+  if (issue.type === "gallery" && hasMissing("alt_text")) {
+    fields.push(`
+      <label class="watcher-field">
+        <span>Alt text</span>
+        <input type="text" name="alt_text" value="${escapeHtml(issue.item.alt_text || "")}" placeholder="Image description">
+      </label>
+    `);
+  }
+
+  if (issue.type === "video" && hasMissing("vimeo_url")) {
+    fields.push(`
+      <label class="watcher-field">
+        <span>Vimeo URL</span>
+        <input type="url" name="vimeo_url" value="${escapeHtml(issue.item.vimeo_url || "")}" placeholder="https://vimeo.com/123456789">
+      </label>
+    `);
+  }
+
+  if (issue.type === "video" && hasMissing("thumbnail_gif")) {
+    fields.push(`
+      <label class="watcher-field watcher-field--file">
+        <span>GIF</span>
+        <input type="file" name="thumbnail_gif" accept="image/gif">
+      </label>
+    `);
+  }
+
+  if (issue.type === "video" && hasMissing("poster")) {
+    fields.push(`
+      <label class="watcher-field watcher-field--file">
+        <span>Poster</span>
+        <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
+      </label>
+    `);
+  }
+
+  return fields.join("");
+};
+
+const renderWatcherModal = () => {
+  if (!dom.watcherList) return;
+
+  const issues = getWatcherIssues();
+  const gifMissing = issues.filter((issue) => issue.type === "video" && issue.missing.some((item) => item.key === "thumbnail_gif")).length;
+  const posterMissing = issues.filter((issue) => issue.type === "video" && issue.missing.some((item) => item.key === "poster")).length;
+
+  if (dom.watcherSummary) {
+    dom.watcherSummary.textContent = issues.length
+      ? `${issues.length} file${issues.length === 1 ? "" : "s"} need attention. GIF missing: ${gifMissing}. Poster missing: ${posterMissing}.`
+      : "All portfolio files have the required data.";
+  }
+
+  if (!issues.length) {
+    dom.watcherList.innerHTML = `<div class="empty-state watcher-empty">No missing data found</div>`;
+    return;
+  }
+
+  dom.watcherList.innerHTML = issues.map((issue) => `
+    <form class="watcher-row" data-watcher-form data-watcher-type="${escapeHtml(issue.type)}" data-watcher-id="${escapeHtml(issue.id)}">
+      <div class="watcher-row__type">
+        <span class="pill">${escapeHtml(issue.typeLabel)}</span>
+      </div>
+      <div class="watcher-row__name">
+        <strong>${escapeHtml(issue.label)}</strong>
+        <span>${escapeHtml(issue.item.file_name || issue.item.thumbnail_gif_file_name || issue.item.poster_file_name || issue.item.vimeo_url || "No file label")}</span>
+      </div>
+      <div class="watcher-row__missing">
+        ${issue.missing.map((item) => `<span class="pill pill--warning">${escapeHtml(item.label)}</span>`).join("")}
+      </div>
+      <div class="watcher-row__fields">
+        ${renderWatcherFields(issue)}
+      </div>
+      <button class="secondary-button watcher-row__save" type="submit">Save</button>
+    </form>
+  `).join("");
+};
+
+const renderPortfolioIndicators = () => {
+  if (dom.videoTotal) {
+    dom.videoTotal.textContent = `VIDEO: ${state.videos.length}`;
+  }
+
+  if (dom.photoTotal) {
+    dom.photoTotal.textContent = `PHOTOS: ${state.gallery.length}`;
+  }
+
+  if (dom.watcherOpen) {
+    const issues = getWatcherIssues();
+
+    dom.watcherOpen.classList.toggle("is-warning", issues.length > 0);
+    dom.watcherOpen.classList.toggle("is-connected", issues.length === 0);
+    dom.watcherOpen.textContent = issues.length ? `WATCHER: ${issues.length}` : "WATCHER: OK";
+    dom.watcherOpen.setAttribute(
+      "title",
+      issues.length ? `${issues.length} portfolio file${issues.length === 1 ? "" : "s"} need attention` : "Portfolio data is complete"
+    );
+  }
+
+  if (dom.watcherModal && !dom.watcherModal.hidden) {
+    renderWatcherModal();
+  }
+};
 
 const renderMessages = () => {
   if (!dom.messageList) return;
@@ -681,7 +868,79 @@ const renderMessages = () => {
   }).join("");
 };
 
+const gallerySections = [
+  { placement: "16:9", title: "16:9" },
+  { placement: "9:16", title: "9:16" }
+];
+
 const getGalleryPlacementLabel = (placement) => getGalleryFormat(placement).label;
+
+const getGallerySortOrder = (item = {}) => {
+  const order = Number.parseInt(item.sort_order, 10);
+
+  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
+};
+
+const compareGalleryItems = (a, b) => {
+  const orderDifference = getGallerySortOrder(a) - getGallerySortOrder(b);
+
+  if (orderDifference) return orderDifference;
+
+  return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+};
+
+const getOrderedGalleryItems = (placement) => state.gallery
+  .filter((item) => getGalleryPlacementLabel(item.placement) === placement)
+  .slice()
+  .sort(compareGalleryItems);
+
+const getGallerySectionIds = (placement) => getOrderedGalleryItems(placement).map((item) => String(item.id));
+
+const applyGalleryOrder = (placement, orderedIds) => {
+  const orderById = new Map(orderedIds.map((id, index) => [String(id), index + 1]));
+
+  state.gallery.forEach((item) => {
+    if (getGalleryPlacementLabel(item.placement) !== placement) return;
+
+    const nextOrder = orderById.get(String(item.id));
+
+    if (nextOrder) {
+      item.sort_order = nextOrder;
+    }
+  });
+};
+
+const saveGalleryOrder = async (placement, orderedIds, successMessage = "") => {
+  const previousGallery = state.gallery.map((item) => ({ ...item }));
+
+  applyGalleryOrder(placement, orderedIds);
+  renderGallery();
+
+  try {
+    await service.updateGalleryOrder(placement, orderedIds);
+
+    if (successMessage) {
+      showToast(successMessage);
+    }
+  } catch (error) {
+    state.gallery = previousGallery;
+    renderGallery();
+    showToast(error.message || "Could not save gallery order");
+    throw error;
+  }
+};
+
+const moveGalleryItemToSectionStart = (item) => {
+  const placement = getGalleryPlacementLabel(item.placement);
+  const orderedIds = [
+    String(item.id),
+    ...getOrderedGalleryItems(placement)
+      .filter((galleryItem) => galleryItem.id !== item.id)
+      .map((galleryItem) => String(galleryItem.id))
+  ];
+
+  return saveGalleryOrder(placement, orderedIds);
+};
 
 const renderGallery = () => {
   if (!dom.galleryList) return;
@@ -691,25 +950,45 @@ const renderGallery = () => {
     return;
   }
 
-  dom.galleryList.innerHTML = state.gallery.map((item) => `
-    <article class="media-card">
-      <div class="media-card__image">
-        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.alt_text || item.title || "Gallery image")}">
-      </div>
-      <div class="media-card__body">
-        <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
-        <div class="media-card__bottom">
-          <div class="media-card__meta">
-            <span class="pill">${escapeHtml(getGalleryPlacementLabel(item.placement))}</span>
-            <span class="pill">Order ${escapeHtml(item.sort_order ?? 0)}</span>
+  dom.galleryList.innerHTML = gallerySections.map((section) => {
+    const items = getOrderedGalleryItems(section.placement);
+    const cards = items.map((item, index) => {
+      const focus = getGalleryFocus(item);
+
+      return `
+        <article class="media-card" data-gallery-card data-gallery-id="${escapeHtml(item.id)}" data-gallery-placement="${escapeHtml(section.placement)}">
+          <div class="media-card__image">
+            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.alt_text || item.title || "Gallery image")}" style="${escapeHtml(getGalleryFocusStyle(item))}">
           </div>
-          <button class="icon-button media-card__delete" type="button" data-delete-gallery="${escapeHtml(item.id)}" title="Delete image" aria-label="Delete image">
-            <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
-          </button>
+          <div class="media-card__body">
+            <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
+            <div class="media-card__bottom">
+              <div class="media-card__meta">
+                <span class="pill">${escapeHtml(getGalleryPlacementLabel(item.placement))}</span>
+                <span class="pill">Order ${index + 1}</span>
+                <span class="pill">Focus ${focus.x}/${focus.y}</span>
+              </div>
+              <button class="icon-button media-card__delete" type="button" data-delete-gallery="${escapeHtml(item.id)}" title="Delete image" aria-label="Delete image">
+                <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    return `
+      <section class="gallery-section" data-gallery-section="${escapeHtml(section.placement)}">
+        <div class="gallery-section__header">
+          <h3 class="gallery-section__title">${escapeHtml(section.title)}</h3>
+          <span class="pill">${items.length} image${items.length === 1 ? "" : "s"}</span>
         </div>
-      </div>
-    </article>
-  `).join("");
+        <div class="media-list gallery-section__list" data-gallery-section-list="${escapeHtml(section.placement)}">
+          ${cards || `<div class="empty-state gallery-section__empty">No ${escapeHtml(section.title)} images yet</div>`}
+        </div>
+      </section>
+    `;
+  }).join("");
 };
 
 const getVideoMediaMarkup = (video) => {
@@ -764,6 +1043,7 @@ const renderAll = () => {
   renderMessages();
   renderGallery();
   renderVideos();
+  renderPortfolioIndicators();
 };
 
 const setPanel = (panelName) => {
@@ -798,20 +1078,39 @@ const setMessageFilter = (filterName) => {
   renderMessages();
 };
 
+const renderGalleryFocusPreview = (file, format, url = "") => {
+  if (!dom.galleryFocusPreview) return;
+
+  dom.galleryFocusPreview.className = `focus-control__stage focus-control__stage--${format.previewClass}`;
+
+  if (!file || !url) {
+    dom.galleryFocusPreview.innerHTML = `<div class="focus-control__empty">No image</div>`;
+    return;
+  }
+
+  dom.galleryFocusPreview.innerHTML = `
+    <div class="focus-control__frame focus-control__frame--${format.previewClass}">
+      <img class="focus-control__image" src="${escapeHtml(url)}" alt="">
+      <span class="focus-control__target" aria-hidden="true"></span>
+    </div>
+  `;
+};
+
 const updateGalleryPreview = async () => {
   if (!dom.galleryPreview || !dom.galleryForm) return;
 
   const file = dom.galleryForm.elements.image.files[0];
   const placement = dom.galleryForm.elements.placement.value;
   const format = getGalleryFormat(placement);
+  const title = dom.galleryForm.elements.title.value.trim();
+  const altText = dom.galleryForm.elements.alt_text.value.trim();
+  const url = file ? URL.createObjectURL(file) : "";
   let previewContent = `<div class="media-preview media-preview--empty media-preview--${format.previewClass}">No image</div>`;
 
   if (file) {
-    const url = URL.createObjectURL(file);
-
     previewContent = `
       <div class="media-preview media-preview--${format.previewClass}">
-        <img src="${url}" alt="">
+        <img src="${escapeHtml(url)}" alt="${escapeHtml(altText)}">
       </div>
     `;
   }
@@ -819,10 +1118,15 @@ const updateGalleryPreview = async () => {
   dom.galleryPreview.innerHTML = `
     ${previewContent}
     <dl class="preview-meta">
+      <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
+      <div><dt>Alt text</dt><dd>${escapeHtml(altText)}</dd></div>
       <div><dt>Format</dt><dd>${escapeHtml(format.label)}</dd></div>
       <div><dt>File</dt><dd>${escapeHtml(file?.name || "No file selected")}</dd></div>
     </dl>
   `;
+
+  renderGalleryFocusPreview(file, format, url);
+  syncGalleryFocusUi();
 };
 
 const updateVideoPreview = () => {
@@ -937,12 +1241,22 @@ const closeDeleteModal = () => {
   }
 };
 
+const openWatcherModal = () => {
+  if (!dom.watcherModal) return;
+
+  renderWatcherModal();
+  dom.watcherModal.hidden = false;
+};
+
+const closeWatcherModal = () => {
+  if (dom.watcherModal) {
+    dom.watcherModal.hidden = true;
+  }
+};
+
 const refreshData = async () => {
   dom.refresh?.setAttribute("disabled", "true");
-  setConnectionStatus(
-    isMockMode() ? "mock" : "checking",
-    isMockMode() ? "Mock mode - Supabase off" : "Checking Supabase"
-  );
+  setConnectionStatus("checking", "Checking Supabase");
 
   try {
     const nextState = await service.loadAll();
@@ -951,10 +1265,7 @@ const refreshData = async () => {
     state.gallery = nextState.gallery || [];
     state.videos = nextState.videos || [];
     renderAll();
-    setConnectionStatus(
-      isMockMode() ? "mock" : "connected",
-      isMockMode() ? "Mock mode - Supabase off" : "Supabase connected"
-    );
+    setConnectionStatus("connected", "Supabase connected");
   } catch (error) {
     const message = error.message || "Could not load admin data";
 
@@ -966,6 +1277,26 @@ const refreshData = async () => {
   }
 };
 
+const deleteItemImmediately = async (type, id) => {
+  try {
+    if (type === "message") {
+      await service.deleteMessage(id);
+      showToast("Message deleted");
+    } else if (type === "gallery") {
+      await service.deleteGalleryItem(id);
+      showToast("Image deleted");
+    } else if (type === "video") {
+      await service.deleteVideoItem(id);
+      showToast("Video deleted");
+    }
+
+    renderAll();
+  } catch (error) {
+    console.error("Admin delete error:", error);
+    showToast(error.message || "Could not delete item");
+  }
+};
+
 dom.navItems.forEach((item) => {
   item.addEventListener("click", () => setPanel(item.dataset.panelTarget));
 });
@@ -974,6 +1305,8 @@ dom.refresh?.addEventListener("click", () => {
   refreshData();
   showToast("Data refreshed");
 });
+
+dom.watcherOpen?.addEventListener("click", openWatcherModal);
 
 dom.messageFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-message-filter]");
@@ -1008,23 +1341,192 @@ dom.messageList?.addEventListener("click", async (event) => {
   }
 
   if (deleteButton) {
-    openDeleteModal("message", deleteButton.dataset.deleteMessage);
+    await deleteItemImmediately("message", deleteButton.dataset.deleteMessage);
   }
 });
 
-dom.galleryList?.addEventListener("click", (event) => {
+dom.galleryList?.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-delete-gallery]");
 
   if (deleteButton) {
-    openDeleteModal("gallery", deleteButton.dataset.deleteGallery);
+    await deleteItemImmediately("gallery", deleteButton.dataset.deleteGallery);
   }
 });
 
-dom.videoList?.addEventListener("click", (event) => {
+let galleryDragState = null;
+
+const getGalleryIdsFromList = (list) => Array.from(list?.querySelectorAll("[data-gallery-card]") || [])
+  .map((card) => card.dataset.galleryId)
+  .filter(Boolean);
+
+const moveGalleryDragGhost = (event) => {
+  if (!galleryDragState?.ghost) return;
+
+  galleryDragState.ghost.style.left = `${event.clientX - galleryDragState.offsetX}px`;
+  galleryDragState.ghost.style.top = `${event.clientY - galleryDragState.offsetY}px`;
+};
+
+const createGalleryDragGhost = (card, event) => {
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true);
+
+  ghost.classList.add("gallery-drag-ghost");
+  ghost.removeAttribute("data-gallery-card");
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  document.body.append(ghost);
+
+  galleryDragState.ghost = ghost;
+  galleryDragState.offsetX = event.clientX - rect.left;
+  galleryDragState.offsetY = event.clientY - rect.top;
+  moveGalleryDragGhost(event);
+};
+
+const getGalleryDropTarget = (event, placement) => {
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+
+  if (!(element instanceof Element)) return null;
+
+  const card = element.closest("[data-gallery-card]");
+
+  if (card) {
+    const list = card.closest("[data-gallery-section-list]");
+
+    if (card.dataset.galleryPlacement === placement && list?.dataset.gallerySectionList === placement) {
+      return { card, list };
+    }
+
+    return null;
+  }
+
+  const list = element.closest("[data-gallery-section-list]");
+
+  if (list?.dataset.gallerySectionList === placement) {
+    return { card: null, list };
+  }
+
+  return null;
+};
+
+const moveGalleryDragCard = (event) => {
+  if (!galleryDragState?.isDragging) return;
+
+  const target = getGalleryDropTarget(event, galleryDragState.placement);
+
+  if (!target || target.list !== galleryDragState.list) return;
+
+  if (!target.card) {
+    target.list.append(galleryDragState.card);
+    return;
+  }
+
+  if (target.card === galleryDragState.card) return;
+
+  const rect = target.card.getBoundingClientRect();
+  const isSameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
+  const insertBefore = isSameRow
+    ? event.clientX < rect.left + (rect.width / 2)
+    : event.clientY < rect.top + (rect.height / 2);
+
+  target.list.insertBefore(galleryDragState.card, insertBefore ? target.card : target.card.nextSibling);
+};
+
+const cleanupGalleryDrag = () => {
+  galleryDragState?.card?.classList.remove("is-drag-source");
+  galleryDragState?.ghost?.remove();
+  document.body.classList.remove("is-gallery-card-dragging");
+  galleryDragState = null;
+};
+
+const handleGalleryDragMove = (event) => {
+  if (!galleryDragState || galleryDragState.pointerId !== event.pointerId) return;
+
+  const distance = Math.hypot(
+    event.clientX - galleryDragState.startX,
+    event.clientY - galleryDragState.startY
+  );
+
+  if (!galleryDragState.isDragging) {
+    if (distance < 6) return;
+
+    galleryDragState.isDragging = true;
+    galleryDragState.card.classList.add("is-drag-source");
+    document.body.classList.add("is-gallery-card-dragging");
+    createGalleryDragGhost(galleryDragState.card, event);
+  }
+
+  event.preventDefault();
+  moveGalleryDragGhost(event);
+  moveGalleryDragCard(event);
+};
+
+const finishGalleryDrag = (event) => {
+  if (!galleryDragState || galleryDragState.pointerId !== event.pointerId) return;
+
+  const dragState = galleryDragState;
+
+  if (
+    typeof dragState.card.hasPointerCapture === "function"
+    && dragState.card.hasPointerCapture(event.pointerId)
+  ) {
+    dragState.card.releasePointerCapture(event.pointerId);
+  }
+
+  const orderedIds = dragState.isDragging ? getGalleryIdsFromList(dragState.list) : dragState.originalIds;
+  const isChanged = dragState.isDragging && orderedIds.join("|") !== dragState.originalIds.join("|");
+
+  if (dragState.isDragging) {
+    event.preventDefault();
+  }
+
+  cleanupGalleryDrag();
+
+  if (isChanged) {
+    saveGalleryOrder(dragState.placement, orderedIds, "Gallery order saved")
+      .catch((error) => console.error("Gallery order save error:", error));
+  }
+};
+
+dom.galleryList?.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const card = target?.closest("[data-gallery-card]");
+
+  if (!card || target.closest("button, a, input, textarea, select")) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  const list = card.closest("[data-gallery-section-list]");
+  const placement = card.dataset.galleryPlacement;
+
+  if (!list || !placement) return;
+
+  event.preventDefault();
+
+  galleryDragState = {
+    card,
+    ghost: null,
+    isDragging: false,
+    list,
+    offsetX: 0,
+    offsetY: 0,
+    originalIds: getGalleryIdsFromList(list),
+    placement,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY
+  };
+
+  card.setPointerCapture?.(event.pointerId);
+});
+
+window.addEventListener("pointermove", handleGalleryDragMove, { passive: false });
+window.addEventListener("pointerup", finishGalleryDrag);
+window.addEventListener("pointercancel", finishGalleryDrag);
+
+dom.videoList?.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-delete-video]");
 
   if (deleteButton) {
-    openDeleteModal("video", deleteButton.dataset.deleteVideo);
+    await deleteItemImmediately("video", deleteButton.dataset.deleteVideo);
   }
 });
 
@@ -1068,13 +1570,138 @@ dom.deleteModal?.addEventListener("click", async (event) => {
   }
 });
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
-    closeDeleteModal();
+dom.watcherModal?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-watcher-close]")) {
+    closeWatcherModal();
   }
 });
 
-dom.galleryForm?.addEventListener("change", updateGalleryPreview);
+dom.watcherModal?.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-watcher-form]");
+
+  if (!form) return;
+
+  event.preventDefault();
+
+  const type = form.dataset.watcherType;
+  const id = form.dataset.watcherId;
+  const submit = form.querySelector("button[type='submit']");
+  const payload = {};
+
+  ["title", "alt_text", "vimeo_url"].forEach((field) => {
+    if (form.elements[field]) {
+      payload[field] = form.elements[field].value.trim();
+    }
+  });
+
+  const files = {
+    thumbnailGif: form.elements.thumbnail_gif?.files[0] || null,
+    poster: form.elements.poster?.files[0] || null
+  };
+  const hasFiles = Boolean(files.thumbnailGif || files.poster);
+
+  if (!Object.keys(payload).length && !hasFiles) {
+    showToast("Nothing to save");
+    return;
+  }
+
+  submit?.setAttribute("disabled", "true");
+
+  try {
+    if (type === "gallery") {
+      await service.updateGalleryItem(id, payload);
+    } else if (type === "video") {
+      await service.updateVideoItem(id, payload, files);
+    }
+
+    renderAll();
+    showToast("Watcher item saved");
+  } catch (error) {
+    console.error("Watcher save error:", error);
+    showToast(error.message || "Could not save watcher item");
+  } finally {
+    submit?.removeAttribute("disabled");
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeDeleteModal();
+    closeWatcherModal();
+  }
+});
+
+let galleryFocusPointerId = null;
+
+const getGalleryFocusFrame = () => dom.galleryFocusPreview?.querySelector(".focus-control__frame");
+
+const setGalleryFocusFromPointer = (event) => {
+  const frame = getGalleryFocusFrame();
+
+  if (!frame) return false;
+
+  const rect = frame.getBoundingClientRect();
+
+  if (!rect.width || !rect.height) return false;
+
+  setGalleryFocus({
+    x: ((event.clientX - rect.left) / rect.width) * 100,
+    y: ((event.clientY - rect.top) / rect.height) * 100
+  });
+
+  return true;
+};
+
+const stopGalleryFocusPointer = (event) => {
+  if (galleryFocusPointerId === null || galleryFocusPointerId !== event.pointerId) return;
+
+  if (
+    typeof dom.galleryFocusPreview?.hasPointerCapture === "function"
+    && dom.galleryFocusPreview.hasPointerCapture(event.pointerId)
+  ) {
+    dom.galleryFocusPreview.releasePointerCapture(event.pointerId);
+  }
+
+  galleryFocusPointerId = null;
+  dom.galleryFocusPreview?.classList.remove("is-targeting");
+};
+
+dom.galleryFocusPreview?.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (!target?.closest(".focus-control__frame")) return;
+
+  event.preventDefault();
+  galleryFocusPointerId = event.pointerId;
+  dom.galleryFocusPreview.classList.add("is-targeting");
+  dom.galleryFocusPreview.setPointerCapture?.(event.pointerId);
+  setGalleryFocusFromPointer(event);
+});
+
+dom.galleryFocusPreview?.addEventListener("pointermove", (event) => {
+  if (galleryFocusPointerId !== event.pointerId) return;
+
+  event.preventDefault();
+  setGalleryFocusFromPointer(event);
+});
+
+dom.galleryFocusPreview?.addEventListener("pointerup", stopGalleryFocusPointer);
+dom.galleryFocusPreview?.addEventListener("pointercancel", stopGalleryFocusPointer);
+dom.galleryFocusPreview?.addEventListener("lostpointercapture", () => {
+  galleryFocusPointerId = null;
+  dom.galleryFocusPreview?.classList.remove("is-targeting");
+});
+
+dom.galleryFocusReset?.addEventListener("click", resetGalleryFocus);
+
+dom.galleryForm?.addEventListener("change", (event) => {
+  if (event.target?.name === "image") {
+    resetGalleryFocus();
+  }
+
+  updateGalleryPreview();
+});
 dom.galleryForm?.addEventListener("input", updateGalleryPreview);
 dom.videoForm?.addEventListener("change", updateVideoPreview);
 dom.videoForm?.addEventListener("input", updateVideoPreview);
@@ -1095,17 +1722,30 @@ dom.galleryForm?.addEventListener("submit", async (event) => {
     placement: form.elements.placement.value,
     title: form.elements.title.value.trim(),
     alt_text: form.elements.alt_text.value.trim(),
-    sort_order: Number.parseInt(form.elements.sort_order.value || "0", 10)
+    sort_order: 1,
+    focus_x: normalizeGalleryFocusValue(form.elements.focus_x?.value),
+    focus_y: normalizeGalleryFocusValue(form.elements.focus_y?.value)
   };
 
   submit?.setAttribute("disabled", "true");
 
   try {
-    await service.createGalleryItem(payload, file);
+    const item = await service.createGalleryItem(payload, file);
+    let isOrderSaved = true;
+
+    try {
+      await moveGalleryItemToSectionStart(item);
+    } catch (error) {
+      isOrderSaved = false;
+      console.error("Gallery order save error:", error);
+    }
+
     form.reset();
+    resetGalleryFocus();
     updateGalleryPreview();
     renderGallery();
-    showToast("Gallery image added");
+    renderPortfolioIndicators();
+    showToast(isOrderSaved ? "Gallery image added" : "Image added, order not saved");
   } catch (error) {
     showToast(error.message || "Could not upload image");
   } finally {
@@ -1141,6 +1781,7 @@ dom.videoForm?.addEventListener("submit", async (event) => {
     form.reset();
     updateVideoPreview();
     renderVideos();
+    renderPortfolioIndicators();
     showToast("Video added");
   } catch (error) {
     showToast(error.message || "Could not add video");
@@ -1149,11 +1790,7 @@ dom.videoForm?.addEventListener("submit", async (event) => {
   }
 });
 
-setConnectionStatus(
-  isMockMode() ? "mock" : "checking",
-  isMockMode() ? "Mock mode - Supabase off" : "Checking Supabase"
-);
-setMockStatus();
+setConnectionStatus("checking", "Checking Supabase");
 
 setPanel(state.activePanel);
 setMessageFilter(state.messageFilter);

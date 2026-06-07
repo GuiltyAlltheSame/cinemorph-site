@@ -142,6 +142,19 @@ const getGalleryFormatType = (value) => {
   return "portrait";
 };
 
+const normalizeGalleryFocusValue = (value) => {
+  const number = Number.parseFloat(value);
+
+  if (!Number.isFinite(number)) return 50;
+
+  return Math.max(0, Math.min(100, Math.round(number)));
+};
+
+const getGalleryFocus = (item = {}) => ({
+  x: normalizeGalleryFocusValue(item.focus_x),
+  y: normalizeGalleryFocusValue(item.focus_y)
+});
+
 const getSupabaseImagePreviewUrl = (imageUrl, options = {}) => {
   const url = String(imageUrl || "").trim();
 
@@ -237,6 +250,7 @@ const createGalleryItem = (item) => {
     width: previewWidth,
     quality: 72
   });
+  const focus = getGalleryFocus(item);
 
   link.className = `gallery-strip__item gallery-strip__item--${formatType}`;
   link.href = imageUrl;
@@ -251,6 +265,8 @@ const createGalleryItem = (item) => {
   image.decoding = "async";
   image.width = previewWidth;
   image.height = formatType === "landscape" ? 900 : 1600;
+  image.style.setProperty("--gallery-focus-x", `${focus.x}%`);
+  image.style.setProperty("--gallery-focus-y", `${focus.y}%`);
 
   link.append(image);
 

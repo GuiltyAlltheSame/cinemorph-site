@@ -1528,7 +1528,9 @@ body.is-gallery-progress-dragging {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: var(--gallery-focus-x, 50%) var(--gallery-focus-y, 50%);
   transform: scale(1.02);
+  transform-origin: var(--gallery-focus-x, 50%) var(--gallery-focus-y, 50%);
   transition: transform var(--gallery-transition) ease;
 }
 

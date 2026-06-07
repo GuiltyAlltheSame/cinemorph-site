@@ -1,5 +1,4 @@
 window.CINEMORPH_ADMIN_CONFIG = {
-  useMock: false,
   authEnabled: false,
   supabase: {
     url: "https://gsqygdhccdnbsvmoropk.supabase.co",
