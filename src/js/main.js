@@ -694,6 +694,24 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   let targetNoiseVolume = 0;
   let tvPoweredOn = false;
 
+  const syncMobileAudioMute = () => {
+    const muted = isMobileScene();
+
+    tvNoise.muted = muted;
+    tvPowerClick.muted = muted;
+
+    if (!muted) return;
+
+    window.cancelAnimationFrame(noiseFadeFrame);
+    noiseFadeFrame = null;
+    noiseStarted = false;
+    targetNoiseVolume = 0;
+    tvNoise.volume = 0;
+    tvNoise.pause();
+    tvPowerClick.pause();
+    tvPowerClick.currentTime = 0;
+  };
+
   const fadeNoiseTo = (targetVolume, duration = 900) => {
     if (targetNoiseVolume === targetVolume) return;
 
@@ -723,6 +741,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   };
 
   const startNoise = async () => {
+    if (isMobileScene()) return;
     if (!tvPoweredOn) return;
 
     if (!noiseStarted) {
@@ -742,6 +761,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   };
 
   const playPowerClick = () => {
+    if (isMobileScene()) return;
     if (!tvPowerClick) return;
 
     tvPowerClick.pause();
@@ -810,6 +830,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
 
   tvNoiseController = {
     fadeIn: () => {
+      if (isMobileScene()) return;
       if (!tvPoweredOn) return;
 
       if (!noiseStarted) {
@@ -838,6 +859,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
   };
 
   const syncMobileTvState = () => {
+    syncMobileAudioMute();
     scene?.classList.toggle("is-mobile-scene", isMobileScene());
 
     if (!isMobileScene()) {

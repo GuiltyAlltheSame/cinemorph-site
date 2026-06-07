@@ -1278,6 +1278,12 @@ body.is-gallery-progress-dragging {
     object-fit: cover;
   }
 
+  .vcr-clock {
+    --vcr-clock-left: 50%;
+    --vcr-clock-top: 80.1%;
+    --vcr-clock-scale: 0.7;
+  }
+
   .tv-content.is-on .screen {
     animation: none;
     background: #050606 url("../assets/img/cinemorph-logo.jpg") center / contain no-repeat;
