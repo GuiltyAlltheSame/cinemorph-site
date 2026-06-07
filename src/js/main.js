@@ -132,15 +132,7 @@ const createEmptyState = (message) => {
   return empty;
 };
 
-const getGalleryFormatType = (value) => {
-  const format = String(value || "").trim().toLowerCase();
-
-  if (["16:9", "16-9", "wide", "landscape"].includes(format)) {
-    return "landscape";
-  }
-
-  return "portrait";
-};
+const getGalleryFormatType = () => "landscape";
 
 const normalizeGalleryFocusValue = (value) => {
   const number = Number.parseFloat(value);
@@ -241,11 +233,11 @@ const createGalleryItem = (item) => {
 
   if (!imageUrl) return null;
 
-  const formatType = getGalleryFormatType(item.placement);
+  const formatType = getGalleryFormatType();
   const title = item.title || item.file_name || "Gallery image";
   const link = document.createElement("a");
   const image = document.createElement("img");
-  const previewWidth = formatType === "landscape" ? 1600 : 900;
+  const previewWidth = 1600;
   const previewUrl = getSupabaseImagePreviewUrl(imageUrl, {
     width: previewWidth,
     quality: 72
@@ -264,7 +256,7 @@ const createGalleryItem = (item) => {
   image.loading = "lazy";
   image.decoding = "async";
   image.width = previewWidth;
-  image.height = formatType === "landscape" ? 900 : 1600;
+  image.height = 900;
   image.style.setProperty("--gallery-focus-x", `${focus.x}%`);
   image.style.setProperty("--gallery-focus-y", `${focus.y}%`);
 
@@ -290,8 +282,7 @@ const renderGallery = (items) => {
   galleryStage.classList.toggle("is-empty", !galleryItems.length);
 
   galleryStrips.forEach((strip) => {
-    const stripFormat = strip.dataset.galleryFormat || "portrait";
-    const rowItems = galleryItems.filter((item) => getGalleryFormatType(item.placement) === stripFormat);
+    const rowItems = galleryItems;
 
     strip.replaceChildren();
     strip.classList.toggle("is-empty-row", !rowItems.length);

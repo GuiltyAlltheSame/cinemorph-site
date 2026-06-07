@@ -645,16 +645,11 @@ textarea:focus {
   height: 100%;
   min-height: 0;
   object-fit: cover;
+  object-position: var(--focus-x, 50%) var(--focus-y, 50%);
 }
 
 .media-preview--landscape {
   aspect-ratio: 16 / 9;
-}
-
-.media-preview--portrait {
-  width: min(100%, 190px);
-  justify-self: center;
-  aspect-ratio: 9 / 16;
 }
 
 .preview-meta {
@@ -783,11 +778,6 @@ textarea:focus {
   border-color: rgba(255, 211, 107, .42);
 }
 
-.focus-control__frame--portrait {
-  height: min(100%, 360px);
-  aspect-ratio: 9 / 16;
-}
-
 .focus-control__frame--landscape {
   width: min(100%, 560px);
   aspect-ratio: 16 / 9;
@@ -797,7 +787,8 @@ textarea:focus {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: var(--focus-x, 50%) var(--focus-y, 50%);
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;

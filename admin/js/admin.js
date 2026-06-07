@@ -100,30 +100,14 @@ const sanitizeFileName = (name) => String(name || "upload")
   .replace(/[^a-z0-9._-]+/g, "-")
   .replace(/^-+|-+$/g, "");
 
-const galleryFormats = {
-  "9:16": {
-    label: "9:16",
-    previewClass: "portrait",
-    storageFolder: "9-16"
-  },
-  "16:9": {
-    label: "16:9",
-    previewClass: "landscape",
-    storageFolder: "16-9"
-  },
-  strip: {
-    label: "9:16",
-    previewClass: "portrait",
-    storageFolder: "9-16"
-  },
-  wide: {
-    label: "16:9",
-    previewClass: "landscape",
-    storageFolder: "16-9"
-  }
+const galleryFormat = {
+  placement: "16:9",
+  label: "16:9",
+  previewClass: "landscape",
+  storageFolder: "stills"
 };
 
-const getGalleryFormat = (placement) => galleryFormats[placement] || galleryFormats["9:16"];
+const getGalleryFormat = () => galleryFormat;
 const galleryFocusDefault = { x: 50, y: 50 };
 
 const normalizeGalleryFocusValue = (value) => {
@@ -161,6 +145,11 @@ const syncGalleryFocusUi = () => {
   if (dom.galleryFocusPanel) {
     dom.galleryFocusPanel.style.setProperty("--focus-x", `${focus.x}%`);
     dom.galleryFocusPanel.style.setProperty("--focus-y", `${focus.y}%`);
+  }
+
+  if (dom.galleryPreview) {
+    dom.galleryPreview.style.setProperty("--focus-x", `${focus.x}%`);
+    dom.galleryPreview.style.setProperty("--focus-y", `${focus.y}%`);
   }
 
   if (dom.galleryFocusReadout) {
@@ -514,7 +503,7 @@ const service = {
     });
 
     const bucket = config.supabase.storage.galleryBucket;
-    const upload = await uploadSupabaseFile(bucket, getGalleryFormat(payload.placement).storageFolder, uploadFile);
+    const upload = await uploadSupabaseFile(bucket, getGalleryFormat().storageFolder, uploadFile);
     const item = {
       ...payload,
       image_url: upload.publicUrl,
@@ -869,11 +858,8 @@ const renderMessages = () => {
 };
 
 const gallerySections = [
-  { placement: "16:9", title: "16:9" },
-  { placement: "9:16", title: "9:16" }
+  { placement: galleryFormat.placement, title: "Stills" }
 ];
-
-const getGalleryPlacementLabel = (placement) => getGalleryFormat(placement).label;
 
 const getGallerySortOrder = (item = {}) => {
   const order = Number.parseInt(item.sort_order, 10);
@@ -889,19 +875,14 @@ const compareGalleryItems = (a, b) => {
   return new Date(b.created_at || 0) - new Date(a.created_at || 0);
 };
 
-const getOrderedGalleryItems = (placement) => state.gallery
-  .filter((item) => getGalleryPlacementLabel(item.placement) === placement)
+const getOrderedGalleryItems = () => state.gallery
   .slice()
   .sort(compareGalleryItems);
-
-const getGallerySectionIds = (placement) => getOrderedGalleryItems(placement).map((item) => String(item.id));
 
 const applyGalleryOrder = (placement, orderedIds) => {
   const orderById = new Map(orderedIds.map((id, index) => [String(id), index + 1]));
 
   state.gallery.forEach((item) => {
-    if (getGalleryPlacementLabel(item.placement) !== placement) return;
-
     const nextOrder = orderById.get(String(item.id));
 
     if (nextOrder) {
@@ -931,10 +912,10 @@ const saveGalleryOrder = async (placement, orderedIds, successMessage = "") => {
 };
 
 const moveGalleryItemToSectionStart = (item) => {
-  const placement = getGalleryPlacementLabel(item.placement);
+  const placement = galleryFormat.placement;
   const orderedIds = [
     String(item.id),
-    ...getOrderedGalleryItems(placement)
+    ...getOrderedGalleryItems()
       .filter((galleryItem) => galleryItem.id !== item.id)
       .map((galleryItem) => String(galleryItem.id))
   ];
@@ -951,7 +932,7 @@ const renderGallery = () => {
   }
 
   dom.galleryList.innerHTML = gallerySections.map((section) => {
-    const items = getOrderedGalleryItems(section.placement);
+    const items = getOrderedGalleryItems();
     const cards = items.map((item, index) => {
       const focus = getGalleryFocus(item);
 
@@ -964,7 +945,6 @@ const renderGallery = () => {
             <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
             <div class="media-card__bottom">
               <div class="media-card__meta">
-                <span class="pill">${escapeHtml(getGalleryPlacementLabel(item.placement))}</span>
                 <span class="pill">Order ${index + 1}</span>
                 <span class="pill">Focus ${focus.x}/${focus.y}</span>
               </div>
@@ -984,7 +964,7 @@ const renderGallery = () => {
           <span class="pill">${items.length} image${items.length === 1 ? "" : "s"}</span>
         </div>
         <div class="media-list gallery-section__list" data-gallery-section-list="${escapeHtml(section.placement)}">
-          ${cards || `<div class="empty-state gallery-section__empty">No ${escapeHtml(section.title)} images yet</div>`}
+          ${cards || `<div class="empty-state gallery-section__empty">No gallery images yet</div>`}
         </div>
       </section>
     `;
@@ -1100,8 +1080,7 @@ const updateGalleryPreview = async () => {
   if (!dom.galleryPreview || !dom.galleryForm) return;
 
   const file = dom.galleryForm.elements.image.files[0];
-  const placement = dom.galleryForm.elements.placement.value;
-  const format = getGalleryFormat(placement);
+  const format = getGalleryFormat();
   const title = dom.galleryForm.elements.title.value.trim();
   const altText = dom.galleryForm.elements.alt_text.value.trim();
   const url = file ? URL.createObjectURL(file) : "";
@@ -1120,7 +1099,6 @@ const updateGalleryPreview = async () => {
     <dl class="preview-meta">
       <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
       <div><dt>Alt text</dt><dd>${escapeHtml(altText)}</dd></div>
-      <div><dt>Format</dt><dd>${escapeHtml(format.label)}</dd></div>
       <div><dt>File</dt><dd>${escapeHtml(file?.name || "No file selected")}</dd></div>
     </dl>
   `;
@@ -1719,7 +1697,7 @@ dom.galleryForm?.addEventListener("submit", async (event) => {
   }
 
   const payload = {
-    placement: form.elements.placement.value,
+    placement: galleryFormat.placement,
     title: form.elements.title.value.trim(),
     alt_text: form.elements.alt_text.value.trim(),
     sort_order: 1,

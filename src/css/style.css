@@ -1444,18 +1444,35 @@ body.is-gallery-progress-dragging {
 }
 
 #gallery {
+  --gallery-inner-max-height: 790px;
   --section-padding-block: clamp(54px, 8vw, 112px);
   --section-noise-image: url("../assets/img/wallpaper_gallery_noise.gif");
+
+  overflow-y: hidden;
+}
+
+#gallery .section__inner {
+  display: grid;
+  height: min(
+    calc(100svh - (var(--section-padding-block) * 2) - var(--site-menu-height)),
+    var(--gallery-inner-max-height)
+  );
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .gallery-stage {
   display: grid;
-  gap: clamp(8px, 1.2vmin, 14px);
   margin: clamp(24px, 3.2vw, 38px) 0 0;
 }
 
+#gallery .gallery-stage {
+  min-height: 0;
+  margin: 0;
+  padding-top: clamp(14px, 1.8vw, 24px);
+}
+
 .gallery-strip {
-  --gallery-magnifier: 6;
+  --gallery-magnifier: 16;
   --gallery-gap: clamp(6px, 1vmin, 12px);
   --gallery-transition: .5s;
 
@@ -1464,14 +1481,17 @@ body.is-gallery-progress-dragging {
   justify-content: center;
   gap: var(--gallery-gap);
   width: 100%;
-  height: clamp(300px, 39vmin, 438px);
+  height: clamp(380px, 57vmin, 658px);
+  min-height: 0;
   margin: 0;
 }
 
-.gallery-strip--wide {
-  --gallery-magnifier: 2.8;
+#gallery .gallery-strip {
+  height: 100%;
+}
 
-  height: clamp(132px, 18vmin, 206px);
+.gallery-strip--cinematic {
+  overflow: hidden;
 }
 
 .gallery-strip::-webkit-scrollbar {
@@ -1483,6 +1503,7 @@ body.is-gallery-progress-dragging {
 .gallery-strip__item {
   position: relative;
   display: block;
+  aspect-ratio: 16 / 9;
   flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
@@ -2061,6 +2082,20 @@ body.is-gallery-progress-dragging {
     margin-right: 6px;
   }
 
+  #gallery {
+    overflow-y: auto;
+  }
+
+  #gallery .section__inner {
+    display: block;
+    height: auto;
+  }
+
+  #gallery .gallery-stage {
+    margin-top: 22px;
+    padding-top: 0;
+  }
+
   .gallery-strip {
     flex-direction: column;
     justify-content: flex-start;
@@ -2077,18 +2112,11 @@ body.is-gallery-progress-dragging {
   }
 
   .gallery-strip__item {
+    aspect-ratio: 16 / 9;
     flex: 0 0 auto;
     width: 100%;
     height: auto;
     scroll-snap-align: none;
-  }
-
-  .gallery-strip__item--landscape {
-    aspect-ratio: 16 / 9;
-  }
-
-  .gallery-strip__item--portrait {
-    aspect-ratio: 9 / 16;
   }
 
   .gallery-strip__item:hover,
