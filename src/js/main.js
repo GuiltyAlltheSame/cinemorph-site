@@ -28,11 +28,14 @@ const galleryProgress = document.querySelector(".gallery-progress");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactSubmit = document.querySelector("[data-contact-submit]");
+const mobileSceneQuery = window.matchMedia("(max-width: 700px)");
 let tvNoiseController;
 let tvPowerController;
 let setVcrDisplayMode = () => {};
 let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
+
+const isMobileScene = () => mobileSceneQuery.matches;
 
 const getSupabaseConfig = () => window.CINEMORPH_SUPABASE_CONFIG || {};
 
@@ -747,7 +750,7 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     tvPowerClick.play().catch(() => {});
   };
 
-  const powerOnTv = () => {
+  const powerOnTv = ({ startAudio = true } = {}) => {
     window.clearTimeout(tvShutdownTimer);
     tvPoweredOn = true;
     tvContent.classList.remove("is-switching-off");
@@ -756,10 +759,19 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     tvPowerButton.classList.add("is-on");
     tvPowerButton.setAttribute("aria-label", "Turn TV off");
     tvPowerButton.setAttribute("aria-pressed", "true");
-    startNoise();
+
+    if (startAudio) {
+      startNoise();
+    }
   };
 
   const powerOffTv = () => {
+    if (isMobileScene()) {
+      powerOnTv({ startAudio: false });
+      tvPowerButton.setAttribute("aria-label", "TV is on");
+      return;
+    }
+
     window.clearTimeout(tvShutdownTimer);
     tvPoweredOn = false;
     resetVcrState();
@@ -781,6 +793,12 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
 
   tvPowerButton.addEventListener("click", () => {
     playPowerClick();
+
+    if (isMobileScene()) {
+      powerOnTv({ startAudio: false });
+      tvPowerButton.setAttribute("aria-label", "TV is on");
+      return;
+    }
 
     if (tvPoweredOn) {
       powerOffTv();
@@ -818,6 +836,29 @@ if (tvContent && tvNoise && tvPowerButton && tvBloom) {
     powerOff: powerOffTv,
     isOn: () => tvPoweredOn,
   };
+
+  const syncMobileTvState = () => {
+    scene?.classList.toggle("is-mobile-scene", isMobileScene());
+
+    if (!isMobileScene()) {
+      tvPowerButton.setAttribute("aria-label", tvPoweredOn ? "Turn TV off" : "Turn TV on");
+      return;
+    }
+
+    vhsMenu?.classList.remove("is-open");
+    vhsMenu?.setAttribute("aria-hidden", "true");
+    vhsTrigger?.setAttribute("aria-expanded", "false");
+    resetVcrState();
+    powerOnTv({ startAudio: false });
+    tvPowerButton.setAttribute("aria-label", "TV is on");
+  };
+
+  syncMobileTvState();
+  if (typeof mobileSceneQuery.addEventListener === "function") {
+    mobileSceneQuery.addEventListener("change", syncMobileTvState);
+  } else {
+    mobileSceneQuery.addListener(syncMobileTvState);
+  }
 }
 
 const getTapeVideo = (cassette) => ({
@@ -896,6 +937,11 @@ if (vhsTrigger && vhsMenu) {
   let slotResetTimer;
 
   const openVhsMenu = () => {
+    if (isMobileScene()) {
+      closeVhsMenu();
+      return;
+    }
+
     vhsMenu.classList.add("is-open");
     vhsMenu.setAttribute("aria-hidden", "false");
     vhsTrigger.setAttribute("aria-expanded", "true");
@@ -1117,6 +1163,7 @@ if (vhsTrigger && vhsMenu) {
   }
 
   const startTapeDrag = (event) => {
+    if (isMobileScene()) return;
     if (!vcrSlotTarget) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (activeTapeDrag) return;
@@ -1163,6 +1210,11 @@ if (vhsTrigger && vhsMenu) {
   };
 
   vhsTrigger.addEventListener("click", () => {
+    if (isMobileScene()) {
+      closeVhsMenu();
+      return;
+    }
+
     if (vhsMenu.classList.contains("is-open")) {
       closeVhsMenu();
       return;

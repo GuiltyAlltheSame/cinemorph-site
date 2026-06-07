@@ -386,6 +386,7 @@ body.is-gallery-progress-dragging {
 
   block-size: 100svh;
   
+  background: #000;
   overflow: hidden;
   position: relative;
   display: grid;
@@ -1255,13 +1256,79 @@ body.is-gallery-progress-dragging {
     font-size: 18px;
   }
 
-  .vhs-menu {
+  .tv-area {
+    --mobile-scene-shift-x: -4vw;
+
+    position: absolute;
+    top: calc(50% - 10px);
+    left: 50%;
+    width: 260vw;
+    max-width: none;
+    aspect-ratio: 16 / 9;
+
+    overflow: hidden;
+    transform: translate(calc(-50% + var(--mobile-scene-shift-x)), -50%);
+  }
+
+  .tv-room-image {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .tv-content.is-on .screen {
+    animation: none;
+    background: #050606 url("../assets/img/cinemorph-logo.jpg") center / contain no-repeat;
+    filter: brightness(0.95) contrast(1.06);
+  }
+
+  .tv-content.is-on .screen__signal {
+    opacity: 0.3;
+    transition: none;
+  }
+
+  .screen__video {
     display: none;
+  }
+
+  .vhs-menu,
+  .vhs-box {
+    display: none !important;
   }
 
   .hotspot-vhs,
   .vhs-glow {
-    display: none;
+    display: none !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .tv-area {
+    width: 295vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .tv-area {
+    --mobile-scene-shift-x: 0vw;
+
+    width: 320vw;
+  }
+}
+
+@media (max-width: 390px) {
+  .tv-area {
+    --mobile-scene-shift-x: -8vw;
+
+    width: 340vw;
+  }
+}
+
+@media (max-width: 360px) {
+  .tv-area {
+    width: 355vw;
   }
 }
 
