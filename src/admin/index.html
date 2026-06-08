@@ -41,11 +41,42 @@
     <symbol id="icon-close" viewBox="0 0 24 24">
       <path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/>
     </symbol>
+    <symbol id="icon-log-out" viewBox="0 0 24 24">
+      <path d="M5 4h8v2H7v12h6v2H5V4Zm11.6 3.6L21 12l-4.4 4.4-1.4-1.4 2-2H10v-2h7.2l-2-2 1.4-1.4Z"/>
+    </symbol>
   </svg>
 
-  <div class="admin-shell">
+  <section class="auth-screen" data-auth-screen hidden>
+    <form class="auth-panel" data-login-form>
+      <div class="auth-brand">
+        <span class="admin-brand__mark">CM</span>
+        <div>
+          <p class="admin-kicker">CINEMORPH STUDIO</p>
+          <h1>CINEMORPH Admin</h1>
+        </div>
+      </div>
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" autocomplete="username" required>
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+
+      <p class="auth-error" data-auth-error role="alert" hidden></p>
+
+      <button class="primary-button" type="submit" data-login-submit>
+        <span>Sign in</span>
+      </button>
+    </form>
+  </section>
+
+  <div class="admin-shell" data-admin-shell hidden>
     <aside class="admin-sidebar">
-      <a class="admin-brand" href="../src/index.html">
+      <a class="admin-brand" href="../index.html">
         <span class="admin-brand__mark">CM</span>
         <span class="admin-brand__text">CINEMORPH</span>
       </a>
@@ -82,9 +113,14 @@
           <p class="admin-kicker">CINEMORPH STUDIO</p>
           <h1 data-panel-title>Messages</h1>
         </div>
-        <button class="icon-button" type="button" data-refresh title="Refresh" aria-label="Refresh">
-          <svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
-        </button>
+        <div class="admin-topbar__actions">
+          <button class="icon-button" type="button" data-refresh title="Refresh" aria-label="Refresh">
+            <svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
+          </button>
+          <button class="icon-button" type="button" data-logout title="Sign out" aria-label="Sign out">
+            <svg class="icon" aria-hidden="true"><use href="#icon-log-out"></use></svg>
+          </button>
+        </div>
       </header>
 
       <section class="admin-panel is-active" data-panel="messages" aria-labelledby="messages-title">

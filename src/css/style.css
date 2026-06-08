@@ -1089,18 +1089,18 @@ body.is-gallery-progress-dragging {
 }
 
 .vhs-menu__content {
-  --vhs-cassette-x: 8px;
-  --vhs-cassette-width: 464px;
+  --vhs-cassette-x: clamp(0px, 0.42vw, 8px);
+  --vhs-cassette-width: min(464px, calc(100% - clamp(6px, 0.55vw, 12px)));
   --vhs-cassette-height-scale: 1.0;
-  --vhs-cassette-gap: 2px;
-  --vhs-cassette-hover-scale: 1.07;
+  --vhs-cassette-gap: 3px;
+  --vhs-cassette-hover-scale: 1.025;
   --vhs-cassette-backdrop-inset: 1% 3% 3%;
   --vhs-cassette-backdrop-opacity: 0.88;
   --vhs-cassette-backdrop-blur: 4px;
   --vhs-cassette-backdrop-scale: 1.08;
 
   position: absolute;
-  top: 4.2%;
+  top: 4.3%;
   right: 3.6%;
   left: 3.6%;
   display: flex;
@@ -1142,7 +1142,7 @@ body.is-gallery-progress-dragging {
   z-index: 1;
   display: block;
   width: var(--vhs-cassette-width);
-  max-width: none;
+  max-width: 100%;
   height: auto;
   flex: 0 0 auto;
   transform: scaleY(var(--vhs-cassette-height-scale));
@@ -1212,6 +1212,17 @@ body.is-gallery-progress-dragging {
     left 0.42s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
     opacity 0.18s ease 0.28s;
+}
+
+.vhs-drag-ghost.is-returning-home {
+  --vhs-drag-scale: 1;
+  --vhs-drag-rotate: 0deg;
+
+  transition:
+    top 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    left 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.22s ease;
 }
 
 .vhs-drag-ghost.is-flying-away {

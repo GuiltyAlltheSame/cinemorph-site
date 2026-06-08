@@ -1,8 +1,8 @@
 @font-face {
   font-family: "Bebas Neue";
   src:
-    url("../../src/assets/fonts/BebasNeue-Regular.otf") format("opentype"),
-    url("../../src/assets/fonts/BebasNeue-Regular.ttf") format("truetype");
+    url("../../assets/fonts/BebasNeue-Regular.otf") format("opentype"),
+    url("../../assets/fonts/BebasNeue-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -81,6 +81,10 @@ img {
   max-width: 100%;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -102,6 +106,56 @@ img {
   width: 18px;
   height: 18px;
   fill: currentColor;
+}
+
+.auth-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, 0)),
+    var(--bg);
+}
+
+.auth-panel {
+  display: grid;
+  gap: 16px;
+  width: min(430px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(18px, 4vw, 28px);
+  background: rgba(16, 20, 25, .94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .38);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 4px;
+}
+
+.auth-brand h1 {
+  margin: 0;
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: clamp(36px, 8vw, 58px);
+  font-weight: 400;
+  line-height: .95;
+}
+
+.auth-error {
+  margin: 0;
+  border: 1px solid rgba(255, 133, 111, .34);
+  border-radius: var(--radius);
+  padding: 10px 11px;
+  background: rgba(255, 133, 111, .08);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.auth-panel .primary-button {
+  width: 100%;
 }
 
 .admin-shell {
@@ -279,6 +333,13 @@ button.admin-mode:focus-visible {
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 22px;
+}
+
+.admin-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .admin-kicker {
@@ -578,6 +639,8 @@ button.admin-mode:focus-visible {
 input[type="text"],
 input[type="url"],
 input[type="number"],
+input[type="email"],
+input[type="password"],
 input[type="file"],
 textarea {
   width: 100%;

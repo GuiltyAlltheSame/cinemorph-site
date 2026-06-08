@@ -13,6 +13,7 @@ const menuLinks = document.querySelectorAll("[data-section-link]");
 const tvContent = document.querySelector(".tv-content");
 const tvNoise = document.querySelector("#tvNoise");
 const tvPowerClick = document.querySelector("#tvPowerClick");
+const vcrTapeInsertSound = new Audio("assets/sounds/edr-vcr-tape-eject.mp3");
 const tvPowerButton = document.querySelector(".hotspot-tv-power");
 const tvBloom = document.querySelector(".tv-bloom");
 const tapePlayer = document.querySelector("[data-vhs-player]");
@@ -36,6 +37,17 @@ let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
 
 const isMobileScene = () => mobileSceneQuery.matches;
+
+vcrTapeInsertSound.preload = "auto";
+vcrTapeInsertSound.volume = 0.65;
+
+const playTapeInsertSound = () => {
+  if (isMobileScene()) return;
+
+  vcrTapeInsertSound.pause();
+  vcrTapeInsertSound.currentTime = 0;
+  vcrTapeInsertSound.play().catch(() => {});
+};
 
 const getSupabaseConfig = () => window.CINEMORPH_SUPABASE_CONFIG || {};
 
@@ -953,6 +965,7 @@ const clearTapeVideo = () => {
 if (vhsTrigger && vhsMenu) {
   const tapeInsertDuration = 620;
   const tapeFlyAwayDuration = 780;
+  const tapeReturnHomeDuration = 360;
   const slotCloseDuration = 520;
   let activeTapeDrag = null;
   let insertedCassette = null;
@@ -1122,6 +1135,7 @@ if (vhsTrigger && vhsMenu) {
 
     drag.ghost.classList.add("is-entering-vcr");
     closeVcrSlotTarget();
+    playTapeInsertSound();
 
     if (insertedCassette && insertedCassette !== drag.cassette) {
       insertedCassette.classList.remove("is-picked", "is-in-vcr");
@@ -1137,7 +1151,32 @@ if (vhsTrigger && vhsMenu) {
     }, tapeInsertDuration);
   };
 
+  const returnTapeHome = (drag) => {
+    const homeRect = drag.cassette.getBoundingClientRect();
+    const targetRect = homeRect.width && homeRect.height ? homeRect : drag.originalRect;
+    const centerX = targetRect.left + targetRect.width / 2;
+    const centerY = targetRect.top + targetRect.height / 2;
+
+    hideVcrSlotTarget();
+    drag.ghost.classList.remove("is-near-vcr", "is-flying-away");
+    drag.ghost.classList.add("is-returning-home");
+    drag.ghost.style.setProperty("--vhs-drag-scale", "1");
+    drag.ghost.style.left = `${centerX}px`;
+    drag.ghost.style.top = `${centerY}px`;
+    setVcrDisplayMode(drag.previousVcrMode === "play" ? "play" : "clock");
+
+    window.setTimeout(() => {
+      drag.ghost.remove();
+      drag.cassette.classList.remove("is-picked");
+    }, tapeReturnHomeDuration);
+  };
+
   const rejectTape = (drag) => {
+    if (!drag.menuHasClosed && vhsMenu.classList.contains("is-open")) {
+      returnTapeHome(drag);
+      return;
+    }
+
     hideVcrSlotTarget();
     drag.ghost.classList.remove("is-near-vcr");
     drag.ghost.classList.add("is-flying-away");

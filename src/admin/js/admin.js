@@ -7,6 +7,8 @@ const panelTitles = {
 
 const state = {
   activePanel: "messages",
+  authSession: null,
+  isSigningOut: false,
   messageFilter: "active",
   messages: [],
   gallery: [],
@@ -19,6 +21,11 @@ const state = {
 };
 
 const dom = {
+  shell: document.querySelector("[data-admin-shell]"),
+  authScreen: document.querySelector("[data-auth-screen]"),
+  loginForm: document.querySelector("[data-login-form]"),
+  loginSubmit: document.querySelector("[data-login-submit]"),
+  authError: document.querySelector("[data-auth-error]"),
   mode: document.querySelector("[data-admin-mode]"),
   panelTitle: document.querySelector("[data-panel-title]"),
   navItems: Array.from(document.querySelectorAll("[data-panel-target]")),
@@ -43,20 +50,56 @@ const dom = {
   videoForm: document.querySelector("[data-video-form]"),
   videoPreview: document.querySelector("[data-video-preview]"),
   videoList: document.querySelector("[data-video-list]"),
+  logout: document.querySelector("[data-logout]"),
   toast: document.querySelector("[data-toast]"),
   deleteModal: document.querySelector("[data-delete-modal]"),
   deleteMessageTitle: document.querySelector("[data-delete-message-title]")
 };
 
 const hasSupabaseConfig = () => Boolean(config.supabase?.url && config.supabase?.anonKey);
+const isAuthEnabled = () => config.authEnabled !== false;
 
 const setConnectionStatus = (status, message) => {
   if (!dom.mode) return;
 
-  dom.mode.classList.remove("is-checking", "is-connected", "is-error");
+  dom.mode.classList.remove("is-checking", "is-connected", "is-error", "is-warning");
   dom.mode.classList.add(`is-${status}`);
   dom.mode.textContent = message;
   dom.mode.removeAttribute("title");
+};
+
+const setAuthError = (message = "") => {
+  if (!dom.authError) return;
+
+  dom.authError.textContent = message;
+  dom.authError.hidden = !message;
+};
+
+const setAuthLoading = (isLoading) => {
+  if (dom.loginSubmit) {
+    dom.loginSubmit.toggleAttribute("disabled", isLoading);
+    const label = dom.loginSubmit.querySelector("span");
+
+    if (label) {
+      label.textContent = isLoading ? "Signing in" : "Sign in";
+    }
+  }
+};
+
+const setAdminVisibility = (isSignedIn) => {
+  const shouldShowAdmin = !isAuthEnabled() || isSignedIn;
+
+  if (dom.shell) {
+    dom.shell.hidden = !shouldShowAdmin;
+  }
+
+  if (dom.authScreen) {
+    dom.authScreen.hidden = shouldShowAdmin;
+  }
+
+  if (dom.logout) {
+    dom.logout.hidden = !isAuthEnabled() || !isSignedIn;
+  }
 };
 
 const escapeHtml = (value) => String(value ?? "")
@@ -261,10 +304,62 @@ const getSupabaseClient = () => {
   }
 
   if (!getSupabaseClient.client && window.supabase && config.supabase?.url && config.supabase?.anonKey) {
-    getSupabaseClient.client = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+    getSupabaseClient.client = window.supabase.createClient(config.supabase.url, config.supabase.anonKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true
+      }
+    });
   }
 
   return getSupabaseClient.client;
+};
+
+const getAuthUserLabel = (session) => session?.user?.email || "Admin";
+
+const applyAuthSession = (session) => {
+  state.authSession = session || null;
+  setAdminVisibility(Boolean(session));
+
+  if (session) {
+    setConnectionStatus("connected", `Signed in: ${getAuthUserLabel(session)}`);
+  } else if (isAuthEnabled()) {
+    setConnectionStatus("warning", "Sign in required");
+  }
+};
+
+const clearAdminData = () => {
+  state.messages = [];
+  state.gallery = [];
+  state.videos = [];
+  state.pendingDelete = null;
+  closeDeleteModal();
+  closeWatcherModal();
+  renderAll();
+};
+
+const ensureAuthSession = async () => {
+  if (!isAuthEnabled()) {
+    setAdminVisibility(true);
+    return true;
+  }
+
+  setConnectionStatus("checking", "Checking session");
+
+  try {
+    const { data, error } = await getSupabaseClient().auth.getSession();
+
+    if (error) throw error;
+
+    applyAuthSession(data.session);
+    return Boolean(data.session);
+  } catch (error) {
+    setAdminVisibility(false);
+    setConnectionStatus("error", "Auth error");
+    setAuthError(error.message || "Could not check admin session");
+    return false;
+  }
 };
 
 const uploadSupabaseFile = async (bucket, folder, file) => {
@@ -1241,6 +1336,12 @@ const closeWatcherModal = () => {
 };
 
 const refreshData = async () => {
+  if (isAuthEnabled() && !state.authSession) {
+    const hasSession = await ensureAuthSession();
+
+    if (!hasSession) return;
+  }
+
   dom.refresh?.setAttribute("disabled", "true");
   setConnectionStatus("checking", "Checking Supabase");
 
@@ -1283,13 +1384,103 @@ const deleteItemImmediately = async (type, id) => {
   }
 };
 
+const handleLogin = async (event) => {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const email = form.elements.email.value.trim();
+  const password = form.elements.password.value;
+
+  setAuthError("");
+
+  if (!email || !password) {
+    setAuthError("Email and password are required");
+    return;
+  }
+
+  setAuthLoading(true);
+
+  try {
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+    if (!data.session) throw new Error("No admin session returned");
+
+    applyAuthSession(data.session);
+    form.reset();
+    await refreshData();
+    showToast("Signed in");
+  } catch (error) {
+    setAuthError(error.message || "Could not sign in");
+  } finally {
+    setAuthLoading(false);
+  }
+};
+
+const handleLogout = async () => {
+  dom.logout?.setAttribute("disabled", "true");
+  state.isSigningOut = true;
+
+  try {
+    const { error } = await getSupabaseClient().auth.signOut();
+
+    if (error) throw error;
+
+    clearAdminData();
+    applyAuthSession(null);
+    setAuthError("");
+    showToast("Signed out");
+  } catch (error) {
+    showToast(error.message || "Could not sign out");
+  } finally {
+    state.isSigningOut = false;
+    dom.logout?.removeAttribute("disabled");
+  }
+};
+
+const bindAuthStateChanges = () => {
+  if (!isAuthEnabled()) return;
+
+  try {
+    getSupabaseClient().auth.onAuthStateChange((event, session) => {
+      const hadSession = Boolean(state.authSession);
+
+      if (session) {
+        applyAuthSession(session);
+        setAuthError("");
+        return;
+      }
+
+      if (hadSession && event === "SIGNED_OUT" && !state.isSigningOut) {
+        clearAdminData();
+        showToast("Signed out");
+      }
+
+      applyAuthSession(null);
+    });
+  } catch (error) {
+    setAdminVisibility(false);
+    setConnectionStatus("error", "Auth error");
+    setAuthError(error.message || "Could not bind admin session");
+  }
+};
+
 dom.navItems.forEach((item) => {
   item.addEventListener("click", () => setPanel(item.dataset.panelTarget));
 });
 
-dom.refresh?.addEventListener("click", () => {
-  refreshData();
-  showToast("Data refreshed");
+dom.loginForm?.addEventListener("submit", handleLogin);
+dom.logout?.addEventListener("click", handleLogout);
+
+dom.refresh?.addEventListener("click", async () => {
+  await refreshData();
+
+  if (!isAuthEnabled() || state.authSession) {
+    showToast("Data refreshed");
+  }
 });
 
 dom.watcherOpen?.addEventListener("click", openWatcherModal);
@@ -1793,10 +1984,31 @@ dom.videoForm?.addEventListener("submit", async (event) => {
   }
 });
 
-setConnectionStatus("checking", "Checking Supabase");
+const initAdmin = async () => {
+  setAdminVisibility(false);
+  setConnectionStatus("checking", isAuthEnabled() ? "Checking session" : "Checking Supabase");
+  setPanel(state.activePanel);
+  setMessageFilter(state.messageFilter);
+  updateGalleryPreview();
+  updateVideoPreview();
 
-setPanel(state.activePanel);
-setMessageFilter(state.messageFilter);
-updateGalleryPreview();
-updateVideoPreview();
-refreshData();
+  if (!hasSupabaseConfig()) {
+    setConnectionStatus("error", "Supabase config missing");
+    setAuthError("Supabase config is missing");
+    setAdminVisibility(!isAuthEnabled());
+    return;
+  }
+
+  bindAuthStateChanges();
+
+  const hasSession = await ensureAuthSession();
+
+  if (!hasSession && isAuthEnabled()) {
+    dom.loginForm?.elements.email?.focus();
+    return;
+  }
+
+  await refreshData();
+};
+
+initAdmin();
