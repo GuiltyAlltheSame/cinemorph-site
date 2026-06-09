@@ -164,12 +164,12 @@ const getSupabaseAuthClient = () => createClient(
   }
 );
 
-const requireAdminUser = async (event, serviceSupabase) => {
+const requireAuthenticatedUser = async (event) => {
   const authHeader = event.headers.authorization || event.headers.Authorization || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
   if (!token) {
-    throw Object.assign(new Error("Admin authorization is required"), { statusCode: 401 });
+    throw Object.assign(new Error("Authorization is required"), { statusCode: 401 });
   }
 
   const authSupabase = getSupabaseAuthClient();
@@ -177,21 +177,6 @@ const requireAdminUser = async (event, serviceSupabase) => {
 
   if (userError || !userResult?.user) {
     throw Object.assign(new Error("Invalid admin session"), { statusCode: 401 });
-  }
-
-  const adminTable = normalizeTableName(process.env.SUPABASE_ADMIN_TABLE, "admin_users");
-  const { data: adminRows, error: adminError } = await serviceSupabase
-    .from(adminTable)
-    .select("user_id")
-    .eq("user_id", userResult.user.id)
-    .limit(1);
-
-  if (adminError) {
-    throw Object.assign(new Error(`Could not verify admin user: ${adminError.message}`), { statusCode: 500 });
-  }
-
-  if (!adminRows?.length) {
-    throw Object.assign(new Error("Admin access denied"), { statusCode: 403 });
   }
 
   return userResult.user;
@@ -388,7 +373,7 @@ exports.handler = async (event) => {
 
     const supabase = getSupabaseServiceClient();
 
-    await requireAdminUser(event, supabase);
+    await requireAuthenticatedUser(event);
 
     const source = await resolveVimeoSource(vimeoVideoId);
     const timestampMs = Math.round(posterTime * 1000);
