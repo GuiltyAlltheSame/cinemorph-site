@@ -335,6 +335,39 @@ const uploadGeneratedPoster = async (supabase, options) => {
   };
 };
 
+const updateVideoPosterRow = async (serviceSupabase, options) => {
+  const table = normalizeTableName(process.env.SUPABASE_VIDEOS_TABLE, "portfolio_videos");
+  const serviceRoleJwtRole = decodeJwtRole(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  const updatePayload = {
+    poster_url: options.publicUrl,
+    poster_storage_path: options.storagePath,
+    poster_file_name: options.fileName,
+    poster_mode: "vimeo_time",
+    poster_time: options.posterTime
+  };
+
+  console.debug("[generate-vimeo-poster] updating video poster row", {
+    table,
+    rowId: options.rowId,
+    usingServiceRoleClient: true,
+    serviceRoleJwtRole: serviceRoleJwtRole || "unknown"
+  });
+
+  const { error } = await serviceSupabase
+    .from(table)
+    .update(updatePayload)
+    .eq("id", options.rowId);
+
+  if (error) {
+    throw Object.assign(new Error(`Video row update failed: ${error.message}`), { statusCode: 502 });
+  }
+
+  return {
+    id: options.rowId,
+    ...updatePayload
+  };
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -391,24 +424,13 @@ exports.handler = async (event) => {
       storagePath
     });
 
-    const table = normalizeTableName(process.env.SUPABASE_VIDEOS_TABLE, "portfolio_videos");
-    const updatePayload = {
-      poster_url: upload.publicUrl,
-      poster_storage_path: storagePath,
-      poster_file_name: fileName,
-      poster_mode: "vimeo_time",
-      poster_time: posterTime
-    };
-    const { data: video, error: updateError } = await supabase
-      .from(table)
-      .update(updatePayload)
-      .eq("id", rowId)
-      .select()
-      .single();
-
-    if (updateError) {
-      throw Object.assign(new Error(`Video row update failed: ${updateError.message}`), { statusCode: 502 });
-    }
+    const video = await updateVideoPosterRow(supabase, {
+      rowId,
+      publicUrl: upload.publicUrl,
+      storagePath,
+      fileName,
+      posterTime
+    });
 
     return jsonResponse(200, {
       ok: true,
