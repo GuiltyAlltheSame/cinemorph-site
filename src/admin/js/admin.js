@@ -17,7 +17,18 @@ const state = {
     y: 50
   },
   videos: [],
-  pendingDelete: null
+  pendingDelete: null,
+  posterPicker: {
+    player: null,
+    vimeoKey: "",
+    duration: 0,
+    currentTime: 0,
+    selectedTime: null,
+    mode: "",
+    initToken: 0,
+    seekToken: 0,
+    urlTimer: null
+  }
 };
 
 const dom = {
@@ -49,6 +60,16 @@ const dom = {
   galleryList: document.querySelector("[data-gallery-list]"),
   videoForm: document.querySelector("[data-video-form]"),
   videoPreview: document.querySelector("[data-video-preview]"),
+  posterPicker: document.querySelector("[data-poster-picker]"),
+  posterPlayer: document.querySelector("[data-poster-player]"),
+  posterControls: document.querySelector("[data-poster-controls]"),
+  posterSlider: document.querySelector("[data-poster-time-slider]"),
+  posterCurrentTime: document.querySelector("[data-poster-current-time]"),
+  posterDuration: document.querySelector("[data-poster-duration]"),
+  posterSelection: document.querySelector("[data-poster-selection]"),
+  posterModeLabel: document.querySelector("[data-poster-mode-label]"),
+  posterMessage: document.querySelector("[data-poster-picker-message]"),
+  posterUseFrame: document.querySelector("[data-use-poster-frame]"),
   videoList: document.querySelector("[data-video-list]"),
   logout: document.querySelector("[data-logout]"),
   toast: document.querySelector("[data-toast]"),
@@ -58,6 +79,9 @@ const dom = {
 
 const hasSupabaseConfig = () => Boolean(config.supabase?.url && config.supabase?.anonKey);
 const isAuthEnabled = () => config.authEnabled !== false;
+const getPosterGenerationEndpoint = () => (
+  config.posterGeneration?.endpoint || config.posterGenerationFunctionUrl || "/.netlify/functions/generate-vimeo-poster"
+);
 
 const setConnectionStatus = (status, message) => {
   if (!dom.mode) return;
@@ -671,6 +695,48 @@ const service = {
     return data;
   },
 
+  async generateVimeoPoster(video, posterState) {
+    const endpoint = getPosterGenerationEndpoint();
+
+    if (!endpoint) {
+      throw new Error("Poster generation endpoint is missing");
+    }
+
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    if (state.authSession?.access_token) {
+      headers.Authorization = `Bearer ${state.authSession.access_token}`;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        row_id: video.id,
+        video_id: video.id,
+        vimeo_url: video.vimeo_url,
+        poster_time: posterState.time
+      })
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(result.error || "Could not generate Vimeo poster");
+    }
+
+    if (result.video?.id) {
+      const item = state.videos.find((videoItem) => videoItem.id === result.video.id);
+
+      if (item) {
+        Object.assign(item, result.video);
+      }
+    }
+
+    return result;
+  },
+
   async updateVideoItem(id, payload, files = {}) {
     const item = state.videos.find((videoItem) => videoItem.id === id);
 
@@ -1098,6 +1164,10 @@ const renderVideos = () => {
   }
 
   dom.videoList.innerHTML = state.videos.map((video) => {
+    const posterMode = getVideoPosterMode(video);
+    const posterModeLabel = getPosterModeLabel(posterMode, video.poster_time);
+    const manualPosterLabel = posterMode === "manual" ? getVideoManualPosterLabel(video) : "";
+
     return `
       <article class="media-card">
         <a class="media-card__image" href="${escapeHtml(video.vimeo_url)}" target="_blank" rel="noreferrer">
@@ -1109,7 +1179,8 @@ const renderVideos = () => {
             <div class="media-card__meta">
               ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
               ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
-              ${video.poster_url ? `<span class="pill">Poster</span>` : ""}
+              ${posterMode ? `<span class="pill">Poster mode: ${escapeHtml(posterModeLabel)}</span>` : `<span class="pill">Poster mode: None</span>`}
+              ${manualPosterLabel ? `<span class="pill">Poster: ${escapeHtml(manualPosterLabel)}</span>` : ""}
               ${!video.thumbnail_gif_url && !video.poster_url ? `<span class="pill">No image</span>` : ""}
             </div>
             <button class="icon-button media-card__delete" type="button" data-delete-video="${escapeHtml(video.id)}" title="Delete video" aria-label="Delete video">
@@ -1210,6 +1281,438 @@ const updateGalleryPreview = async () => {
   syncGalleryFocusUi();
 };
 
+const parseVimeoUrl = (value) => {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) return null;
+
+  const source = /^https?:\/\//i.test(rawValue) ? rawValue : `https://${rawValue}`;
+
+  try {
+    const url = new URL(source);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const isVimeoHost = host === "vimeo.com" || host === "player.vimeo.com";
+
+    if (!isVimeoHost) {
+      console.debug("[Poster Picker] parseVimeoUrl", {
+        originalUrl: rawValue,
+        videoId: "",
+        embedUrl: ""
+      });
+      return null;
+    }
+
+    const segments = url.pathname.split("/").filter(Boolean);
+    let videoId = "";
+
+    if (host === "player.vimeo.com") {
+      const videoSegmentIndex = segments.indexOf("video");
+
+      videoId = /^\d+$/.test(segments[videoSegmentIndex + 1] || "") ? segments[videoSegmentIndex + 1] : "";
+    }
+
+    if (!videoId && host === "vimeo.com") {
+      const manageVideosIndex = segments.findIndex((segment, index) => (
+        segment === "manage" && segments[index + 1] === "videos"
+      ));
+
+      if (manageVideosIndex >= 0) {
+        videoId = /^\d+$/.test(segments[manageVideosIndex + 2] || "") ? segments[manageVideosIndex + 2] : "";
+      }
+    }
+
+    if (!videoId) {
+      videoId = segments.find((segment) => /^\d+$/.test(segment)) || "";
+    }
+
+    if (!videoId) {
+      console.debug("[Poster Picker] parseVimeoUrl", {
+        originalUrl: rawValue,
+        videoId: "",
+        embedUrl: ""
+      });
+      return null;
+    }
+
+    const embedUrl = `https://player.vimeo.com/video/${videoId}`;
+
+    console.debug("[Poster Picker] parseVimeoUrl", {
+      originalUrl: rawValue,
+      videoId,
+      embedUrl
+    });
+
+    return {
+      id: videoId,
+      embedUrl
+    };
+  } catch {
+    console.debug("[Poster Picker] parseVimeoUrl", {
+      originalUrl: rawValue,
+      videoId: "",
+      embedUrl: ""
+    });
+    return null;
+  }
+};
+
+const formatTimestamp = (value) => {
+  const totalSeconds = Math.max(0, Math.floor(Number(value) || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+const normalizePosterMode = (value) => {
+  const mode = String(value || "").trim();
+
+  return mode === "manual" || mode === "vimeo_time" ? mode : "";
+};
+
+const getPosterModeLabel = (mode, time = null) => {
+  const posterMode = normalizePosterMode(mode);
+
+  if (posterMode === "manual") return "Manual file";
+  if (posterMode === "vimeo_time") return `Vimeo ${formatTimestamp(time)}`;
+
+  return "None";
+};
+
+const getVideoPosterMode = (video) => {
+  const posterMode = normalizePosterMode(video?.poster_mode);
+
+  if (posterMode) return posterMode;
+  if (video?.poster_url || video?.poster_file_name) return "manual";
+
+  return "";
+};
+
+const getVideoManualPosterLabel = (video) => (
+  video?.poster_file_name || video?.poster_storage_path || video?.poster_url || ""
+);
+
+const getVideoFormPosterState = (form) => {
+  const manualPosterFile = form.elements.poster?.files[0] || null;
+  const posterMode = normalizePosterMode(form.elements.poster_mode?.value);
+  const rawPosterTime = String(form.elements.poster_time?.value || "").trim();
+  const posterTime = Number(rawPosterTime);
+  const hasPosterTime = rawPosterTime !== "" && Number.isFinite(posterTime) && posterTime >= 0;
+
+  if (manualPosterFile) {
+    return {
+      mode: "manual",
+      time: null,
+      file: manualPosterFile
+    };
+  }
+
+  if (posterMode === "vimeo_time" && hasPosterTime) {
+    return {
+      mode: "vimeo_time",
+      time: posterTime,
+      file: null
+    };
+  }
+
+  return {
+    mode: null,
+    time: null,
+    file: null
+  };
+};
+
+const setPosterPickerMessage = (message = "", tone = "") => {
+  if (!dom.posterMessage) return;
+
+  dom.posterMessage.textContent = message;
+  dom.posterMessage.classList.toggle("is-error", tone === "error");
+};
+
+const updatePosterModeUi = () => {
+  const mode = state.posterPicker.mode;
+  const selectedTime = state.posterPicker.selectedTime;
+  const isManual = mode === "manual";
+  const isVimeoTime = mode === "vimeo_time";
+
+  if (dom.posterModeLabel) {
+    dom.posterModeLabel.classList.toggle("is-manual", isManual);
+    dom.posterModeLabel.classList.toggle("is-vimeo-time", isVimeoTime);
+    dom.posterModeLabel.textContent = isManual
+      ? "Manual poster"
+      : isVimeoTime
+        ? "Vimeo timestamp"
+        : "No poster selected";
+  }
+
+  if (dom.posterSelection) {
+    dom.posterSelection.textContent = isManual
+      ? "Manual poster active"
+      : `Selected poster time: ${isVimeoTime && selectedTime !== null ? formatTimestamp(selectedTime) : "None"}`;
+  }
+};
+
+const setPosterMode = (mode, value = null) => {
+  if (!dom.videoForm) return;
+
+  const posterModeInput = dom.videoForm.elements.poster_mode;
+  const posterTimeInput = dom.videoForm.elements.poster_time;
+  let nextMode = "";
+  let nextTime = "";
+
+  if (mode === "manual") {
+    nextMode = "manual";
+  }
+
+  if (mode === "vimeo_time") {
+    const numericTime = Math.max(0, Number(value) || 0);
+
+    nextMode = "vimeo_time";
+    nextTime = numericTime.toFixed(2);
+    state.posterPicker.selectedTime = numericTime;
+  } else {
+    state.posterPicker.selectedTime = null;
+  }
+
+  if (posterModeInput) posterModeInput.value = nextMode;
+  if (posterTimeInput) posterTimeInput.value = nextTime;
+
+  state.posterPicker.mode = nextMode;
+  updatePosterModeUi();
+  updateVideoPreview();
+};
+
+const syncPosterSlider = (seconds = state.posterPicker.currentTime, duration = state.posterPicker.duration) => {
+  const currentTime = Math.max(0, Number(seconds) || 0);
+  const videoDuration = Math.max(0, Number(duration) || state.posterPicker.duration || 0);
+  const sliderMax = videoDuration || Math.max(1, currentTime);
+
+  state.posterPicker.currentTime = Math.min(currentTime, sliderMax);
+  state.posterPicker.duration = videoDuration;
+
+  if (dom.posterSlider) {
+    dom.posterSlider.max = sliderMax.toFixed(2);
+    dom.posterSlider.value = state.posterPicker.currentTime.toFixed(2);
+  }
+
+  if (dom.posterCurrentTime) {
+    dom.posterCurrentTime.value = formatTimestamp(state.posterPicker.currentTime);
+    dom.posterCurrentTime.textContent = formatTimestamp(state.posterPicker.currentTime);
+  }
+
+  if (dom.posterDuration) {
+    dom.posterDuration.textContent = formatTimestamp(videoDuration);
+  }
+};
+
+const destroyPosterPlayer = () => {
+  const player = state.posterPicker.player;
+
+  if (player && typeof player.destroy === "function") {
+    player.destroy().catch(() => {});
+  }
+
+  state.posterPicker.player = null;
+  state.posterPicker.vimeoKey = "";
+};
+
+const resetPosterPicker = (options = {}) => {
+  const keepVisible = Boolean(options.keepVisible);
+  const emptyLabel = options.emptyLabel || "Paste a Vimeo URL";
+  const message = options.message || "";
+
+  state.posterPicker.initToken += 1;
+  destroyPosterPlayer();
+  state.posterPicker.duration = 0;
+  state.posterPicker.currentTime = 0;
+  state.posterPicker.seekToken = 0;
+
+  if (dom.posterPicker) {
+    dom.posterPicker.hidden = !keepVisible;
+  }
+
+  if (dom.posterPlayer) {
+    dom.posterPlayer.innerHTML = `<div class="poster-picker__empty">${escapeHtml(emptyLabel)}</div>`;
+  }
+
+  if (dom.posterControls) {
+    dom.posterControls.hidden = true;
+  }
+
+  syncPosterSlider(0, 0);
+  setPosterPickerMessage(message, message ? "error" : "");
+
+  if (state.posterPicker.mode === "vimeo_time") {
+    setPosterMode("");
+  } else {
+    updatePosterModeUi();
+  }
+
+  return state.posterPicker.initToken;
+};
+
+const initPosterPicker = async () => {
+  if (!dom.videoForm || !dom.posterPicker || !dom.posterPlayer) return;
+
+  const rawUrl = dom.videoForm.elements.vimeo_url?.value.trim() || "";
+
+  if (state.posterPicker.urlTimer) {
+    window.clearTimeout(state.posterPicker.urlTimer);
+    state.posterPicker.urlTimer = null;
+  }
+
+  if (!rawUrl) {
+    resetPosterPicker();
+    return;
+  }
+
+  const parsedUrl = parseVimeoUrl(rawUrl);
+
+  if (!parsedUrl) {
+    resetPosterPicker({
+      keepVisible: true,
+      emptyLabel: "No preview",
+      message: "Invalid Vimeo URL"
+    });
+    return;
+  }
+
+  console.debug("[Poster Picker] initPosterPicker", {
+    originalUrl: rawUrl,
+    videoId: parsedUrl.id,
+    embedUrl: parsedUrl.embedUrl
+  });
+
+  if (state.posterPicker.player && state.posterPicker.vimeoKey === parsedUrl.embedUrl) {
+    dom.posterPicker.hidden = false;
+    setPosterPickerMessage("");
+    return;
+  }
+
+  const token = resetPosterPicker({
+    keepVisible: true,
+    emptyLabel: "Loading preview"
+  });
+
+  if (!window.Vimeo?.Player) {
+    setPosterPickerMessage("Vimeo Player API unavailable", "error");
+    return;
+  }
+
+  dom.posterPlayer.innerHTML = "";
+
+  const embed = document.createElement("div");
+  embed.className = "poster-picker__embed";
+  dom.posterPlayer.append(embed);
+
+  try {
+    const player = new window.Vimeo.Player(embed, {
+      url: parsedUrl.embedUrl,
+      responsive: true,
+      dnt: true,
+      title: false,
+      byline: false,
+      portrait: false
+    });
+
+    state.posterPicker.player = player;
+    state.posterPicker.vimeoKey = parsedUrl.embedUrl;
+
+    player.on("timeupdate", (data) => {
+      if (token !== state.posterPicker.initToken) return;
+      syncPosterSlider(data.seconds, data.duration);
+    });
+
+    player.on("seeked", (data) => {
+      if (token !== state.posterPicker.initToken) return;
+      syncPosterSlider(data.seconds);
+    });
+
+    await player.ready();
+
+    if (token !== state.posterPicker.initToken) {
+      player.destroy().catch(() => {});
+      return;
+    }
+
+    const [duration, currentTime] = await Promise.all([
+      player.getDuration(),
+      player.getCurrentTime()
+    ]);
+
+    if (token !== state.posterPicker.initToken) return;
+
+    if (dom.posterControls) {
+      dom.posterControls.hidden = false;
+    }
+
+    syncPosterSlider(currentTime, duration);
+    setPosterPickerMessage("");
+  } catch {
+    if (token !== state.posterPicker.initToken) return;
+
+    resetPosterPicker({
+      keepVisible: true,
+      emptyLabel: "No preview",
+      message: "Could not load Vimeo preview"
+    });
+  }
+};
+
+const queuePosterPickerInit = () => {
+  if (!dom.videoForm) return;
+
+  const rawUrl = dom.videoForm.elements.vimeo_url?.value.trim() || "";
+
+  if (state.posterPicker.urlTimer) {
+    window.clearTimeout(state.posterPicker.urlTimer);
+  }
+
+  if (!rawUrl) {
+    resetPosterPicker();
+    return;
+  }
+
+  state.posterPicker.urlTimer = window.setTimeout(initPosterPicker, 250);
+};
+
+const handlePosterSliderInput = () => {
+  if (!dom.posterSlider || !state.posterPicker.player) return;
+
+  const seconds = Math.max(0, Number(dom.posterSlider.value) || 0);
+  const seekToken = state.posterPicker.seekToken + 1;
+
+  state.posterPicker.seekToken = seekToken;
+  syncPosterSlider(seconds);
+
+  state.posterPicker.player.setCurrentTime(seconds)
+    .then((nextTime) => {
+      if (seekToken !== state.posterPicker.seekToken) return;
+      syncPosterSlider(nextTime);
+      setPosterPickerMessage("");
+    })
+    .catch(() => {
+      if (seekToken !== state.posterPicker.seekToken) return;
+      setPosterPickerMessage("Could not seek Vimeo preview", "error");
+    });
+};
+
+const handleUseCurrentFrame = async () => {
+  if (!state.posterPicker.player) {
+    setPosterPickerMessage("No Vimeo preview", "error");
+    return;
+  }
+
+  try {
+    const currentTime = await state.posterPicker.player.getCurrentTime();
+
+    setPosterMode("vimeo_time", currentTime);
+    setPosterPickerMessage("");
+  } catch {
+    setPosterPickerMessage("Could not read current frame time", "error");
+  }
+};
+
 const updateVideoPreview = () => {
   if (!dom.videoPreview || !dom.videoForm) return;
 
@@ -1217,7 +1720,9 @@ const updateVideoPreview = () => {
   const isFeatured = dom.videoForm.elements.featured.checked;
   const gifFile = dom.videoForm.elements.thumbnail_gif.files[0];
   const posterFile = dom.videoForm.elements.poster.files[0];
-  const mediaFile = gifFile || posterFile;
+  const posterState = getVideoFormPosterState(dom.videoForm);
+  const mediaFile = gifFile || (posterState.mode === "vimeo_time" ? null : posterFile);
+  const posterModeLabel = getPosterModeLabel(posterState.mode, posterState.time);
   let previewContent = `<div class="media-preview media-preview--empty media-preview--landscape">No image</div>`;
 
   if (mediaFile) {
@@ -1237,6 +1742,8 @@ const updateVideoPreview = () => {
       <div><dt>Card</dt><dd>${isFeatured ? "Featured" : "Standard"}</dd></div>
       <div><dt>GIF</dt><dd>${escapeHtml(gifFile?.name || "None")}</dd></div>
       <div><dt>Poster</dt><dd>${escapeHtml(posterFile?.name || "None")}</dd></div>
+      <div><dt>Poster mode</dt><dd>${escapeHtml(posterModeLabel)}</dd></div>
+      ${posterState.mode === "vimeo_time" ? `<div><dt>Poster time</dt><dd>${formatTimestamp(posterState.time)}</dd></div>` : ""}
     </dl>
   `;
 };
@@ -1897,8 +2404,33 @@ dom.galleryForm?.addEventListener("change", (event) => {
   updateGalleryPreview();
 });
 dom.galleryForm?.addEventListener("input", updateGalleryPreview);
-dom.videoForm?.addEventListener("change", updateVideoPreview);
-dom.videoForm?.addEventListener("input", updateVideoPreview);
+
+dom.videoForm?.addEventListener("change", (event) => {
+  if (event.target?.name === "poster") {
+    if (event.target.files[0]) {
+      setPosterMode("manual");
+    } else if (state.posterPicker.mode === "manual") {
+      setPosterMode("");
+    }
+  }
+
+  if (event.target?.name === "vimeo_url") {
+    initPosterPicker();
+  }
+
+  updateVideoPreview();
+});
+
+dom.videoForm?.addEventListener("input", (event) => {
+  if (event.target?.name === "vimeo_url") {
+    queuePosterPickerInit();
+  }
+
+  updateVideoPreview();
+});
+
+dom.posterSlider?.addEventListener("input", handlePosterSliderInput);
+dom.posterUseFrame?.addEventListener("click", handleUseCurrentFrame);
 
 dom.galleryForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1952,15 +2484,26 @@ dom.videoForm?.addEventListener("submit", async (event) => {
 
   const form = event.currentTarget;
   const submit = form.querySelector("button[type='submit']");
+  const submitLabel = submit?.querySelector("span");
+  const defaultSubmitLabel = submitLabel?.textContent || "Add video";
+  const posterState = getVideoFormPosterState(form);
+  const posterMode = posterState.mode;
+
+  if (posterMode === "manual" && form.elements.poster_mode.value !== "manual") {
+    setPosterMode("manual");
+  }
+
   const payload = {
     title: form.elements.title.value.trim(),
     vimeo_url: form.elements.vimeo_url.value.trim(),
     featured: form.elements.featured.checked,
-    sort_order: state.videos.length + 1
+    sort_order: state.videos.length + 1,
+    poster_time: posterMode === "vimeo_time" ? posterState.time : null,
+    poster_mode: posterMode || null
   };
   const files = {
     thumbnailGif: form.elements.thumbnail_gif.files[0] || null,
-    poster: form.elements.poster.files[0] || null
+    poster: posterMode === "manual" ? posterState.file : null
   };
 
   if (!payload.title || !payload.vimeo_url) {
@@ -1971,16 +2514,41 @@ dom.videoForm?.addEventListener("submit", async (event) => {
   submit?.setAttribute("disabled", "true");
 
   try {
-    await service.createVideoItem(payload, files);
+    const video = await service.createVideoItem(payload, files);
     form.reset();
+    setPosterMode("");
+    resetPosterPicker();
     updateVideoPreview();
-    renderVideos();
-    renderPortfolioIndicators();
-    showToast("Video added");
+
+    if (posterMode === "vimeo_time") {
+      if (submitLabel) {
+        submitLabel.textContent = "Generating poster...";
+      }
+
+      showToast("Generating poster...");
+
+      try {
+        await service.generateVimeoPoster(video, posterState);
+        await refreshData();
+        showToast("Video added, poster generated");
+      } catch (posterError) {
+        console.error("Vimeo poster generation error:", posterError);
+        renderVideos();
+        renderPortfolioIndicators();
+        showToast(`Video added, poster generation failed: ${posterError.message || "Unknown error"}`);
+      }
+    } else {
+      renderVideos();
+      renderPortfolioIndicators();
+      showToast("Video added");
+    }
   } catch (error) {
     showToast(error.message || "Could not add video");
   } finally {
     submit?.removeAttribute("disabled");
+    if (submitLabel) {
+      submitLabel.textContent = defaultSubmitLabel;
+    }
   }
 });
 

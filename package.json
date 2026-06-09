@@ -1,0 +1,15 @@
+{
+  "name": "cinemorph-site",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check:admin": "node --check src/admin/js/admin.js",
+    "check:functions": "node --check netlify/functions/generate-vimeo-poster.js"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}

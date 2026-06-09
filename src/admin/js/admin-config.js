@@ -12,5 +12,8 @@ window.CINEMORPH_ADMIN_CONFIG = {
       galleryBucket: "cinemorph-gallery",
       videoBucket: "cinemorph-video-media"
     }
+  },
+  posterGeneration: {
+    endpoint: "/.netlify/functions/generate-vimeo-poster"
   }
 };

@@ -573,6 +573,11 @@ button.admin-mode:focus-visible {
   justify-content: start;
 }
 
+.admin-grid--videos {
+  align-items: start;
+  grid-template-columns: minmax(280px, 420px) minmax(280px, 420px) minmax(360px, 1fr);
+}
+
 .admin-grid--gallery {
   --gallery-admin-panel-height: clamp(560px, 45vw, 620px);
 
@@ -583,6 +588,7 @@ button.admin-mode:focus-visible {
 .admin-form,
 .upload-preview,
 .focus-panel,
+.poster-picker,
 .media-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -751,6 +757,139 @@ textarea:focus {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.poster-picker {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  max-width: 720px;
+  padding: 12px;
+}
+
+.poster-picker__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.poster-picker__kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.poster-picker h3 {
+  margin: 0;
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.poster-picker__mode {
+  flex: 0 1 auto;
+  max-width: 190px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: right;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.poster-picker__mode.is-manual {
+  border-color: rgba(255, 211, 107, .34);
+  color: var(--warning);
+}
+
+.poster-picker__mode.is-vimeo-time {
+  border-color: rgba(138, 255, 186, .34);
+  color: var(--success);
+}
+
+.poster-picker__player {
+  display: grid;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .012)),
+    rgba(0, 0, 0, .34);
+}
+
+.poster-picker__embed,
+.poster-picker__player iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.poster-picker__player iframe {
+  border: 0;
+}
+
+.poster-picker__empty {
+  color: rgba(232, 238, 242, .44);
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: clamp(28px, 4vw, 52px);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.poster-picker__controls {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.poster-picker__time-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.poster-picker__time-row span {
+  color: var(--muted);
+}
+
+.poster-picker__slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.poster-picker__controls .secondary-button {
+  width: 100%;
+}
+
+.poster-picker__selection,
+.poster-picker__message {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.poster-picker__message.is-error {
+  color: var(--danger);
 }
 
 .focus-panel {
@@ -1262,6 +1401,15 @@ body.is-gallery-card-dragging .media-card[data-gallery-card] {
 }
 
 @media (max-width: 1280px) {
+  .admin-grid--videos {
+    grid-template-columns: repeat(2, minmax(280px, 420px));
+  }
+
+  .admin-grid--videos > .poster-picker {
+    grid-column: 1 / -1;
+    max-width: 858px;
+  }
+
   .admin-grid--gallery {
     grid-template-columns: repeat(2, minmax(280px, 420px));
   }
@@ -1298,6 +1446,11 @@ body.is-gallery-card-dragging .media-card[data-gallery-card] {
 
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-grid--videos > .poster-picker {
+    grid-column: auto;
+    max-width: none;
   }
 
   .watcher-row {

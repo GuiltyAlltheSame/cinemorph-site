@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CINEMORPH Admin</title>
-  <link rel="stylesheet" href="css/admin.css?v=admin-heading-dedupe-20260606">
+  <link rel="stylesheet" href="css/admin.css?v=admin-poster-picker-20260608">
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" focusable="false">
@@ -201,7 +201,7 @@
       <section class="admin-panel" data-panel="videos" aria-labelledby="videos-title">
         <h2 class="visually-hidden" id="videos-title">Video Upload</h2>
 
-        <div class="admin-grid">
+        <div class="admin-grid admin-grid--videos">
           <form class="admin-form" data-video-form>
             <label class="field">
               <span>Title</span>
@@ -223,6 +223,9 @@
               <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
             </label>
 
+            <input type="hidden" name="poster_time" value="">
+            <input type="hidden" name="poster_mode" value="">
+
             <label class="switch">
               <input type="checkbox" name="featured">
               <span>Featured</span>
@@ -241,6 +244,35 @@
               <div><dt>Card</dt><dd>Standard</dd></div>
             </dl>
           </div>
+
+          <section class="poster-picker" data-poster-picker hidden aria-label="Poster Picker">
+            <div class="poster-picker__header">
+              <div>
+                <p class="poster-picker__kicker">Vimeo preview</p>
+                <h3>Poster Picker</h3>
+              </div>
+              <span class="poster-picker__mode" data-poster-mode-label>No poster selected</span>
+            </div>
+
+            <div class="poster-picker__player" data-poster-player>
+              <div class="poster-picker__empty">Paste a Vimeo URL</div>
+            </div>
+
+            <div class="poster-picker__controls" data-poster-controls hidden>
+              <div class="poster-picker__time-row">
+                <output data-poster-current-time>00:00</output>
+                <span data-poster-duration>00:00</span>
+              </div>
+              <input class="poster-picker__slider" type="range" min="0" max="0" step="0.1" value="0" data-poster-time-slider aria-label="Poster frame time">
+              <button class="secondary-button" type="button" data-use-poster-frame>
+                <svg class="icon" aria-hidden="true"><use href="#icon-eye"></use></svg>
+                <span>Use Current Frame</span>
+              </button>
+              <p class="poster-picker__selection" data-poster-selection>Selected poster time: None</p>
+            </div>
+
+            <p class="poster-picker__message" data-poster-picker-message role="status" aria-live="polite"></p>
+          </section>
         </div>
 
         <div class="media-list" data-video-list></div>
@@ -285,6 +317,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/admin-config.js"></script>
-  <script src="js/admin.js?v=admin-heading-dedupe-20260606" defer></script>
+  <script src="https://player.vimeo.com/api/player.js" defer></script>
+  <script src="js/admin.js?v=admin-poster-picker-20260608" defer></script>
 </body>
 </html>
