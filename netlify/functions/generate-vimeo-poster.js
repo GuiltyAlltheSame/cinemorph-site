@@ -42,6 +42,62 @@ const sanitizeFileNamePart = (value) => String(value || "poster")
 
 const normalizeTableName = (value, fallback) => String(value || fallback).replace(/^public\./, "");
 
+const decodeJwtRole = (token) => {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split(".")[1] || "", "base64url").toString("utf8"));
+
+    return String(payload.role || "");
+  } catch {
+    return "";
+  }
+};
+
+const getRequiredEnv = (name, message) => {
+  const value = process.env[name];
+
+  if (!value) {
+    throw Object.assign(new Error(message || `${name} is required`), { statusCode: 500 });
+  }
+
+  return value;
+};
+
+const validateFunctionEnvironment = () => {
+  const supabaseUrl = process.env.SUPABASE_URL || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const vimeoAccessToken = process.env.VIMEO_ACCESS_TOKEN || "";
+  const serviceRoleJwtRole = decodeJwtRole(serviceRoleKey);
+
+  console.debug("[generate-vimeo-poster] environment", {
+    supabaseUrl: supabaseUrl ? "yes" : "no",
+    serviceRoleEnvExists: serviceRoleKey ? "yes" : "no",
+    serviceRoleJwtRole: serviceRoleJwtRole || "unknown",
+    vimeoAccessToken: vimeoAccessToken ? "yes" : "no"
+  });
+
+  if (!supabaseUrl) {
+    throw Object.assign(new Error("SUPABASE_URL is required for poster generation"), { statusCode: 500 });
+  }
+
+  if (!serviceRoleKey) {
+    throw Object.assign(new Error("SUPABASE_SERVICE_ROLE_KEY is required for poster generation"), { statusCode: 500 });
+  }
+
+  if (serviceRoleJwtRole && serviceRoleJwtRole !== "service_role") {
+    throw Object.assign(new Error(`SUPABASE_SERVICE_ROLE_KEY must be the service_role key, current JWT role is "${serviceRoleJwtRole}"`), { statusCode: 500 });
+  }
+
+  if (!vimeoAccessToken) {
+    throw Object.assign(new Error("VIMEO_ACCESS_TOKEN is required for poster generation"), { statusCode: 500 });
+  }
+
+  return {
+    supabaseUrl,
+    serviceRoleKey,
+    vimeoAccessToken
+  };
+};
+
 const parseVimeoVideoId = (value) => {
   const rawValue = String(value || "").trim();
 
@@ -81,22 +137,34 @@ const parseVimeoVideoId = (value) => {
 };
 
 const getSupabaseServiceClient = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw Object.assign(new Error("Supabase function environment is missing"), { statusCode: 500 });
-  }
+  const supabaseUrl = getRequiredEnv("SUPABASE_URL", "SUPABASE_URL is required for poster generation");
+  const serviceRoleKey = getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY is required for poster generation");
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
   });
 };
 
-const requireAdminUser = async (event, supabase) => {
+const getSupabaseAuthClient = () => createClient(
+  getRequiredEnv("SUPABASE_URL", "SUPABASE_URL is required for poster generation"),
+  getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY is required for poster generation"),
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
+const requireAdminUser = async (event, serviceSupabase) => {
   const authHeader = event.headers.authorization || event.headers.Authorization || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
@@ -104,14 +172,15 @@ const requireAdminUser = async (event, supabase) => {
     throw Object.assign(new Error("Admin authorization is required"), { statusCode: 401 });
   }
 
-  const { data: userResult, error: userError } = await supabase.auth.getUser(token);
+  const authSupabase = getSupabaseAuthClient();
+  const { data: userResult, error: userError } = await authSupabase.auth.getUser(token);
 
   if (userError || !userResult?.user) {
     throw Object.assign(new Error("Invalid admin session"), { statusCode: 401 });
   }
 
   const adminTable = normalizeTableName(process.env.SUPABASE_ADMIN_TABLE, "admin_users");
-  const { data: adminRows, error: adminError } = await supabase
+  const { data: adminRows, error: adminError } = await serviceSupabase
     .from(adminTable)
     .select("user_id")
     .eq("user_id", userResult.user.id)
@@ -129,13 +198,7 @@ const requireAdminUser = async (event, supabase) => {
 };
 
 const getVimeoAccessToken = () => {
-  const token = process.env.VIMEO_ACCESS_TOKEN;
-
-  if (!token) {
-    throw Object.assign(new Error("VIMEO_ACCESS_TOKEN is required for poster generation"), { statusCode: 500 });
-  }
-
-  return token;
+  return getRequiredEnv("VIMEO_ACCESS_TOKEN", "VIMEO_ACCESS_TOKEN is required for poster generation");
 };
 
 const getVimeoVideo = async (vimeoVideoId) => {
@@ -303,6 +366,8 @@ exports.handler = async (event) => {
   let outputPath = "";
 
   try {
+    validateFunctionEnvironment();
+
     const body = parseBody(event);
     const rowId = String(body.row_id || body.video_id || "").trim();
     const posterTime = Number(body.poster_time);
