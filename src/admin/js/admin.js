@@ -133,6 +133,64 @@ const escapeHtml = (value) => String(value ?? "")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#039;");
 
+const splitTrailingUrlPunctuation = (value) => {
+  let url = value;
+  let trailing = "";
+
+  while (/[.,!?;:]$/.test(url)) {
+    trailing = `${url.slice(-1)}${trailing}`;
+    url = url.slice(0, -1);
+  }
+
+  while (url.endsWith(")") && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
+    trailing = `)${trailing}`;
+    url = url.slice(0, -1);
+  }
+
+  return { url, trailing };
+};
+
+const getSafeMessageLinkHref = (value) => {
+  const normalized = /^www\./i.test(value) ? `https://${value}` : value;
+
+  try {
+    const url = new URL(normalized);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return "";
+    }
+
+    return url.href;
+  } catch {
+    return "";
+  }
+};
+
+const renderMessageText = (value) => {
+  const text = String(value ?? "");
+  const urlPattern = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+  let output = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(urlPattern)) {
+    const index = match.index ?? 0;
+    const rawMatch = match[0];
+    const { url, trailing } = splitTrailingUrlPunctuation(rawMatch);
+    const href = getSafeMessageLinkHref(url);
+
+    output += escapeHtml(text.slice(lastIndex, index));
+    output += href
+      ? `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer noopener">${escapeHtml(url)}</a>${escapeHtml(trailing)}`
+      : escapeHtml(rawMatch);
+
+    lastIndex = index + rawMatch.length;
+  }
+
+  output += escapeHtml(text.slice(lastIndex));
+
+  return output.replace(/\r?\n/g, "<br>");
+};
+
 const formatDate = (value) => new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "2-digit",
@@ -1010,7 +1068,7 @@ const renderMessages = () => {
           <a href="${escapeHtml(getContactHref(message.contact))}">${escapeHtml(message.contact)}</a>
           <span class="message-date">${escapeHtml(formatDate(message.created_at))}</span>
         </div>
-        <p class="message-text">${escapeHtml(message.message)}</p>
+        <p class="message-text">${renderMessageText(message.message)}</p>
         <div class="message-actions">
           <button class="icon-button" type="button" data-toggle-read="${escapeHtml(message.id)}" title="${readLabel}" aria-label="${readLabel}">
             <svg class="icon" aria-hidden="true"><use href="#${readIcon}"></use></svg>
