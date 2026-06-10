@@ -541,6 +541,12 @@ button.admin-mode:focus-visible {
   white-space: nowrap;
 }
 
+.message-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
 .message-text {
   min-width: 0;
   margin: 0;
@@ -559,6 +565,81 @@ button.admin-mode:focus-visible {
 .message-text a:hover,
 .message-text a:focus-visible {
   color: #fff;
+}
+
+.message-references {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.message-references__label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.reference-card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reference-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 260px);
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, .055);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.reference-card:hover,
+.reference-card:focus-visible {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, .09);
+  outline: 0;
+}
+
+.reference-card__number {
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.reference-card__body {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.reference-card__title,
+.reference-card__url {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reference-card__title {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.reference-card__url {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.1;
 }
 
 .message-actions {

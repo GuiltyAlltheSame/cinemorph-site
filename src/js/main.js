@@ -29,12 +29,19 @@ const galleryProgress = document.querySelector(".gallery-progress");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactSubmit = document.querySelector("[data-contact-submit]");
+const referenceToggle = document.querySelector("[data-reference-toggle]");
+const referenceField = document.querySelector("[data-reference-field]");
+const referencePanel = document.querySelector("[data-reference-panel]");
+const referenceBox = document.querySelector("[data-reference-box]");
+const referenceInput = document.querySelector("[data-reference-input]");
+const referenceList = document.querySelector("[data-reference-list]");
 const mobileSceneQuery = window.matchMedia("(max-width: 700px)");
 let tvNoiseController;
 let tvPowerController;
 let setVcrDisplayMode = () => {};
 let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
+const referenceLinks = [];
 
 const isMobileScene = () => mobileSceneQuery.matches;
 
@@ -65,6 +72,171 @@ const setContactStatus = (message, type = "neutral") => {
   contactStatus.classList.toggle("is-error", type === "error");
 };
 
+const splitTrailingUrlPunctuation = (value) => {
+  let url = String(value || "").trim();
+  let trailing = "";
+
+  while (/[.,!?;:]$/.test(url)) {
+    trailing = `${url.slice(-1)}${trailing}`;
+    url = url.slice(0, -1);
+  }
+
+  while (url.endsWith(")") && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
+    trailing = `)${trailing}`;
+    url = url.slice(0, -1);
+  }
+
+  return { url, trailing };
+};
+
+const normalizeReferenceUrl = (value) => {
+  const { url } = splitTrailingUrlPunctuation(value);
+  const normalized = /^www\./i.test(url) ? `https://${url}` : url;
+
+  try {
+    const parsed = new URL(normalized);
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+
+    return parsed.href;
+  } catch {
+    return "";
+  }
+};
+
+const getReferenceLinkTitle = (value) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./i, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const lastSegment = segments[segments.length - 1] || "";
+    const readableSegment = decodeURIComponent(lastSegment)
+      .replace(/\.[a-z0-9]{2,5}$/i, "")
+      .replace(/[-_]+/g, " ")
+      .trim();
+
+    if (readableSegment && !/^\d+$/.test(readableSegment)) {
+      return readableSegment.slice(0, 34);
+    }
+
+    return host;
+  } catch {
+    return String(value || "").replace(/^https?:\/\//i, "").slice(0, 34);
+  }
+};
+
+const getReferenceLinkHost = (value) => {
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+};
+
+const extractReferenceUrls = (value) => {
+  const text = String(value || "");
+  const urlPattern = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+
+  return Array.from(text.matchAll(urlPattern), (match) => normalizeReferenceUrl(match[0]))
+    .filter(Boolean);
+};
+
+const renderReferenceCards = () => {
+  if (!referenceList) return;
+
+  const fragment = document.createDocumentFragment();
+
+  referenceLinks.forEach((item, index) => {
+    const card = document.createElement("div");
+    const number = document.createElement("span");
+    const body = document.createElement("span");
+    const title = document.createElement("span");
+    const host = document.createElement("span");
+    const remove = document.createElement("button");
+    const removeMark = document.createElement("span");
+
+    card.className = "reference-card";
+    number.className = "reference-card__number";
+    number.textContent = String(index + 1).padStart(2, "0");
+    body.className = "reference-card__body";
+    title.className = "reference-card__title";
+    title.textContent = item.title;
+    host.className = "reference-card__url";
+    host.textContent = getReferenceLinkHost(item.url);
+    remove.className = "reference-card__remove";
+    remove.type = "button";
+    remove.dataset.referenceRemove = String(index);
+    remove.setAttribute("aria-label", `Remove reference ${index + 1}`);
+    removeMark.setAttribute("aria-hidden", "true");
+    removeMark.textContent = "x";
+
+    body.append(title, host);
+    remove.append(removeMark);
+    card.append(number, body, remove);
+    fragment.append(card);
+  });
+
+  referenceList.replaceChildren(fragment);
+};
+
+const addReferenceUrls = (urls) => {
+  let added = false;
+
+  urls.forEach((url) => {
+    const exists = referenceLinks.some((item) => item.url.toLowerCase() === url.toLowerCase());
+
+    if (!exists) {
+      referenceLinks.push({
+        url,
+        title: getReferenceLinkTitle(url)
+      });
+      added = true;
+    }
+  });
+
+  if (added) {
+    renderReferenceCards();
+  }
+
+  return added;
+};
+
+const commitReferenceInput = () => {
+  if (!referenceInput) return false;
+
+  const urls = extractReferenceUrls(referenceInput.value);
+  addReferenceUrls(urls);
+
+  if (urls.length) {
+    referenceInput.value = "";
+  }
+
+  return Boolean(urls.length);
+};
+
+const setReferencePanelState = () => {
+  if (!referenceToggle || !referencePanel) return;
+
+  const isEnabled = referenceToggle.checked;
+
+  if (referenceField) {
+    referenceField.hidden = !isEnabled;
+  }
+
+  referencePanel.hidden = !isEnabled;
+
+  if (referenceInput) {
+    referenceInput.disabled = !isEnabled;
+  }
+};
+
+const getReferencePayload = () => referenceLinks.map((item) => ({
+  url: item.url,
+  title: item.title
+}));
+
 const postSupabaseRow = async (tableName, payload) => {
   const config = getSupabaseConfig();
   const baseUrl = config.url.replace(/\/$/, "");
@@ -88,9 +260,69 @@ const postSupabaseRow = async (tableName, payload) => {
   }
 };
 
+setReferencePanelState();
+
+referenceToggle?.addEventListener("change", () => {
+  setReferencePanelState();
+
+  if (referenceToggle.checked) {
+    referenceInput?.focus();
+  }
+});
+
+referenceBox?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-reference-remove]")) return;
+
+  referenceInput?.focus();
+});
+
+referenceList?.addEventListener("click", (event) => {
+  const removeButton = event.target.closest("[data-reference-remove]");
+
+  if (!removeButton) return;
+
+  referenceLinks.splice(Number(removeButton.dataset.referenceRemove), 1);
+  renderReferenceCards();
+  referenceInput?.focus();
+});
+
+referenceInput?.addEventListener("paste", (event) => {
+  const pastedText = event.clipboardData?.getData("text") || "";
+  const urls = extractReferenceUrls(pastedText);
+
+  if (!urls.length) return;
+
+  event.preventDefault();
+  addReferenceUrls(urls);
+  referenceInput.value = "";
+});
+
+referenceInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== "," && event.key !== " ") return;
+
+  if (commitReferenceInput()) {
+    event.preventDefault();
+  }
+});
+
+referenceInput?.addEventListener("blur", () => {
+  commitReferenceInput();
+});
+
 if (contactForm) {
   contactForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const hasReferences = Boolean(referenceToggle?.checked);
+
+    if (hasReferences) {
+      commitReferenceInput();
+
+      if (String(referenceInput?.value || "").trim()) {
+        setContactStatus("Please paste a valid reference link or clear the reference field.", "error");
+        referenceInput?.focus();
+        return;
+      }
+    }
 
     const formData = new FormData(contactForm);
     const payload = {
@@ -104,9 +336,19 @@ if (contactForm) {
       return;
     }
 
+    if (hasReferences && !referenceLinks.length) {
+      setContactStatus("Please add at least one reference link or uncheck I have references.", "error");
+      referenceInput?.focus();
+      return;
+    }
+
     if (!isSupabaseConfigured()) {
       setContactStatus("Message system is not configured yet. Please use the contact details on this page.", "error");
       return;
+    }
+
+    if (hasReferences) {
+      payload.reference_links = getReferencePayload();
     }
 
     contactSubmit?.setAttribute("disabled", "true");
@@ -115,6 +357,9 @@ if (contactForm) {
     try {
       await postSupabaseRow(getSupabaseConfig().tables?.messages || "messages", payload);
       contactForm.reset();
+      referenceLinks.length = 0;
+      renderReferenceCards();
+      setReferencePanelState();
       setContactStatus("Message sent. We will get back to you soon.", "success");
     } catch (error) {
       console.error("Contact form Supabase error:", error);

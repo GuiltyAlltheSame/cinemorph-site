@@ -191,6 +191,104 @@ const renderMessageText = (value) => {
   return output.replace(/\r?\n/g, "<br>");
 };
 
+const getReferenceLinkTitle = (value) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./i, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const lastSegment = segments[segments.length - 1] || "";
+    const readableSegment = decodeURIComponent(lastSegment)
+      .replace(/\.[a-z0-9]{2,5}$/i, "")
+      .replace(/[-_]+/g, " ")
+      .trim();
+
+    if (readableSegment && !/^\d+$/.test(readableSegment)) {
+      return readableSegment.slice(0, 34);
+    }
+
+    return host;
+  } catch {
+    return String(value || "").replace(/^https?:\/\//i, "").slice(0, 34);
+  }
+};
+
+const getReferenceLinkHost = (value) => {
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+};
+
+const getStoredReferenceItems = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+
+    return trimmed.split(/\s+/);
+  }
+
+  return [];
+};
+
+const normalizeReferenceLinks = (value) => {
+  const links = [];
+
+  getStoredReferenceItems(value).forEach((item) => {
+    const rawUrl = typeof item === "string"
+      ? item
+      : item?.url || item?.href || item?.link || "";
+    const { url } = splitTrailingUrlPunctuation(rawUrl);
+    const href = getSafeMessageLinkHref(url);
+
+    if (!href || links.some((link) => link.url.toLowerCase() === href.toLowerCase())) {
+      return;
+    }
+
+    const rawTitle = typeof item === "object" && item?.title ? String(item.title).trim() : "";
+
+    links.push({
+      url: href,
+      title: rawTitle || getReferenceLinkTitle(href)
+    });
+  });
+
+  return links;
+};
+
+const renderReferenceLinks = (message) => {
+  const links = normalizeReferenceLinks(message.reference_links ?? message.references ?? message.referenceLinks);
+
+  if (!links.length) return "";
+
+  return `
+    <div class="message-references" aria-label="Reference links">
+      <span class="message-references__label">References</span>
+      <div class="reference-card-list">
+        ${links.map((link, index) => `
+          <a class="reference-card" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(link.url)}">
+            <span class="reference-card__number">${String(index + 1).padStart(2, "0")}</span>
+            <span class="reference-card__body">
+              <span class="reference-card__title">${escapeHtml(link.title)}</span>
+              <span class="reference-card__url">${escapeHtml(getReferenceLinkHost(link.url))}</span>
+            </span>
+          </a>
+        `).join("")}
+      </div>
+    </div>
+  `;
+};
+
 const formatDate = (value) => new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "2-digit",
@@ -1068,7 +1166,10 @@ const renderMessages = () => {
           <a href="${escapeHtml(getContactHref(message.contact))}">${escapeHtml(message.contact)}</a>
           <span class="message-date">${escapeHtml(formatDate(message.created_at))}</span>
         </div>
-        <p class="message-text">${renderMessageText(message.message)}</p>
+        <div class="message-body">
+          <p class="message-text">${renderMessageText(message.message)}</p>
+          ${renderReferenceLinks(message)}
+        </div>
         <div class="message-actions">
           <button class="icon-button" type="button" data-toggle-read="${escapeHtml(message.id)}" title="${readLabel}" aria-label="${readLabel}">
             <svg class="icon" aria-hidden="true"><use href="#${readIcon}"></use></svg>

@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cinemorph Studio</title>
+  <meta name="description" content="Cinemorph Studio creates cinematic video production, photography, and visual storytelling for clients in Washington and Oregon.">
+  <link rel="canonical" href="https://cinemorphstudio.com/">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -272,9 +274,23 @@
           <label for="contact-field">Email / Phone</label>
           <input class="input" type="text" id="contact-field" name="contact" placeholder="you@example.com or +1 555 010 2030" autocomplete="email" required>
         </div>
-        <div class="field">
-          <label for="msg">Message</label>
+        <div class="field field--message">
+          <div class="message-field__header">
+            <label for="msg">Message</label>
+            <label class="reference-toggle" for="has-references">
+              <input type="checkbox" id="has-references" name="has_references" data-reference-toggle>
+              <span>I have references</span>
+            </label>
+          </div>
           <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..." required></textarea>
+        </div>
+        <div class="field field--references" data-reference-field hidden>
+          <div class="reference-panel" data-reference-panel hidden>
+            <div class="reference-input" data-reference-box aria-label="Reference links">
+              <div class="reference-card-list" data-reference-list aria-live="polite"></div>
+              <input class="reference-input__field" type="url" id="reference-link-input" placeholder="Paste reference links..." autocomplete="off" inputmode="url" data-reference-input disabled>
+            </div>
+          </div>
         </div>
         <button class="btn" type="submit" data-contact-submit>Send</button>
         <p class="contact__status" data-contact-status role="status" aria-live="polite"></p>
