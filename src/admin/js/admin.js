@@ -4,6 +4,14 @@ const panelTitles = {
   gallery: "Gallery",
   videos: "Videos"
 };
+const linkPreviewStorageKey = "cinemorph-admin-link-preview";
+const getInitialLinkPreviewEnabled = () => {
+  try {
+    return window.localStorage.getItem(linkPreviewStorageKey) !== "off";
+  } catch {
+    return true;
+  }
+};
 
 const state = {
   activePanel: "messages",
@@ -15,6 +23,13 @@ const state = {
   galleryFocus: {
     x: 50,
     y: 50
+  },
+  galleryPreview: {
+    file: null,
+    url: "",
+    width: 0,
+    height: 0,
+    token: 0
   },
   videos: [],
   pendingDelete: null,
@@ -28,6 +43,14 @@ const state = {
     initToken: 0,
     seekToken: 0,
     urlTimer: null
+  },
+  linkPreview: {
+    enabled: getInitialLinkPreviewEnabled(),
+    activeAnchor: null,
+    pointer: { x: 0, y: 0 },
+    token: 0,
+    showTimer: null,
+    vimeoCache: new Map()
   }
 };
 
@@ -46,6 +69,8 @@ const dom = {
   videoTotal: document.querySelector("[data-video-total]"),
   photoTotal: document.querySelector("[data-photo-total]"),
   watcherOpen: document.querySelector("[data-watcher-open]"),
+  linkPreviewToggle: document.querySelector("[data-link-preview-toggle]"),
+  linkPreview: document.querySelector("[data-link-preview]"),
   watcherModal: document.querySelector("[data-watcher-modal]"),
   watcherSummary: document.querySelector("[data-watcher-summary]"),
   watcherList: document.querySelector("[data-watcher-list]"),
@@ -276,7 +301,7 @@ const renderReferenceLinks = (message) => {
       <span class="message-references__label">References</span>
       <div class="reference-card-list">
         ${links.map((link, index) => `
-          <a class="reference-card" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(link.url)}">
+          <a class="reference-card" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer noopener" aria-label="Open reference ${escapeHtml(link.title)}">
             <span class="reference-card__number">${String(index + 1).padStart(2, "0")}</span>
             <span class="reference-card__body">
               <span class="reference-card__title">${escapeHtml(link.title)}</span>
@@ -287,6 +312,356 @@ const renderReferenceLinks = (message) => {
       </div>
     </div>
   `;
+};
+
+const getLinkPreviewHost = (value) => {
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+};
+
+const isPreviewImageUrl = (value) => {
+  try {
+    const url = new URL(value);
+
+    return /\.(?:avif|gif|jpe?g|png|webp)$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+};
+
+const getYouTubeVideoId = (value) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+
+    if (host === "youtu.be") return segments[0] || "";
+    if (!host.endsWith("youtube.com")) return "";
+    if (url.searchParams.get("v")) return url.searchParams.get("v") || "";
+    if (["embed", "shorts", "live"].includes(segments[0])) return segments[1] || "";
+
+    return "";
+  } catch {
+    return "";
+  }
+};
+
+const getVimeoVideoId = (value) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+
+    if (host !== "vimeo.com" && host !== "player.vimeo.com") return "";
+
+    if (host === "player.vimeo.com") {
+      const videoSegmentIndex = segments.indexOf("video");
+
+      return /^\d+$/.test(segments[videoSegmentIndex + 1] || "") ? segments[videoSegmentIndex + 1] : "";
+    }
+
+    const manageVideosIndex = segments.findIndex((segment, index) => (
+      segment === "manage" && segments[index + 1] === "videos"
+    ));
+
+    if (manageVideosIndex >= 0 && /^\d+$/.test(segments[manageVideosIndex + 2] || "")) {
+      return segments[manageVideosIndex + 2];
+    }
+
+    const videoSegmentIndex = segments.indexOf("video");
+
+    if (videoSegmentIndex >= 0 && /^\d+$/.test(segments[videoSegmentIndex + 1] || "")) {
+      return segments[videoSegmentIndex + 1];
+    }
+
+    return segments.find((segment) => /^\d+$/.test(segment)) || "";
+  } catch {
+    return "";
+  }
+};
+
+const getAnchorPreviewImage = (anchor) => {
+  const explicitImage = String(anchor.dataset.linkPreviewImage || "").trim();
+
+  if (explicitImage) return explicitImage;
+
+  const image = anchor.querySelector("img");
+
+  return image?.currentSrc || image?.src || "";
+};
+
+const getLinkPreviewDescriptor = (anchor) => {
+  const href = getSafeMessageLinkHref(anchor.href || "");
+
+  if (!href) return null;
+
+  const host = getLinkPreviewHost(href);
+  const anchorImage = getAnchorPreviewImage(anchor);
+
+  if (anchorImage) {
+    return {
+      type: anchor.dataset.linkPreviewType || (getVimeoVideoId(href) ? "Vimeo" : "Image"),
+      host,
+      imageUrl: anchorImage,
+      fallbackImageUrl: "",
+      sourceUrl: href
+    };
+  }
+
+  if (isPreviewImageUrl(href)) {
+    return {
+      type: "Image",
+      host,
+      imageUrl: href,
+      fallbackImageUrl: "",
+      sourceUrl: href
+    };
+  }
+
+  const youTubeId = getYouTubeVideoId(href);
+
+  if (youTubeId) {
+    return {
+      type: "YouTube",
+      host,
+      imageUrl: `https://i.ytimg.com/vi/${encodeURIComponent(youTubeId)}/maxresdefault.jpg`,
+      fallbackImageUrl: `https://i.ytimg.com/vi/${encodeURIComponent(youTubeId)}/hqdefault.jpg`,
+      sourceUrl: href
+    };
+  }
+
+  const vimeoId = getVimeoVideoId(href);
+
+  if (vimeoId) {
+    return {
+      type: "Vimeo",
+      host,
+      imageUrl: `https://vumbnail.com/${encodeURIComponent(vimeoId)}.jpg`,
+      fallbackImageUrl: "",
+      sourceUrl: href,
+      vimeoId
+    };
+  }
+
+  return null;
+};
+
+const getVimeoOembedPoster = async (descriptor) => {
+  if (!descriptor?.vimeoId) return "";
+
+  const cacheKey = descriptor.sourceUrl;
+
+  if (state.linkPreview.vimeoCache.has(cacheKey)) {
+    return state.linkPreview.vimeoCache.get(cacheKey);
+  }
+
+  try {
+    const url = new URL("https://vimeo.com/api/oembed.json");
+
+    url.searchParams.set("url", descriptor.sourceUrl);
+    const response = await fetch(url);
+
+    if (!response.ok) throw new Error("Vimeo oEmbed failed");
+
+    const data = await response.json();
+    const poster = String(data.thumbnail_url || "").trim();
+
+    if (poster) {
+      state.linkPreview.vimeoCache.set(cacheKey, poster);
+      return poster;
+    }
+  } catch {}
+
+  state.linkPreview.vimeoCache.set(cacheKey, descriptor.imageUrl);
+  return descriptor.imageUrl;
+};
+
+const setLinkPreviewToggleState = () => {
+  if (!dom.linkPreviewToggle) return;
+
+  const isEnabled = state.linkPreview.enabled;
+
+  dom.linkPreviewToggle.classList.toggle("is-connected", isEnabled);
+  dom.linkPreviewToggle.classList.toggle("is-muted", !isEnabled);
+  dom.linkPreviewToggle.setAttribute("aria-pressed", String(isEnabled));
+  dom.linkPreviewToggle.textContent = isEnabled ? "H/Link: ON" : "H/Link: OFF";
+};
+
+const setLinkPreviewEnabled = (isEnabled) => {
+  state.linkPreview.enabled = Boolean(isEnabled);
+
+  try {
+    window.localStorage.setItem(linkPreviewStorageKey, state.linkPreview.enabled ? "on" : "off");
+  } catch {}
+
+  setLinkPreviewToggleState();
+
+  if (!state.linkPreview.enabled) {
+    hideLinkPreview();
+  }
+};
+
+const positionLinkPreview = (event) => {
+  if (!dom.linkPreview || dom.linkPreview.hidden) return;
+
+  const x = event?.clientX ?? state.linkPreview.pointer.x;
+  const y = event?.clientY ?? state.linkPreview.pointer.y;
+
+  state.linkPreview.pointer = { x, y };
+
+  const gap = 18;
+  const edge = 12;
+  const rect = dom.linkPreview.getBoundingClientRect();
+  let left = x + gap;
+  let top = y + gap;
+
+  if (left + rect.width > window.innerWidth - edge) {
+    left = x - rect.width - gap;
+  }
+
+  if (top + rect.height > window.innerHeight - edge) {
+    top = y - rect.height - gap;
+  }
+
+  dom.linkPreview.style.left = `${Math.max(edge, left)}px`;
+  dom.linkPreview.style.top = `${Math.max(edge, top)}px`;
+};
+
+const renderLinkPreview = (descriptor) => {
+  if (!dom.linkPreview || !descriptor?.imageUrl) return;
+
+  const type = descriptor.type || "Preview";
+  const host = descriptor.host || getLinkPreviewHost(descriptor.sourceUrl);
+
+  dom.linkPreview.innerHTML = `
+    <div class="link-preview-popover__media">
+      <img src="${escapeHtml(descriptor.imageUrl)}" alt="" aria-hidden="true">
+    </div>
+    <div class="link-preview-popover__meta">
+      <span class="link-preview-popover__type">${escapeHtml(type)}</span>
+      <span class="link-preview-popover__host">${escapeHtml(host)}</span>
+    </div>
+  `;
+
+  const image = dom.linkPreview.querySelector("img");
+
+  if (image && descriptor.fallbackImageUrl) {
+    image.addEventListener("error", () => {
+      if (image.src !== descriptor.fallbackImageUrl) {
+        image.src = descriptor.fallbackImageUrl;
+      }
+    }, { once: true });
+  }
+
+  dom.linkPreview.hidden = false;
+  window.requestAnimationFrame(() => {
+    positionLinkPreview();
+    dom.linkPreview.classList.add("is-visible");
+  });
+};
+
+function hideLinkPreview() {
+  window.clearTimeout(state.linkPreview.showTimer);
+  state.linkPreview.activeAnchor = null;
+  state.linkPreview.token += 1;
+
+  if (!dom.linkPreview) return;
+
+  dom.linkPreview.classList.remove("is-visible");
+  dom.linkPreview.hidden = true;
+  dom.linkPreview.innerHTML = "";
+}
+
+const showLinkPreview = (anchor, event) => {
+  if (!state.linkPreview.enabled || !dom.linkPreview || !anchor) return;
+
+  const descriptor = getLinkPreviewDescriptor(anchor);
+
+  if (!descriptor) return;
+
+  window.clearTimeout(state.linkPreview.showTimer);
+  state.linkPreview.activeAnchor = anchor;
+  state.linkPreview.pointer = {
+    x: event?.clientX ?? state.linkPreview.pointer.x,
+    y: event?.clientY ?? state.linkPreview.pointer.y
+  };
+
+  const token = state.linkPreview.token + 1;
+  state.linkPreview.token = token;
+  state.linkPreview.showTimer = window.setTimeout(async () => {
+    if (state.linkPreview.token !== token || state.linkPreview.activeAnchor !== anchor) return;
+
+    renderLinkPreview(descriptor);
+
+    if (descriptor.vimeoId) {
+      const poster = await getVimeoOembedPoster(descriptor);
+
+      if (poster && state.linkPreview.token === token && state.linkPreview.activeAnchor === anchor) {
+        renderLinkPreview({ ...descriptor, imageUrl: poster });
+      }
+    }
+  }, 120);
+};
+
+const isClientMessagePreviewAnchor = (anchor) => (
+  Boolean(anchor)
+  && Boolean(dom.messageList?.contains(anchor))
+  && Boolean(anchor.closest(".message-card"))
+  && (
+    anchor.classList.contains("reference-card")
+    || Boolean(anchor.closest(".message-text"))
+  )
+);
+
+const getPreviewAnchorFromEvent = (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const anchor = target?.closest("a[href]");
+
+  if (!anchor || dom.linkPreview?.contains(anchor)) return null;
+  if (!isClientMessagePreviewAnchor(anchor)) return null;
+
+  return anchor;
+};
+
+const isLinkPreviewSuppressed = () => (
+  document.body.classList.contains("is-gallery-card-dragging")
+  || document.body.classList.contains("is-video-card-dragging")
+);
+
+const handleLinkPreviewPointerOver = (event) => {
+  if (event.pointerType === "touch") return;
+  if (isLinkPreviewSuppressed()) return;
+
+  const anchor = getPreviewAnchorFromEvent(event);
+
+  if (!anchor || anchor === state.linkPreview.activeAnchor) return;
+
+  showLinkPreview(anchor, event);
+};
+
+const handleLinkPreviewPointerMove = (event) => {
+  if (event.pointerType === "touch") return;
+
+  if (isLinkPreviewSuppressed()) {
+    hideLinkPreview();
+    return;
+  }
+
+  if (state.linkPreview.activeAnchor) {
+    positionLinkPreview(event);
+  }
+};
+
+const handleLinkPreviewPointerOut = (event) => {
+  const anchor = state.linkPreview.activeAnchor;
+
+  if (!anchor) return;
+  if (event.relatedTarget instanceof Node && anchor.contains(event.relatedTarget)) return;
+
+  hideLinkPreview();
 };
 
 const formatDate = (value) => new Intl.DateTimeFormat("en-US", {
@@ -352,8 +727,56 @@ const getGalleryFocusStyle = (item = {}) => {
   return `object-position: ${focus.x}% ${focus.y}%; transform-origin: ${focus.x}% ${focus.y}%;`;
 };
 
+const getGalleryCropWindow = (source = state.galleryPreview, item = state.galleryFocus) => {
+  const width = Number(source?.width) || 0;
+  const height = Number(source?.height) || 0;
+
+  if (!width || !height) {
+    return {
+      left: 0,
+      top: 0,
+      width: 100,
+      height: 100
+    };
+  }
+
+  const focus = getGalleryFocus(item);
+  const sourceRatio = width / height;
+  const targetRatio = 16 / 9;
+
+  if (sourceRatio > targetRatio) {
+    const cropWidth = (targetRatio / sourceRatio) * 100;
+
+    return {
+      left: (100 - cropWidth) * (focus.x / 100),
+      top: 0,
+      width: cropWidth,
+      height: 100
+    };
+  }
+
+  if (sourceRatio < targetRatio) {
+    const cropHeight = (sourceRatio / targetRatio) * 100;
+
+    return {
+      left: 0,
+      top: (100 - cropHeight) * (focus.y / 100),
+      width: 100,
+      height: cropHeight
+    };
+  }
+
+  return {
+    left: 0,
+    top: 0,
+    width: 100,
+    height: 100
+  };
+};
+
 const syncGalleryFocusUi = () => {
   const focus = getGalleryFocus(state.galleryFocus);
+  const cropWindow = getGalleryCropWindow(state.galleryPreview, focus);
 
   state.galleryFocus = focus;
 
@@ -368,11 +791,18 @@ const syncGalleryFocusUi = () => {
   if (dom.galleryFocusPanel) {
     dom.galleryFocusPanel.style.setProperty("--focus-x", `${focus.x}%`);
     dom.galleryFocusPanel.style.setProperty("--focus-y", `${focus.y}%`);
+    dom.galleryFocusPanel.style.setProperty("--crop-left", `${cropWindow.left}%`);
+    dom.galleryFocusPanel.style.setProperty("--crop-top", `${cropWindow.top}%`);
+    dom.galleryFocusPanel.style.setProperty("--crop-width", `${cropWindow.width}%`);
+    dom.galleryFocusPanel.style.setProperty("--crop-height", `${cropWindow.height}%`);
   }
 
   if (dom.galleryPreview) {
     dom.galleryPreview.style.setProperty("--focus-x", `${focus.x}%`);
     dom.galleryPreview.style.setProperty("--focus-y", `${focus.y}%`);
+    dom.galleryPreview
+      .querySelector("[data-gallery-preview-focus]")
+      ?.replaceChildren(document.createTextNode(`X ${focus.x}% / Y ${focus.y}%`));
   }
 
   if (dom.galleryFocusReadout) {
@@ -391,10 +821,70 @@ const setGalleryFocus = (nextFocus = galleryFocusDefault) => {
 
 const resetGalleryFocus = () => setGalleryFocus(galleryFocusDefault);
 
+const revokeGalleryPreviewUrl = () => {
+  if (state.galleryPreview.url) {
+    URL.revokeObjectURL(state.galleryPreview.url);
+  }
+
+  Object.assign(state.galleryPreview, {
+    file: null,
+    url: "",
+    width: 0,
+    height: 0
+  });
+};
+
+const loadGalleryPreviewDimensions = (url) => new Promise((resolve) => {
+  const image = new Image();
+
+  image.addEventListener("load", () => {
+    resolve({
+      width: image.naturalWidth || image.width || 0,
+      height: image.naturalHeight || image.height || 0
+    });
+  }, { once: true });
+
+  image.addEventListener("error", () => {
+    resolve({ width: 0, height: 0 });
+  }, { once: true });
+
+  image.src = url;
+});
+
+const getGalleryPreviewSource = async (file, token) => {
+  if (!file) {
+    revokeGalleryPreviewUrl();
+    return null;
+  }
+
+  if (state.galleryPreview.file === file && state.galleryPreview.url) {
+    return state.galleryPreview;
+  }
+
+  const url = URL.createObjectURL(file);
+  const dimensions = await loadGalleryPreviewDimensions(url);
+
+  if (state.galleryPreview.token !== token) {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+
+  revokeGalleryPreviewUrl();
+
+  Object.assign(state.galleryPreview, {
+    file,
+    url,
+    width: dimensions.width,
+    height: dimensions.height
+  });
+
+  return state.galleryPreview;
+};
+
 const imageUploadDefaults = {
-  galleryMaxLongEdge: 1800,
-  posterMaxLongEdge: 1600,
-  quality: 0.82
+  galleryMaxLongEdge: 2400,
+  posterMaxLongEdge: 2200,
+  quality: 0.92
 };
 
 const getOptimizedFileName = (fileName, extension = "webp") => {
@@ -584,12 +1074,14 @@ const getSupabaseStoragePathFromUrl = (fileUrl, bucket) => {
   }
 };
 
+const normalizeStoragePaths = (paths) => Array.from(new Set(
+  (Array.isArray(paths) ? paths : [paths])
+    .map((path) => String(path || "").trim().replace(/^\/+/, ""))
+    .filter(Boolean)
+));
+
 const removeSupabaseFiles = async (bucket, paths) => {
-  const cleanPaths = Array.from(new Set(
-    paths
-      .map((path) => String(path || "").trim().replace(/^\/+/, ""))
-      .filter(Boolean)
-  ));
+  const cleanPaths = normalizeStoragePaths(paths);
 
   if (!bucket) {
     throw new Error("Storage bucket is missing");
@@ -617,6 +1109,22 @@ const removeSupabaseFiles = async (bucket, paths) => {
   return data || [];
 };
 
+const removeSupabaseFilesSafely = async (bucket, paths, label = "Storage") => {
+  const cleanPaths = normalizeStoragePaths(paths);
+
+  if (!cleanPaths.length) {
+    return { paths: cleanPaths, error: null };
+  }
+
+  try {
+    await removeSupabaseFiles(bucket, cleanPaths);
+    return { paths: cleanPaths, error: null };
+  } catch (error) {
+    console.error(`${label} cleanup error:`, { bucket, paths: cleanPaths, error });
+    return { paths: cleanPaths, error };
+  }
+};
+
 const service = {
   async loadAll() {
     const client = getSupabaseClient();
@@ -628,7 +1136,7 @@ const service = {
     ] = await Promise.all([
       client.from(tables.messages).select("*").order("created_at", { ascending: false }),
       client.from(tables.gallery).select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false }),
-      client.from(tables.videos).select("*").order("featured", { ascending: false }).order("sort_order", { ascending: true }).order("created_at", { ascending: false })
+      client.from(tables.videos).select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false })
     ]);
 
     if (messagesResult.error) throw messagesResult.error;
@@ -709,12 +1217,7 @@ const service = {
 
     const bucket = item.storage_bucket || config.supabase.storage.galleryBucket;
     const imagePath = item.storage_path || getSupabaseStoragePathFromUrl(item.image_url, bucket);
-
-    if (!imagePath) {
-      throw new Error("Gallery image storage path is missing");
-    }
-
-    await removeSupabaseFiles(bucket, [imagePath]);
+    const cleanupWarnings = [];
 
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.gallery)
@@ -724,10 +1227,36 @@ const service = {
     if (error) throw error;
 
     state.gallery = state.gallery.filter((galleryItem) => galleryItem.id !== id);
+
+    if (!imagePath) {
+      cleanupWarnings.push(new Error("Gallery image storage path is missing"));
+    } else {
+      const cleanup = await removeSupabaseFilesSafely(bucket, [imagePath], "Gallery image");
+
+      if (cleanup.error) {
+        cleanupWarnings.push(cleanup.error);
+      }
+    }
+
+    return { cleanupWarnings };
   },
 
   async updateGalleryOrder(placement, orderedIds) {
     const table = config.supabase.tables.gallery;
+    const client = getSupabaseClient();
+    const results = await Promise.all(orderedIds.map((id, index) => client
+      .from(table)
+      .update({ sort_order: index + 1 })
+      .eq("id", id)));
+    const errorResult = results.find((result) => result.error);
+
+    if (errorResult?.error) {
+      throw errorResult.error;
+    }
+  },
+
+  async updateVideoOrder(orderedIds) {
+    const table = config.supabase.tables.videos;
     const client = getSupabaseClient();
     const results = await Promise.all(orderedIds.map((id, index) => client
       .from(table)
@@ -748,18 +1277,7 @@ const service = {
     const bucket = config.supabase.storage.videoBucket;
     const gifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
     const posterPath = item.poster_storage_path || getSupabaseStoragePathFromUrl(item.poster_url, bucket);
-
-    if (item.thumbnail_gif_url && !gifPath) {
-      throw new Error("Video GIF storage path is missing");
-    }
-
-    if (item.poster_url && !posterPath) {
-      throw new Error("Video poster storage path is missing");
-    }
-
-    if (gifPath || posterPath) {
-      await removeSupabaseFiles(bucket, [gifPath, posterPath]);
-    }
+    const cleanupWarnings = [];
 
     const { error } = await getSupabaseClient()
       .from(config.supabase.tables.videos)
@@ -769,6 +1287,22 @@ const service = {
     if (error) throw error;
 
     state.videos = state.videos.filter((videoItem) => videoItem.id !== id);
+
+    if (item.thumbnail_gif_url && !gifPath) {
+      cleanupWarnings.push(new Error("Video GIF storage path is missing"));
+    }
+
+    if (item.poster_url && !posterPath) {
+      cleanupWarnings.push(new Error("Video poster storage path is missing"));
+    }
+
+    const cleanup = await removeSupabaseFilesSafely(bucket, [gifPath, posterPath], "Video media");
+
+    if (cleanup.error) {
+      cleanupWarnings.push(cleanup.error);
+    }
+
+    return { cleanupWarnings };
   },
 
   async createGalleryItem(payload, file) {
@@ -778,24 +1312,36 @@ const service = {
     });
 
     const bucket = config.supabase.storage.galleryBucket;
-    const upload = await uploadSupabaseFile(bucket, getGalleryFormat().storageFolder, uploadFile);
-    const item = {
-      ...payload,
-      image_url: upload.publicUrl,
-      storage_bucket: bucket,
-      storage_path: upload.path,
-      file_name: uploadFile.name
-    };
-    const { data, error } = await getSupabaseClient()
-      .from(config.supabase.tables.gallery)
-      .insert(item)
-      .select()
-      .single();
+    let upload = null;
 
-    if (error) throw error;
+    try {
+      upload = await uploadSupabaseFile(bucket, getGalleryFormat().storageFolder, uploadFile);
 
-    state.gallery.unshift(data);
-    return data;
+      const item = {
+        ...payload,
+        image_url: upload.publicUrl,
+        storage_bucket: bucket,
+        storage_path: upload.path,
+        file_name: uploadFile.name
+      };
+      const { data, error } = await getSupabaseClient()
+        .from(config.supabase.tables.gallery)
+        .insert(item)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      state.gallery.unshift(data);
+      return data;
+    } catch (error) {
+      await removeSupabaseFilesSafely(
+        bucket,
+        [upload?.path],
+        "Failed gallery create upload rollback"
+      );
+      throw error;
+    }
   },
 
   async updateGalleryItem(id, payload) {
@@ -828,27 +1374,40 @@ const service = {
     };
 
     const bucket = config.supabase.storage.videoBucket;
-    const gifUpload = uploadFiles.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif) : null;
-    const posterUpload = uploadFiles.poster ? await uploadSupabaseFile(bucket, "posters", uploadFiles.poster) : null;
-    const item = {
-      ...payload,
-      thumbnail_gif_url: gifUpload?.publicUrl || "",
-      thumbnail_gif_storage_path: gifUpload?.path || "",
-      thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
-      poster_url: posterUpload?.publicUrl || "",
-      poster_storage_path: posterUpload?.path || "",
-      poster_file_name: uploadFiles.poster?.name || ""
-    };
-    const { data, error } = await getSupabaseClient()
-      .from(config.supabase.tables.videos)
-      .insert(item)
-      .select()
-      .single();
+    let gifUpload = null;
+    let posterUpload = null;
 
-    if (error) throw error;
+    try {
+      gifUpload = uploadFiles.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif) : null;
+      posterUpload = uploadFiles.poster ? await uploadSupabaseFile(bucket, "posters", uploadFiles.poster) : null;
 
-    state.videos.unshift(data);
-    return data;
+      const item = {
+        ...payload,
+        thumbnail_gif_url: gifUpload?.publicUrl || "",
+        thumbnail_gif_storage_path: gifUpload?.path || "",
+        thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
+        poster_url: posterUpload?.publicUrl || "",
+        poster_storage_path: posterUpload?.path || "",
+        poster_file_name: uploadFiles.poster?.name || ""
+      };
+      const { data, error } = await getSupabaseClient()
+        .from(config.supabase.tables.videos)
+        .insert(item)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      state.videos.unshift(data);
+      return data;
+    } catch (error) {
+      await removeSupabaseFilesSafely(
+        bucket,
+        [gifUpload?.path, posterUpload?.path],
+        "Failed video create upload rollback"
+      );
+      throw error;
+    }
   },
 
   async generateVimeoPoster(video, posterState) {
@@ -898,6 +1457,10 @@ const service = {
 
     if (!item) return null;
 
+    const bucket = config.supabase.storage.videoBucket;
+    const oldGifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
+    const oldPosterPath = item.poster_storage_path || getSupabaseStoragePathFromUrl(item.poster_url, bucket);
+    const cleanupWarnings = [];
     const uploadFiles = {
       thumbnailGif: files.thumbnailGif || null,
       poster: files.poster
@@ -908,36 +1471,73 @@ const service = {
         : null
     };
     const nextPayload = { ...payload };
+    let gifUpload = null;
+    let posterUpload = null;
 
-    const bucket = config.supabase.storage.videoBucket;
+    try {
+      if (uploadFiles.thumbnailGif) {
+        gifUpload = await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif);
 
-    if (uploadFiles.thumbnailGif) {
-      const gifUpload = await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif);
+        nextPayload.thumbnail_gif_url = gifUpload.publicUrl;
+        nextPayload.thumbnail_gif_storage_path = gifUpload.path;
+        nextPayload.thumbnail_gif_file_name = uploadFiles.thumbnailGif.name;
+      }
 
-      nextPayload.thumbnail_gif_url = gifUpload.publicUrl;
-      nextPayload.thumbnail_gif_storage_path = gifUpload.path;
-      nextPayload.thumbnail_gif_file_name = uploadFiles.thumbnailGif.name;
+      if (uploadFiles.poster) {
+        posterUpload = await uploadSupabaseFile(bucket, "posters", uploadFiles.poster);
+
+        nextPayload.poster_url = posterUpload.publicUrl;
+        nextPayload.poster_storage_path = posterUpload.path;
+        nextPayload.poster_file_name = uploadFiles.poster.name;
+      }
+
+      const { data, error } = await getSupabaseClient()
+        .from(config.supabase.tables.videos)
+        .update(nextPayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const replacedPaths = [];
+
+      if (uploadFiles.thumbnailGif) {
+        if (oldGifPath) {
+          replacedPaths.push(oldGifPath);
+        } else if (item.thumbnail_gif_url) {
+          cleanupWarnings.push(new Error("Previous video GIF storage path is missing"));
+        }
+      }
+
+      if (uploadFiles.poster) {
+        if (oldPosterPath) {
+          replacedPaths.push(oldPosterPath);
+        } else if (item.poster_url) {
+          cleanupWarnings.push(new Error("Previous video poster storage path is missing"));
+        }
+      }
+
+      const cleanup = await removeSupabaseFilesSafely(
+        bucket,
+        replacedPaths.filter((path) => path !== gifUpload?.path && path !== posterUpload?.path),
+        "Replaced video media"
+      );
+
+      if (cleanup.error) {
+        cleanupWarnings.push(cleanup.error);
+      }
+
+      Object.assign(item, data);
+      return { ...data, cleanupWarnings };
+    } catch (error) {
+      await removeSupabaseFilesSafely(
+        bucket,
+        [gifUpload?.path, posterUpload?.path],
+        "Failed video update upload rollback"
+      );
+      throw error;
     }
-
-    if (uploadFiles.poster) {
-      const posterUpload = await uploadSupabaseFile(bucket, "posters", uploadFiles.poster);
-
-      nextPayload.poster_url = posterUpload.publicUrl;
-      nextPayload.poster_storage_path = posterUpload.path;
-      nextPayload.poster_file_name = uploadFiles.poster.name;
-    }
-
-    const { data, error } = await getSupabaseClient()
-      .from(config.supabase.tables.videos)
-      .update(nextPayload)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    Object.assign(item, data);
-    return data;
   }
 };
 
@@ -1251,6 +1851,56 @@ const moveGalleryItemToSectionStart = (item) => {
   return saveGalleryOrder(placement, orderedIds);
 };
 
+const getVideoSortOrder = (item = {}) => {
+  const order = Number.parseInt(item.sort_order, 10);
+
+  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
+};
+
+const compareVideoItems = (a, b) => {
+  const orderDifference = getVideoSortOrder(a) - getVideoSortOrder(b);
+
+  if (orderDifference) return orderDifference;
+
+  return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+};
+
+const getOrderedVideoItems = () => state.videos
+  .slice()
+  .sort(compareVideoItems);
+
+const applyVideoOrder = (orderedIds) => {
+  const orderById = new Map(orderedIds.map((id, index) => [String(id), index + 1]));
+
+  state.videos.forEach((item) => {
+    const nextOrder = orderById.get(String(item.id));
+
+    if (nextOrder) {
+      item.sort_order = nextOrder;
+    }
+  });
+};
+
+const saveVideoOrder = async (orderedIds, successMessage = "") => {
+  const previousVideos = state.videos.map((item) => ({ ...item }));
+
+  applyVideoOrder(orderedIds);
+  renderVideos();
+
+  try {
+    await service.updateVideoOrder(orderedIds);
+
+    if (successMessage) {
+      showToast(successMessage);
+    }
+  } catch (error) {
+    state.videos = previousVideos;
+    renderVideos();
+    showToast(error.message || "Could not save video order");
+    throw error;
+  }
+};
+
 const renderGallery = () => {
   if (!dom.galleryList) return;
 
@@ -1322,13 +1972,13 @@ const renderVideos = () => {
     return;
   }
 
-  dom.videoList.innerHTML = state.videos.map((video) => {
+  dom.videoList.innerHTML = getOrderedVideoItems().map((video, index) => {
     const posterMode = getVideoPosterMode(video);
     const posterModeLabel = getPosterModeLabel(posterMode, video.poster_time);
     const manualPosterLabel = posterMode === "manual" ? getVideoManualPosterLabel(video) : "";
 
     return `
-      <article class="media-card">
+      <article class="media-card" data-video-card data-video-id="${escapeHtml(video.id)}">
         <a class="media-card__image" href="${escapeHtml(video.vimeo_url)}" target="_blank" rel="noreferrer">
           ${getVideoMediaMarkup(video)}
         </a>
@@ -1336,6 +1986,7 @@ const renderVideos = () => {
           <h3>${escapeHtml(video.title)}</h3>
           <div class="media-card__bottom">
             <div class="media-card__meta">
+              <span class="pill">Order ${index + 1}</span>
               ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
               ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
               ${posterMode ? `<span class="pill">Poster mode: ${escapeHtml(posterModeLabel)}</span>` : `<span class="pill">Poster mode: None</span>`}
@@ -1391,20 +2042,26 @@ const setMessageFilter = (filterName) => {
   renderMessages();
 };
 
-const renderGalleryFocusPreview = (file, format, url = "") => {
+const renderGalleryFocusPreview = (source, format) => {
   if (!dom.galleryFocusPreview) return;
 
   dom.galleryFocusPreview.className = `focus-control__stage focus-control__stage--${format.previewClass}`;
 
-  if (!file || !url) {
+  if (!source?.url) {
     dom.galleryFocusPreview.innerHTML = `<div class="focus-control__empty">No image</div>`;
     return;
   }
 
+  const sourceWidth = Math.max(1, Math.round(Number(source.width) || 16));
+  const sourceHeight = Math.max(1, Math.round(Number(source.height) || 9));
+
   dom.galleryFocusPreview.innerHTML = `
     <div class="focus-control__frame focus-control__frame--${format.previewClass}">
-      <img class="focus-control__image" src="${escapeHtml(url)}" alt="">
-      <span class="focus-control__target" aria-hidden="true"></span>
+      <div class="focus-control__source">
+        <img class="focus-control__image" src="${escapeHtml(source.url)}" width="${sourceWidth}" height="${sourceHeight}" alt="">
+        <span class="focus-control__crop" aria-hidden="true"></span>
+        <span class="focus-control__target" aria-hidden="true"></span>
+      </div>
     </div>
   `;
 };
@@ -1416,13 +2073,20 @@ const updateGalleryPreview = async () => {
   const format = getGalleryFormat();
   const title = dom.galleryForm.elements.title.value.trim();
   const altText = dom.galleryForm.elements.alt_text.value.trim();
-  const url = file ? URL.createObjectURL(file) : "";
+  const token = state.galleryPreview.token + 1;
+  const focus = getGalleryFocus(state.galleryFocus);
+  state.galleryPreview.token = token;
+
+  const source = await getGalleryPreviewSource(file, token);
+
+  if (state.galleryPreview.token !== token) return;
+
   let previewContent = `<div class="media-preview media-preview--empty media-preview--${format.previewClass}">No image</div>`;
 
-  if (file) {
+  if (source?.url) {
     previewContent = `
-      <div class="media-preview media-preview--${format.previewClass}">
-        <img src="${escapeHtml(url)}" alt="${escapeHtml(altText)}">
+      <div class="media-preview media-preview--site-gallery media-preview--${format.previewClass}" aria-label="Site crop preview">
+        <img src="${escapeHtml(source.url)}" alt="${escapeHtml(altText)}">
       </div>
     `;
   }
@@ -1433,10 +2097,12 @@ const updateGalleryPreview = async () => {
       <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
       <div><dt>Alt text</dt><dd>${escapeHtml(altText)}</dd></div>
       <div><dt>File</dt><dd>${escapeHtml(file?.name || "No file selected")}</dd></div>
+      <div><dt>Crop</dt><dd>${escapeHtml(format.label)} cover</dd></div>
+      <div><dt>Focus</dt><dd data-gallery-preview-focus>X ${focus.x}% / Y ${focus.y}%</dd></div>
     </dl>
   `;
 
-  renderGalleryFocusPreview(file, format, url);
+  renderGalleryFocusPreview(source, format);
   syncGalleryFocusUi();
 };
 
@@ -2030,17 +2696,27 @@ const refreshData = async () => {
   }
 };
 
+const hasCleanupWarnings = (result) => (
+  Array.isArray(result?.cleanupWarnings) && result.cleanupWarnings.length > 0
+);
+
+const showCleanupAwareToast = (message, result) => {
+  showToast(hasCleanupWarnings(result) ? `${message}, storage cleanup warning` : message);
+};
+
 const deleteItemImmediately = async (type, id) => {
   try {
     if (type === "message") {
       await service.deleteMessage(id);
       showToast("Message deleted");
     } else if (type === "gallery") {
-      await service.deleteGalleryItem(id);
-      showToast("Image deleted");
+      const result = await service.deleteGalleryItem(id);
+
+      showCleanupAwareToast("Image deleted", result);
     } else if (type === "video") {
-      await service.deleteVideoItem(id);
-      showToast("Video deleted");
+      const result = await service.deleteVideoItem(id);
+
+      showCleanupAwareToast("Video deleted", result);
     }
 
     renderAll();
@@ -2150,6 +2826,31 @@ dom.refresh?.addEventListener("click", async () => {
 });
 
 dom.watcherOpen?.addEventListener("click", openWatcherModal);
+dom.linkPreviewToggle?.addEventListener("click", () => {
+  setLinkPreviewEnabled(!state.linkPreview.enabled);
+});
+setLinkPreviewToggleState();
+document.addEventListener("pointerover", handleLinkPreviewPointerOver);
+document.addEventListener("pointermove", handleLinkPreviewPointerMove);
+document.addEventListener("pointerout", handleLinkPreviewPointerOut);
+document.addEventListener("focusin", (event) => {
+  const anchor = getPreviewAnchorFromEvent(event);
+
+  if (!anchor) return;
+
+  const rect = anchor.getBoundingClientRect();
+
+  showLinkPreview(anchor, {
+    clientX: rect.left + Math.min(rect.width * .72, 260),
+    clientY: rect.bottom
+  });
+});
+document.addEventListener("focusout", (event) => {
+  if (!state.linkPreview.activeAnchor) return;
+  if (event.relatedTarget instanceof Node && state.linkPreview.activeAnchor.contains(event.relatedTarget)) return;
+
+  hideLinkPreview();
+});
 
 dom.messageFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-message-filter]");
@@ -2382,7 +3083,174 @@ window.addEventListener("pointermove", handleGalleryDragMove, { passive: false }
 window.addEventListener("pointerup", finishGalleryDrag);
 window.addEventListener("pointercancel", finishGalleryDrag);
 
+let videoDragState = null;
+let shouldSuppressVideoClick = false;
+
+const getVideoIdsFromList = (list) => Array.from(list?.querySelectorAll("[data-video-card]") || [])
+  .map((card) => card.dataset.videoId)
+  .filter(Boolean);
+
+const moveVideoDragGhost = (event) => {
+  if (!videoDragState?.ghost) return;
+
+  videoDragState.ghost.style.left = `${event.clientX - videoDragState.offsetX}px`;
+  videoDragState.ghost.style.top = `${event.clientY - videoDragState.offsetY}px`;
+};
+
+const createVideoDragGhost = (card, event) => {
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true);
+
+  ghost.classList.add("video-drag-ghost");
+  ghost.removeAttribute("data-video-card");
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  document.body.append(ghost);
+
+  videoDragState.ghost = ghost;
+  videoDragState.offsetX = event.clientX - rect.left;
+  videoDragState.offsetY = event.clientY - rect.top;
+  moveVideoDragGhost(event);
+};
+
+const getVideoDropTarget = (event) => {
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+
+  if (!(element instanceof Element)) return null;
+
+  const card = element.closest("[data-video-card]");
+
+  if (card) {
+    const list = card.closest("[data-video-list]");
+
+    return list ? { card, list } : null;
+  }
+
+  const list = element.closest("[data-video-list]");
+
+  return list ? { card: null, list } : null;
+};
+
+const moveVideoDragCard = (event) => {
+  if (!videoDragState?.isDragging) return;
+
+  const target = getVideoDropTarget(event);
+
+  if (!target || target.list !== videoDragState.list) return;
+
+  if (!target.card) {
+    target.list.append(videoDragState.card);
+    return;
+  }
+
+  if (target.card === videoDragState.card) return;
+
+  const rect = target.card.getBoundingClientRect();
+  const isSameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
+  const insertBefore = isSameRow
+    ? event.clientX < rect.left + (rect.width / 2)
+    : event.clientY < rect.top + (rect.height / 2);
+
+  target.list.insertBefore(videoDragState.card, insertBefore ? target.card : target.card.nextSibling);
+};
+
+const cleanupVideoDrag = () => {
+  videoDragState?.card?.classList.remove("is-drag-source");
+  videoDragState?.ghost?.remove();
+  document.body.classList.remove("is-video-card-dragging");
+  videoDragState = null;
+};
+
+const handleVideoDragMove = (event) => {
+  if (!videoDragState || videoDragState.pointerId !== event.pointerId) return;
+
+  const distance = Math.hypot(
+    event.clientX - videoDragState.startX,
+    event.clientY - videoDragState.startY
+  );
+
+  if (!videoDragState.isDragging) {
+    if (distance < 6) return;
+
+    videoDragState.isDragging = true;
+    videoDragState.card.classList.add("is-drag-source");
+    document.body.classList.add("is-video-card-dragging");
+    videoDragState.card.setPointerCapture?.(event.pointerId);
+    createVideoDragGhost(videoDragState.card, event);
+  }
+
+  event.preventDefault();
+  moveVideoDragGhost(event);
+  moveVideoDragCard(event);
+};
+
+const finishVideoDrag = (event) => {
+  if (!videoDragState || videoDragState.pointerId !== event.pointerId) return;
+
+  const dragState = videoDragState;
+
+  if (
+    typeof dragState.card.hasPointerCapture === "function"
+    && dragState.card.hasPointerCapture(event.pointerId)
+  ) {
+    dragState.card.releasePointerCapture(event.pointerId);
+  }
+
+  const orderedIds = dragState.isDragging ? getVideoIdsFromList(dragState.list) : dragState.originalIds;
+  const isChanged = dragState.isDragging && orderedIds.join("|") !== dragState.originalIds.join("|");
+
+  if (dragState.isDragging) {
+    event.preventDefault();
+    shouldSuppressVideoClick = true;
+    window.setTimeout(() => {
+      shouldSuppressVideoClick = false;
+    }, 80);
+  }
+
+  cleanupVideoDrag();
+
+  if (isChanged) {
+    saveVideoOrder(orderedIds, "Video order saved")
+      .catch((error) => console.error("Video order save error:", error));
+  }
+};
+
+dom.videoList?.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const card = target?.closest("[data-video-card]");
+
+  if (!card || target.closest("button, input, textarea, select")) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  const list = card.closest("[data-video-list]");
+
+  if (!list) return;
+
+  videoDragState = {
+    card,
+    ghost: null,
+    isDragging: false,
+    list,
+    offsetX: 0,
+    offsetY: 0,
+    originalIds: getVideoIdsFromList(list),
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY
+  };
+});
+
+window.addEventListener("pointermove", handleVideoDragMove, { passive: false });
+window.addEventListener("pointerup", finishVideoDrag);
+window.addEventListener("pointercancel", finishVideoDrag);
+
 dom.videoList?.addEventListener("click", async (event) => {
+  if (shouldSuppressVideoClick && event.target.closest("[data-video-card]")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   const deleteButton = event.target.closest("[data-delete-video]");
 
   if (deleteButton) {
@@ -2414,11 +3282,13 @@ dom.deleteModal?.addEventListener("click", async (event) => {
         await service.deleteMessage(id);
         showToast("Message deleted permanently");
       } else if (type === "gallery") {
-        await service.deleteGalleryItem(id);
-        showToast("Image deleted");
+        const result = await service.deleteGalleryItem(id);
+
+        showCleanupAwareToast("Image deleted", result);
       } else if (type === "video") {
-        await service.deleteVideoItem(id);
-        showToast("Video deleted");
+        const result = await service.deleteVideoItem(id);
+
+        showCleanupAwareToast("Video deleted", result);
       }
     }
 
@@ -2468,14 +3338,16 @@ dom.watcherModal?.addEventListener("submit", async (event) => {
   submit?.setAttribute("disabled", "true");
 
   try {
+    let result = null;
+
     if (type === "gallery") {
-      await service.updateGalleryItem(id, payload);
+      result = await service.updateGalleryItem(id, payload);
     } else if (type === "video") {
-      await service.updateVideoItem(id, payload, files);
+      result = await service.updateVideoItem(id, payload, files);
     }
 
     renderAll();
-    showToast("Watcher item saved");
+    showCleanupAwareToast("Watcher item saved", result);
   } catch (error) {
     console.error("Watcher save error:", error);
     showToast(error.message || "Could not save watcher item");
@@ -2493,14 +3365,14 @@ document.addEventListener("keydown", (event) => {
 
 let galleryFocusPointerId = null;
 
-const getGalleryFocusFrame = () => dom.galleryFocusPreview?.querySelector(".focus-control__frame");
+const getGalleryFocusSource = () => dom.galleryFocusPreview?.querySelector(".focus-control__source");
 
 const setGalleryFocusFromPointer = (event) => {
-  const frame = getGalleryFocusFrame();
+  const source = getGalleryFocusSource();
 
-  if (!frame) return false;
+  if (!source) return false;
 
-  const rect = frame.getBoundingClientRect();
+  const rect = source.getBoundingClientRect();
 
   if (!rect.width || !rect.height) return false;
 
@@ -2530,7 +3402,7 @@ dom.galleryFocusPreview?.addEventListener("pointerdown", (event) => {
   const target = event.target instanceof Element ? event.target : null;
 
   if (event.pointerType === "mouse" && event.button !== 0) return;
-  if (!target?.closest(".focus-control__frame")) return;
+  if (!target?.closest(".focus-control__source")) return;
 
   event.preventDefault();
   galleryFocusPointerId = event.pointerId;

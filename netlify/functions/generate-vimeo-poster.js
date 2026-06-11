@@ -42,6 +42,38 @@ const sanitizeFileNamePart = (value) => String(value || "poster")
 
 const normalizeTableName = (value, fallback) => String(value || fallback).replace(/^public\./, "");
 
+const getVideoBucketName = () => process.env.SUPABASE_VIDEO_BUCKET || "cinemorph-video-media";
+
+const normalizeStoragePaths = (paths) => Array.from(new Set(
+  (Array.isArray(paths) ? paths : [paths])
+    .map((item) => String(item || "").trim().replace(/^\/+/, ""))
+    .filter(Boolean)
+));
+
+const getSupabaseStoragePathFromUrl = (fileUrl, bucket) => {
+  const cleanUrl = String(fileUrl || "").trim();
+
+  if (!cleanUrl || !bucket) return "";
+
+  try {
+    const url = new URL(cleanUrl);
+    const pathMarkers = [
+      `/storage/v1/object/public/${bucket}/`,
+      `/storage/v1/render/image/public/${bucket}/`
+    ];
+    const marker = pathMarkers.find((item) => url.pathname.includes(item));
+
+    if (!marker) return "";
+
+    return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
+  } catch {
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const pathValue = cleanUrl.split(marker)[1] || "";
+
+    return decodeURIComponent(pathValue.split("?")[0] || "").replace(/^\/+/, "");
+  }
+};
+
 const parseVimeoVideoId = (value) => {
   const rawValue = String(value || "").trim();
 
@@ -260,7 +292,7 @@ const runFfmpegPosterCapture = (sourceUrl, posterTime, outputPath) => new Promis
 });
 
 const uploadGeneratedPoster = async (supabase, options) => {
-  const bucket = process.env.SUPABASE_VIDEO_BUCKET || "cinemorph-video-media";
+  const bucket = getVideoBucketName();
   const fileBuffer = await fs.promises.readFile(options.outputPath);
 
   if (!fileBuffer.length) {
@@ -287,6 +319,25 @@ const uploadGeneratedPoster = async (supabase, options) => {
   };
 };
 
+const removeStorageFilesSafely = async (supabase, bucket, paths, label = "Storage") => {
+  const cleanPaths = normalizeStoragePaths(paths);
+
+  if (!cleanPaths.length) {
+    return { paths: cleanPaths, error: null };
+  }
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .remove(cleanPaths);
+
+  if (error) {
+    console.error(`${label} cleanup error:`, { bucket, paths: cleanPaths, error });
+    return { paths: cleanPaths, error };
+  }
+
+  return { paths: cleanPaths, error: null };
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -300,7 +351,11 @@ exports.handler = async (event) => {
     return jsonResponse(405, { error: "Method not allowed" });
   }
 
+  let didUpdateRow = false;
+  let generatedPosterUpload = null;
   let outputPath = "";
+  let storagePath = "";
+  let supabase = null;
 
   try {
     const body = parseBody(event);
@@ -321,29 +376,43 @@ exports.handler = async (event) => {
       throw Object.assign(new Error("poster_time must be a non-negative number"), { statusCode: 400 });
     }
 
-    const supabase = getSupabaseServiceClient();
+    supabase = getSupabaseServiceClient();
 
     await requireAdminUser(event, supabase);
 
+    const bucket = getVideoBucketName();
+    const table = normalizeTableName(process.env.SUPABASE_VIDEOS_TABLE, "portfolio_videos");
+    const { data: previousVideo, error: previousVideoError } = await supabase
+      .from(table)
+      .select("poster_url,poster_storage_path")
+      .eq("id", rowId)
+      .single();
+
+    if (previousVideoError) {
+      throw Object.assign(new Error(`Video row lookup failed: ${previousVideoError.message}`), { statusCode: 502 });
+    }
+
+    const previousPosterPath = String(
+      previousVideo?.poster_storage_path || getSupabaseStoragePathFromUrl(previousVideo?.poster_url, bucket)
+    ).trim();
     const source = await resolveVimeoSource(vimeoVideoId);
     const timestampMs = Math.round(posterTime * 1000);
     const safeRowId = sanitizeFileNamePart(rowId);
     const safeVimeoId = sanitizeFileNamePart(vimeoVideoId);
     const fileName = `vimeo-${safeVimeoId}-${timestampMs}.jpg`;
-    const storagePath = `posters/generated/${safeRowId}/${Date.now()}-${fileName}`;
+    storagePath = `posters/generated/${safeRowId}/${Date.now()}-${fileName}`;
 
     outputPath = path.join(os.tmpdir(), `${crypto.randomUUID()}-${fileName}`);
 
     await runFfmpegPosterCapture(source.link, posterTime, outputPath);
 
-    const upload = await uploadGeneratedPoster(supabase, {
+    generatedPosterUpload = await uploadGeneratedPoster(supabase, {
       outputPath,
       storagePath
     });
 
-    const table = normalizeTableName(process.env.SUPABASE_VIDEOS_TABLE, "portfolio_videos");
     const updatePayload = {
-      poster_url: upload.publicUrl,
+      poster_url: generatedPosterUpload.publicUrl,
       poster_storage_path: storagePath,
       poster_file_name: fileName,
       poster_mode: "vimeo_time",
@@ -360,11 +429,31 @@ exports.handler = async (event) => {
       throw Object.assign(new Error(`Video row update failed: ${updateError.message}`), { statusCode: 502 });
     }
 
+    didUpdateRow = true;
+
+    const cleanupWarnings = [];
+
+    if (previousPosterPath && previousPosterPath !== storagePath) {
+      const cleanup = await removeStorageFilesSafely(
+        supabase,
+        generatedPosterUpload.bucket,
+        [previousPosterPath],
+        "Previous video poster"
+      );
+
+      if (cleanup.error) {
+        cleanupWarnings.push({
+          message: cleanup.error.message || "Previous poster cleanup failed",
+          paths: cleanup.paths
+        });
+      }
+    }
+
     return jsonResponse(200, {
       ok: true,
       poster: {
-        bucket: upload.bucket,
-        publicUrl: upload.publicUrl,
+        bucket: generatedPosterUpload.bucket,
+        publicUrl: generatedPosterUpload.publicUrl,
         storagePath,
         fileName,
         posterTime,
@@ -376,9 +465,19 @@ exports.handler = async (event) => {
         width: source.width,
         height: source.height
       },
+      cleanupWarnings,
       video
     });
   } catch (error) {
+    if (generatedPosterUpload && storagePath && !didUpdateRow && supabase) {
+      await removeStorageFilesSafely(
+        supabase,
+        generatedPosterUpload.bucket,
+        [storagePath],
+        "Generated poster rollback"
+      );
+    }
+
     console.error("Vimeo poster generation error:", error);
 
     return jsonResponse(error.statusCode || 500, {

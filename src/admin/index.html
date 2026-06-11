@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CINEMORPH Admin</title>
-  <link rel="stylesheet" href="css/admin.css?v=admin-poster-picker-20260608">
+  <link rel="stylesheet" href="css/admin.css?v=admin-video-order-20260611">
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" focusable="false">
@@ -102,6 +102,7 @@
           <div class="admin-mode admin-mode--metric" data-video-total role="status" aria-live="polite">VIDEO: 0</div>
           <div class="admin-mode admin-mode--metric" data-photo-total role="status" aria-live="polite">PHOTOS: 0</div>
           <button class="admin-mode admin-mode--watcher is-connected" type="button" data-watcher-open aria-haspopup="dialog">WATCHER: OK</button>
+          <button class="admin-mode admin-mode--preview is-connected" type="button" data-link-preview-toggle aria-pressed="true">H/Link: ON</button>
         </div>
         <div class="admin-mode" data-admin-mode role="status" aria-live="polite">Checking connection</div>
       </div>
@@ -281,6 +282,7 @@
   </div>
 
   <div class="toast" data-toast role="status" aria-live="polite"></div>
+  <div class="link-preview-popover" data-link-preview hidden aria-hidden="true"></div>
 
   <div class="modal" data-delete-modal hidden>
     <div class="modal__backdrop" data-delete-cancel></div>
@@ -318,6 +320,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/admin-config.js"></script>
   <script src="https://player.vimeo.com/api/player.js" defer></script>
-  <script src="js/admin.js?v=admin-poster-picker-20260608" defer></script>
+  <script src="js/admin.js?v=admin-video-order-20260611" defer></script>
 </body>
 </html>

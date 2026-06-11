@@ -23,6 +23,11 @@ const vcrClockMinutes = document.querySelector(".vcr-clock__minutes");
 const vcrClockStatus = document.querySelector(".vcr-clock__status");
 const portfolioCategoryItems = document.querySelectorAll(".portfolio-categories__item");
 const portfolioGrid = document.querySelector("[data-portfolio-grid]");
+const videoModal = document.querySelector("[data-video-modal]");
+const videoModalPlayer = document.querySelector("[data-video-modal-player]");
+const videoModalTitle = document.querySelector("#video-modal-title");
+const videoModalNumber = document.querySelector("[data-video-modal-number]");
+const videoModalCloseButtons = document.querySelectorAll("[data-video-modal-close]");
 const galleryStage = document.querySelector("[data-gallery-stage]");
 const galleryStrips = Array.from(document.querySelectorAll("[data-gallery-strip]"));
 const galleryProgress = document.querySelector(".gallery-progress");
@@ -41,6 +46,7 @@ let tvPowerController;
 let setVcrDisplayMode = () => {};
 let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
+let videoModalRestoreFocus = null;
 const referenceLinks = [];
 
 const isMobileScene = () => mobileSceneQuery.matches;
@@ -417,7 +423,7 @@ const getSupabaseImagePreviewUrl = (imageUrl, options = {}) => {
   try {
     const transformUrl = new URL(url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/"));
     const width = options.width || 1200;
-    const quality = options.quality || 72;
+    const quality = options.quality || 88;
 
     transformUrl.searchParams.set("width", String(width));
     transformUrl.searchParams.set("quality", String(quality));
@@ -500,7 +506,7 @@ const createGalleryItem = (item) => {
   const previewWidth = 1600;
   const previewUrl = getSupabaseImagePreviewUrl(imageUrl, {
     width: previewWidth,
-    quality: 72
+    quality: 88
   });
   const focus = getGalleryFocus(item);
 
@@ -821,8 +827,183 @@ const getPortfolioHref = (url) => {
   if (!cleanUrl) return "";
   if (/^https?:\/\//i.test(cleanUrl)) return cleanUrl;
 
-  return `https://vimeo.com/${encodeURIComponent(cleanUrl)}`;
+  return `https://vimeo.com/${cleanUrl.replace(/^\/+/, "").split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
 };
+
+const getVimeoEmbedSrc = (url) => {
+  const cleanUrl = String(url || "").trim();
+
+  if (!cleanUrl) return "";
+
+  const source = /^https?:\/\//i.test(cleanUrl)
+    ? cleanUrl
+    : /^(?:www\.)?(?:vimeo\.com|player\.vimeo\.com)\//i.test(cleanUrl)
+      ? `https://${cleanUrl}`
+      : `https://vimeo.com/${cleanUrl.replace(/^\/+/, "")}`;
+
+  try {
+    const parsedUrl = new URL(source);
+    const host = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
+    const isVimeoHost = host === "vimeo.com" || host === "player.vimeo.com";
+
+    if (!isVimeoHost) return "";
+
+    const segments = parsedUrl.pathname.split("/").filter(Boolean);
+    let videoId = "";
+    let videoIndex = -1;
+
+    if (host === "player.vimeo.com") {
+      const videoSegmentIndex = segments.indexOf("video");
+
+      if (/^\d+$/.test(segments[videoSegmentIndex + 1] || "")) {
+        videoId = segments[videoSegmentIndex + 1];
+        videoIndex = videoSegmentIndex + 1;
+      }
+    }
+
+    if (!videoId && host === "vimeo.com") {
+      const manageVideosIndex = segments.findIndex((segment, index) => (
+        segment === "manage" && segments[index + 1] === "videos"
+      ));
+      const videoSegmentIndex = segments.indexOf("video");
+
+      if (manageVideosIndex >= 0 && /^\d+$/.test(segments[manageVideosIndex + 2] || "")) {
+        videoId = segments[manageVideosIndex + 2];
+        videoIndex = manageVideosIndex + 2;
+      } else if (videoSegmentIndex >= 0 && /^\d+$/.test(segments[videoSegmentIndex + 1] || "")) {
+        videoId = segments[videoSegmentIndex + 1];
+        videoIndex = videoSegmentIndex + 1;
+      }
+    }
+
+    if (!videoId) {
+      videoIndex = segments.findIndex((segment) => /^\d+$/.test(segment));
+      videoId = videoIndex >= 0 ? segments[videoIndex] : "";
+    }
+
+    if (!videoId) return "";
+
+    const nextSegment = segments[videoIndex + 1] || "";
+    const reservedSegments = ["comments", "privacy", "review", "settings"];
+    const pathHash = /^[a-z0-9]+$/i.test(nextSegment) && !reservedSegments.includes(nextSegment.toLowerCase())
+      ? nextSegment
+      : "";
+    const privateHash = parsedUrl.searchParams.get("h") || pathHash;
+    const embedUrl = new URL(`https://player.vimeo.com/video/${videoId}`);
+
+    if (privateHash) {
+      embedUrl.searchParams.set("h", privateHash);
+    }
+
+    embedUrl.searchParams.set("autoplay", "1");
+    embedUrl.searchParams.set("title", "0");
+    embedUrl.searchParams.set("byline", "0");
+    embedUrl.searchParams.set("portrait", "0");
+    embedUrl.searchParams.set("dnt", "1");
+
+    return embedUrl.toString();
+  } catch {
+    return "";
+  }
+};
+
+const isVideoModalOpen = () => Boolean(videoModal?.classList.contains("is-open"));
+
+const getVideoModalFocusableElements = () => {
+  if (!videoModal) return [];
+
+  return Array.from(videoModal.querySelectorAll("button, iframe, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"))
+    .filter((element) => !element.hasAttribute("disabled") && element.tabIndex >= 0);
+};
+
+const closePortfolioVideoModal = () => {
+  if (!videoModal) return;
+
+  videoModal.classList.remove("is-open");
+  videoModal.setAttribute("aria-hidden", "true");
+  videoModalPlayer?.replaceChildren();
+  document.body.classList.remove("is-video-modal-open");
+
+  const focusTarget = videoModalRestoreFocus;
+
+  videoModalRestoreFocus = null;
+
+  if (focusTarget instanceof HTMLElement && document.contains(focusTarget)) {
+    focusTarget.focus({ preventScroll: true });
+  }
+};
+
+const openPortfolioVideoModal = ({ title, embedSrc, trigger, number }) => {
+  if (!videoModal || !videoModalPlayer || !embedSrc) return false;
+
+  const iframe = document.createElement("iframe");
+
+  iframe.title = title || "Portfolio video";
+  iframe.src = embedSrc;
+  iframe.allow = "autoplay; fullscreen; picture-in-picture";
+  iframe.allowFullscreen = true;
+  iframe.loading = "eager";
+
+  videoModalRestoreFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+
+  if (videoModalTitle) {
+    videoModalTitle.textContent = title || "Portfolio video";
+  }
+
+  if (videoModalNumber) {
+    videoModalNumber.textContent = String(number || 1).padStart(2, "0");
+  }
+
+  videoModalPlayer.replaceChildren(iframe);
+  videoModal.classList.add("is-open");
+  videoModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-video-modal-open");
+
+  window.requestAnimationFrame(() => {
+    videoModal.querySelector(".video-modal__close")?.focus({ preventScroll: true });
+  });
+
+  return true;
+};
+
+videoModalCloseButtons.forEach((button) => {
+  button.addEventListener("click", closePortfolioVideoModal);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!isVideoModalOpen()) return;
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closePortfolioVideoModal();
+    return;
+  }
+
+  if (event.key !== "Tab") return;
+
+  const focusable = getVideoModalFocusableElements();
+
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus({ preventScroll: true });
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus({ preventScroll: true });
+  }
+});
+
+document.addEventListener("focusin", (event) => {
+  if (!isVideoModalOpen() || !videoModal) return;
+  if (event.target instanceof Node && videoModal.contains(event.target)) return;
+
+  videoModal.querySelector(".video-modal__close")?.focus({ preventScroll: true });
+});
 
 const gifFadeDuration = 490;
 const stopTimers = new WeakMap();
@@ -876,7 +1057,7 @@ const renderPortfolio = (videos) => {
     return;
   }
 
-  videos.forEach((video) => {
+  videos.forEach((video, index) => {
     const card = document.createElement("article");
     const body = document.createElement("div");
     const title = document.createElement("h3");
@@ -885,6 +1066,7 @@ const renderPortfolio = (videos) => {
     const gifUrl = String(video.thumbnail_gif_url || "").trim();
     const projectTitle = video.title || "Untitled project";
     const href = getPortfolioHref(video.vimeo_url);
+    const embedSrc = getVimeoEmbedSrc(video.vimeo_url);
 
     card.className = video.featured ? "card card--feature" : "card";
     body.className = "card__body";
@@ -896,13 +1078,26 @@ const renderPortfolio = (videos) => {
       thumb.target = "_blank";
       thumb.rel = "noreferrer";
       thumb.setAttribute("aria-label", projectTitle);
+
+      if (embedSrc) {
+        thumb.setAttribute("aria-haspopup", "dialog");
+        thumb.addEventListener("click", (event) => {
+          event.preventDefault();
+          openPortfolioVideoModal({
+            title: projectTitle,
+            embedSrc,
+            trigger: thumb,
+            number: index + 1
+          });
+        });
+      }
     }
 
     if (posterUrl) {
       const poster = document.createElement("img");
       const posterPreviewUrl = getSupabaseImagePreviewUrl(posterUrl, {
         width: video.featured ? 1600 : 900,
-        quality: 72
+        quality: 88
       });
 
       poster.className = "portfolio-poster";
@@ -1834,6 +2029,11 @@ if (scene && content && sceneLoader) {
   window.addEventListener(
     "wheel",
     (event) => {
+      if (isVideoModalOpen()) {
+        event.preventDefault();
+        return;
+      }
+
       const deltaY = getWheelDeltaY(event);
       const direction = deltaY > 0 ? 1 : -1;
 
@@ -1877,6 +2077,11 @@ if (scene && content && sceneLoader) {
   window.addEventListener(
     "touchmove",
     (event) => {
+      if (isVideoModalOpen()) {
+        event.preventDefault();
+        return;
+      }
+
       if (mobileMenu?.classList.contains("is-open")) return;
       if (event.touches.length !== 1 || lastTouchY === null) return;
 

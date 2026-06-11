@@ -275,24 +275,26 @@
           <input class="input" type="text" id="contact-field" name="contact" placeholder="you@example.com or +1 555 010 2030" autocomplete="email" required>
         </div>
         <div class="field field--message">
-          <div class="message-field__header">
-            <label for="msg">Message</label>
+          <label for="msg">Message</label>
+          <div class="message-field__control">
+            <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..." required></textarea>
             <label class="reference-toggle" for="has-references">
               <input type="checkbox" id="has-references" name="has_references" data-reference-toggle>
               <span>I have references</span>
             </label>
           </div>
-          <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..." required></textarea>
         </div>
-        <div class="field field--references" data-reference-field hidden>
-          <div class="reference-panel" data-reference-panel hidden>
-            <div class="reference-input" data-reference-box aria-label="Reference links">
-              <div class="reference-card-list" data-reference-list aria-live="polite"></div>
-              <input class="reference-input__field" type="url" id="reference-link-input" placeholder="Paste reference links..." autocomplete="off" inputmode="url" data-reference-input disabled>
+        <div class="contact__actions">
+          <button class="btn" type="submit" data-contact-submit>Send</button>
+          <div class="field field--references" data-reference-field hidden>
+            <div class="reference-panel" data-reference-panel hidden>
+              <div class="reference-input" data-reference-box aria-label="Reference links">
+                <div class="reference-card-list" data-reference-list aria-live="polite"></div>
+                <input class="reference-input__field" type="url" id="reference-link-input" placeholder="Paste reference links..." autocomplete="off" inputmode="url" data-reference-input disabled>
+              </div>
             </div>
           </div>
         </div>
-        <button class="btn" type="submit" data-contact-submit>Send</button>
         <p class="contact__status" data-contact-status role="status" aria-live="polite"></p>
       </form>
       <div class="contact-aside" aria-label="Contact details and social links">
@@ -335,6 +337,22 @@
     </div>
   </section>
 </main>
+
+<div class="video-modal" data-video-modal role="dialog" aria-modal="true" aria-labelledby="video-modal-title" aria-hidden="true">
+  <div class="video-modal__backdrop" data-video-modal-close aria-hidden="true"></div>
+  <div class="video-modal__panel" role="document">
+    <div class="video-modal__bar">
+      <div class="video-modal__heading">
+        <span class="video-modal__number" data-video-modal-number aria-hidden="true">01</span>
+        <h2 class="video-modal__title" id="video-modal-title">Portfolio video</h2>
+      </div>
+      <button class="video-modal__close" type="button" data-video-modal-close aria-label="Close video">
+        <span aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="video-modal__player" data-video-modal-player></div>
+  </div>
+</div>
 
 <script src="js/supabase-config.js" defer></script>
 <script src="js/main.js" defer></script>

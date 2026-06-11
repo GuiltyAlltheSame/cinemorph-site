@@ -316,6 +316,12 @@ button.admin-mode:focus-visible {
   color: var(--danger);
 }
 
+.admin-mode.is-muted {
+  border-color: rgba(232, 238, 242, .16);
+  background: rgba(232, 238, 242, .035);
+  color: var(--muted);
+}
+
 .admin-mode--metric {
   border-color: rgba(232, 238, 242, .18);
   background: rgba(232, 238, 242, .045);
@@ -675,7 +681,7 @@ button.admin-mode:focus-visible {
   --gallery-admin-panel-height: clamp(560px, 45vw, 620px);
 
   align-items: start;
-  grid-template-columns: minmax(280px, 420px) minmax(280px, 420px) minmax(360px, 1fr);
+  grid-template-columns: minmax(280px, 420px) minmax(320px, 560px) minmax(360px, 1fr);
 }
 
 .admin-form,
@@ -787,6 +793,10 @@ textarea:focus {
   padding: 12px;
 }
 
+.admin-grid--gallery > .upload-preview {
+  max-width: 560px;
+}
+
 .media-preview {
   display: grid;
   width: 100%;
@@ -815,6 +825,33 @@ textarea:focus {
 
 .media-preview--landscape {
   aspect-ratio: 16 / 9;
+}
+
+.media-preview--site-gallery {
+  position: relative;
+  isolation: isolate;
+}
+
+.media-preview--site-gallery::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, .08),
+      rgba(0, 0, 0, 0) 28%,
+      rgba(0, 0, 0, .46)
+    );
+  mix-blend-mode: soft-light;
+  opacity: .72;
+  pointer-events: none;
+}
+
+.media-preview--site-gallery img {
+  transform: scale(1.02);
+  transform-origin: var(--focus-x, 50%) var(--focus-y, 50%);
 }
 
 .preview-meta {
@@ -1060,14 +1097,13 @@ textarea:focus {
 .focus-control__frame {
   position: relative;
   display: grid;
-  max-width: 100%;
-  max-height: 100%;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  overflow: visible;
   border: 1px solid rgba(232, 238, 242, .1);
   border-radius: var(--radius);
   background: rgba(0, 0, 0, .18);
-  cursor: crosshair;
-  touch-action: none;
   user-select: none;
 }
 
@@ -1077,19 +1113,44 @@ textarea:focus {
 }
 
 .focus-control__frame--landscape {
-  width: min(100%, 560px);
-  aspect-ratio: 16 / 9;
+  aspect-ratio: auto;
+}
+
+.focus-control__source {
+  position: relative;
+  display: grid;
+  width: fit-content;
+  height: fit-content;
+  max-width: 100%;
+  max-height: var(--focus-preview-height);
+  overflow: hidden;
+  border-radius: calc(var(--radius) - 1px);
+  cursor: crosshair;
+  line-height: 0;
+  touch-action: none;
 }
 
 .focus-control__image {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: var(--focus-x, 50%) var(--focus-y, 50%);
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: var(--focus-preview-height);
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.focus-control__crop {
+  position: absolute;
+  left: var(--crop-left, 0%);
+  top: var(--crop-top, 0%);
+  z-index: 1;
+  width: var(--crop-width, 100%);
+  height: var(--crop-height, 100%);
+  border: 1px solid rgba(232, 238, 242, .7);
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, .34);
+  pointer-events: none;
 }
 
 .focus-control__target {
@@ -1179,20 +1240,24 @@ textarea:focus {
   overflow: hidden;
 }
 
-.media-card[data-gallery-card] {
+.media-card[data-gallery-card],
+.media-card[data-video-card] {
   cursor: grab;
   touch-action: none;
   user-select: none;
 }
 
-.media-card[data-gallery-card] img {
+.media-card[data-gallery-card] img,
+.media-card[data-video-card] img {
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
 }
 
 .media-card[data-gallery-card]:active,
-body.is-gallery-card-dragging .media-card[data-gallery-card] {
+.media-card[data-video-card]:active,
+body.is-gallery-card-dragging .media-card[data-gallery-card],
+body.is-video-card-dragging .media-card[data-video-card] {
   cursor: grabbing;
 }
 
@@ -1201,7 +1266,8 @@ body.is-gallery-card-dragging .media-card[data-gallery-card] {
   pointer-events: none;
 }
 
-.gallery-drag-ghost {
+.gallery-drag-ghost,
+.video-drag-ghost {
   position: fixed;
   z-index: 80;
   margin: 0;
@@ -1336,6 +1402,84 @@ body.is-gallery-card-dragging .media-card[data-gallery-card] {
 .toast.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.link-preview-popover {
+  position: fixed;
+  z-index: 90;
+  width: min(360px, calc(100vw - 28px));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: rgba(8, 10, 12, .96);
+  color: var(--text);
+  box-shadow:
+    0 22px 46px rgba(0, 0, 0, .42),
+    0 0 0 1px rgba(255, 255, 255, .035);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 8px, 0);
+  transition:
+    opacity .16s ease,
+    transform .16s ease;
+}
+
+.link-preview-popover.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.link-preview-popover__media {
+  display: grid;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .012) 62%, rgba(255, 255, 255, .035)),
+    rgba(255, 255, 255, .025);
+}
+
+.link-preview-popover__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.link-preview-popover__empty {
+  padding: 28px 18px;
+  color: var(--muted);
+  font-family: "Bebas Neue", Arial, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.link-preview-popover__meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, .035);
+}
+
+.link-preview-popover__type {
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.link-preview-popover__host {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal[hidden] {
@@ -1504,12 +1648,12 @@ body.is-gallery-card-dragging .media-card[data-gallery-card] {
   }
 
   .admin-grid--gallery {
-    grid-template-columns: repeat(2, minmax(280px, 420px));
+    grid-template-columns: minmax(280px, 420px) minmax(320px, 560px);
   }
 
   .focus-panel {
     grid-column: 1 / -1;
-    max-width: 858px;
+    max-width: 998px;
   }
 }
 
