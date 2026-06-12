@@ -47,6 +47,7 @@ let setVcrDisplayMode = () => {};
 let getVcrDisplayMode = () => "clock";
 let resetVcrState = () => {};
 let videoModalRestoreFocus = null;
+let turnstileToken = "";
 const referenceLinks = [];
 
 const isMobileScene = () => mobileSceneQuery.matches;
@@ -76,6 +77,32 @@ const setContactStatus = (message, type = "neutral") => {
   contactStatus.textContent = message;
   contactStatus.classList.toggle("is-success", type === "success");
   contactStatus.classList.toggle("is-error", type === "error");
+};
+
+const resetTurnstile = () => {
+  turnstileToken = "";
+
+  if (window.turnstile && typeof window.turnstile.reset === "function") {
+    window.turnstile.reset();
+  }
+};
+
+window.onTurnstileSuccess = (token) => {
+  turnstileToken = String(token || "").trim();
+
+  if (turnstileToken) {
+    setContactStatus("");
+  }
+};
+
+window.onTurnstileExpired = () => {
+  turnstileToken = "";
+  setContactStatus("Verification expired. Please try again.", "error");
+};
+
+window.onTurnstileError = () => {
+  turnstileToken = "";
+  setContactStatus("Verification could not be completed. Please try again.", "error");
 };
 
 const splitTrailingUrlPunctuation = (value) => {
@@ -238,10 +265,7 @@ const setReferencePanelState = () => {
   }
 };
 
-const getReferencePayload = () => referenceLinks.map((item) => ({
-  url: item.url,
-  title: item.title
-}));
+const getReferencePayload = () => referenceLinks.map((item) => item.url);
 
 const postSupabaseRow = async (tableName, payload) => {
   const config = getSupabaseConfig();
@@ -264,6 +288,30 @@ const postSupabaseRow = async (tableName, payload) => {
     error.status = response.status;
     throw error;
   }
+};
+
+const submitContactMessage = async (payload) => {
+  const response = await fetch("/.netlify/functions/submit-message", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  let result = {};
+
+  try {
+    result = await response.json();
+  } catch {}
+
+  if (!response.ok || !result.ok) {
+    const error = new Error(result.error || "Message could not be sent. Please try again later.");
+
+    error.status = response.status;
+    throw error;
+  }
+
+  return result;
 };
 
 setReferencePanelState();
@@ -334,7 +382,9 @@ if (contactForm) {
     const payload = {
       name: String(formData.get("name") || "").trim(),
       contact: String(formData.get("contact") || "").trim(),
-      message: String(formData.get("message") || "").trim()
+      message: String(formData.get("message") || "").trim(),
+      company: String(formData.get("company") || ""),
+      turnstileToken
     };
 
     if (!payload.name || !payload.contact || !payload.message) {
@@ -348,8 +398,8 @@ if (contactForm) {
       return;
     }
 
-    if (!isSupabaseConfigured()) {
-      setContactStatus("Message system is not configured yet. Please use the contact details on this page.", "error");
+    if (!turnstileToken) {
+      setContactStatus("Please complete the verification before sending.", "error");
       return;
     }
 
@@ -361,15 +411,19 @@ if (contactForm) {
     setContactStatus("Sending...");
 
     try {
-      await postSupabaseRow(getSupabaseConfig().tables?.messages || "messages", payload);
+      await submitContactMessage(payload);
       contactForm.reset();
       referenceLinks.length = 0;
       renderReferenceCards();
       setReferencePanelState();
+      resetTurnstile();
       setContactStatus("Message sent. We will get back to you soon.", "success");
     } catch (error) {
-      console.error("Contact form Supabase error:", error);
-      setContactStatus(`Message could not be sent. Supabase status: ${error.status || "network"}.`, "error");
+      console.error("Contact form submit error:", error);
+      if (error.status === 403) {
+        resetTurnstile();
+      }
+      setContactStatus(error.message || "Message could not be sent. Please try again later.", "error");
     } finally {
       contactSubmit?.removeAttribute("disabled");
     }
@@ -423,7 +477,7 @@ const getSupabaseImagePreviewUrl = (imageUrl, options = {}) => {
   try {
     const transformUrl = new URL(url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/"));
     const width = options.width || 1200;
-    const quality = options.quality || 88;
+    const quality = options.quality || 100;
 
     transformUrl.searchParams.set("width", String(width));
     transformUrl.searchParams.set("quality", String(quality));
@@ -506,7 +560,7 @@ const createGalleryItem = (item) => {
   const previewWidth = 1600;
   const previewUrl = getSupabaseImagePreviewUrl(imageUrl, {
     width: previewWidth,
-    quality: 88
+    quality: 100
   });
   const focus = getGalleryFocus(item);
 
@@ -1097,7 +1151,7 @@ const renderPortfolio = (videos) => {
       const poster = document.createElement("img");
       const posterPreviewUrl = getSupabaseImagePreviewUrl(posterUrl, {
         width: video.featured ? 1600 : 900,
-        quality: 88
+        quality: 100
       });
 
       poster.className = "portfolio-poster";
@@ -1925,6 +1979,7 @@ if (scene && content && sceneLoader) {
     const activeId = targets[activeTargetIndex]?.id;
 
     siteMenu?.classList.toggle("is-off-scene", activeTargetIndex > 0);
+    siteMenu?.classList.toggle("is-contact-section", activeId === "contact");
 
     menuLinks.forEach((link) => {
       const linkId = link.getAttribute("href")?.slice(1);

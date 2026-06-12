@@ -882,9 +882,9 @@ const getGalleryPreviewSource = async (file, token) => {
 };
 
 const imageUploadDefaults = {
-  galleryMaxLongEdge: 2400,
-  posterMaxLongEdge: 2200,
-  quality: 0.92
+  galleryMaxLongEdge: Number.POSITIVE_INFINITY,
+  posterMaxLongEdge: Number.POSITIVE_INFINITY,
+  quality: 1
 };
 
 const getOptimizedFileName = (fileName, extension = "webp") => {
@@ -943,6 +943,12 @@ const optimizeImageFile = async (file, options = {}) => {
   const maxLongEdge = options.maxLongEdge || imageUploadDefaults.galleryMaxLongEdge;
   const quality = options.quality || imageUploadDefaults.quality;
   const dimensions = getResizedDimensions(sourceWidth, sourceHeight, maxLongEdge);
+  const keepsOriginalDimensions = dimensions.width === sourceWidth && dimensions.height === sourceHeight;
+
+  if (file.type === "image/webp" && keepsOriginalDimensions) {
+    return file;
+  }
+
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
@@ -954,7 +960,7 @@ const optimizeImageFile = async (file, options = {}) => {
 
   const blob = await canvasToBlob(canvas, "image/webp", quality);
 
-  if (!blob || (blob.size >= file.size && dimensions.width === sourceWidth && dimensions.height === sourceHeight)) {
+  if (!blob || (blob.size >= file.size && keepsOriginalDimensions)) {
     return file;
   }
 

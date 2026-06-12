@@ -35,9 +35,9 @@
       </a>
     </li>
     <li>
-      <a href="https://www.instagram.com/cinemorphstudio/" target="_blank" rel="noreferrer" aria-label="Instagram">
+      <a href="https://www.thumbtack.com/" target="_blank" rel="noreferrer" aria-label="Thumbtack">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
+          <path d="m15.8 2.2 6 6-2.2 2.2-1.5-1.5-4.7 4.7.7 3-1.4 1.4-3.4-3.4-5.6 5.6-1.9-1.9 5.6-5.6L4 9.3l1.4-1.4 3 .7 4.7-4.7-1.5-1.5 2.2-2.2Z"/>
         </svg>
       </a>
     </li>
@@ -49,9 +49,9 @@
       </a>
     </li>
     <li>
-      <a href="https://www.thumbtack.com/" target="_blank" rel="noreferrer" aria-label="Thumbtack">
+      <a href="https://www.instagram.com/cinemorphstudio/" target="_blank" rel="noreferrer" aria-label="Instagram">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m15.8 2.2 6 6-2.2 2.2-1.5-1.5-4.7 4.7.7 3-1.4 1.4-3.4-3.4-5.6 5.6-1.9-1.9 5.6-5.6L4 9.3l1.4-1.4 3 .7 4.7-4.7-1.5-1.5 2.2-2.2Z"/>
+          <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
         </svg>
       </a>
     </li>
@@ -266,6 +266,7 @@
       <p>Briefly describe the task, timeline, and references.</p>
 
       <form class="contact" action="#" method="post" data-contact-form novalidate>
+        <input class="form-honeypot" type="text" name="company" autocomplete="off" tabindex="-1" aria-hidden="true">
         <div class="field">
           <label for="name">Name</label>
           <input class="input" type="text" id="name" name="name" placeholder="Your name" autocomplete="name" required>
@@ -277,7 +278,7 @@
         <div class="field field--message">
           <label for="msg">Message</label>
           <div class="message-field__control">
-            <textarea class="textarea" id="msg" name="message" placeholder="Briefly describe the task..." required></textarea>
+            <textarea class="textarea" id="msg" name="message" placeholder="Describe the task and add references here" required></textarea>
             <label class="reference-toggle" for="has-references">
               <input type="checkbox" id="has-references" name="has_references" data-reference-toggle>
               <span>I have references</span>
@@ -295,13 +296,20 @@
             </div>
           </div>
         </div>
+        <div
+          class="cf-turnstile"
+          data-sitekey="0x4AAAAAADjcJEfIbKBCygj6"
+          data-callback="onTurnstileSuccess"
+          data-expired-callback="onTurnstileExpired"
+          data-error-callback="onTurnstileError"
+        ></div>
         <p class="contact__status" data-contact-status role="status" aria-live="polite"></p>
       </form>
       <div class="contact-aside" aria-label="Contact details and social links">
         <div class="contact-details">
           <p>INFO@CINEMORPHSTUDIO.COM</p>
           <p>+1 (858) 325-8008</p>
-          <p>OR / WA</p>
+          <p>WA / OR</p>
         </div>
         <ul class="contact-social" aria-label="Social links">
           <li>
@@ -312,9 +320,9 @@
             </a>
           </li>
           <li>
-            <a href="https://www.instagram.com/cinemorphstudio/" target="_blank" rel="noreferrer" aria-label="Instagram">
+            <a href="https://www.thumbtack.com/" target="_blank" rel="noreferrer" aria-label="Thumbtack">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
+                <path d="m15.8 2.2 6 6-2.2 2.2-1.5-1.5-4.7 4.7.7 3-1.4 1.4-3.4-3.4-5.6 5.6-1.9-1.9 5.6-5.6L4 9.3l1.4-1.4 3 .7 4.7-4.7-1.5-1.5 2.2-2.2Z"/>
               </svg>
             </a>
           </li>
@@ -326,9 +334,9 @@
             </a>
           </li>
           <li>
-            <a href="https://www.thumbtack.com/" target="_blank" rel="noreferrer" aria-label="Thumbtack">
+            <a href="https://www.instagram.com/cinemorphstudio/" target="_blank" rel="noreferrer" aria-label="Instagram">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m15.8 2.2 6 6-2.2 2.2-1.5-1.5-4.7 4.7.7 3-1.4 1.4-3.4-3.4-5.6 5.6-1.9-1.9 5.6-5.6L4 9.3l1.4-1.4 3 .7 4.7-4.7-1.5-1.5 2.2-2.2Z"/>
+                <path d="M7.8 2.8h8.4a5 5 0 0 1 5 5v8.4a5 5 0 0 1-5 5H7.8a5 5 0 0 1-5-5V7.8a5 5 0 0 1 5-5Zm0 3a2 2 0 0 0-2 2v8.4a2 2 0 0 0 2 2h8.4a2 2 0 0 0 2-2V7.8a2 2 0 0 0-2-2H7.8Zm4.2 3a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm0 2.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm4.1-2.7a.8.8 0 1 1 1.6 0 .8.8 0 0 1-1.6 0Z"/>
               </svg>
             </a>
           </li>
@@ -356,5 +364,6 @@
 
 <script src="js/supabase-config.js" defer></script>
 <script src="js/main.js" defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 </html>

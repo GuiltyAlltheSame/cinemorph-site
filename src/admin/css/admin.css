@@ -1,8 +1,14 @@
 @font-face {
-  font-family: "Bebas Neue";
-  src:
-    url("../../assets/fonts/BebasNeue-Regular.otf") format("opentype"),
-    url("../../assets/fonts/BebasNeue-Regular.ttf") format("truetype");
+  font-family: "League Gothic";
+  src: url("../../assets/fonts/league-gothic.regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Serif";
+  src: url("../../assets/fonts/ibm-plex-serif.regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -24,6 +30,15 @@
   --danger: #ff856f;
   --radius: 6px;
   --sidebar: 260px;
+  --font-display: "League Gothic", Impact, "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --admin-menu-font-size: 19px;
+  --admin-control-font-size: 18px;
+  --admin-label-font-size: 16px;
+  --admin-pill-font-size: 15px;
+  --admin-field-font-size: 16px;
+  --admin-preview-font-size: 17px;
+  --admin-font-tracking: .04em;
 }
 
 *,
@@ -38,7 +53,7 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.45;
 }
@@ -62,6 +77,38 @@ textarea {
 
 button {
   cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+.admin-brand,
+.admin-kicker,
+.admin-nav__item,
+.admin-mode,
+.icon-button,
+.primary-button,
+.secondary-button,
+.danger-button,
+.segmented button,
+.segmented label span,
+.field span,
+.field legend,
+.switch span,
+.poster-picker__kicker,
+.poster-picker__mode,
+.focus-panel__label,
+.preview-meta dt,
+.message-date,
+.pill,
+.link-preview-popover__type,
+.link-preview-popover__host,
+.watcher-field span {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: var(--admin-font-tracking);
 }
 
 button:disabled {
@@ -138,7 +185,7 @@ img {
 
 .auth-brand h1 {
   margin: 0;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(36px, 8vw, 58px);
   font-weight: 400;
   line-height: .95;
@@ -193,13 +240,13 @@ img {
   place-items: center;
   border: 1px solid var(--line-strong);
   background: rgba(255, 255, 255, .05);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 24px;
   line-height: 1;
 }
 
 .admin-brand__text {
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 26px;
   letter-spacing: .04em;
   line-height: 1;
@@ -221,6 +268,9 @@ img {
   padding: 0 10px;
   background: transparent;
   color: var(--muted);
+  font-size: var(--admin-menu-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-align: left;
 }
 
@@ -237,9 +287,12 @@ img {
   min-width: 26px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 1px 7px;
+  padding: 2px 7px 1px;
   color: var(--warning);
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: var(--admin-pill-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-align: center;
 }
 
@@ -261,17 +314,23 @@ img {
   gap: 9px;
   border: 1px solid rgba(255, 211, 107, .24);
   border-radius: var(--radius);
-  padding: 10px;
+  padding: 10px 12px;
   background: rgba(255, 211, 107, .07);
   color: var(--warning);
-  font-size: 12px;
+  font-size: var(--admin-control-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
 button.admin-mode {
   width: 100%;
   cursor: pointer;
-  font: inherit;
+  font-family: var(--font-display);
+  font-size: var(--admin-control-font-size);
+  font-weight: 400;
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-align: left;
 }
 
@@ -358,7 +417,7 @@ button.admin-mode:focus-visible {
 .admin-topbar h1,
 .panel-heading h2 {
   margin: 0;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(34px, 5vw, 64px);
   font-weight: 400;
   line-height: .95;
@@ -414,6 +473,10 @@ button.admin-mode:focus-visible {
 .danger-button {
   min-height: 42px;
   padding: 0 14px;
+  font-size: var(--admin-control-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .primary-button {
@@ -463,6 +526,10 @@ button.admin-mode:focus-visible {
   padding: 0 11px;
   background: transparent;
   color: var(--muted);
+  font-size: var(--admin-control-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -529,7 +596,7 @@ button.admin-mode:focus-visible {
 .message-meta h3 {
   margin: 0 0 5px;
   overflow: hidden;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 26px;
   font-weight: 400;
   line-height: 1;
@@ -542,9 +609,18 @@ button.admin-mode:focus-visible {
   display: block;
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.message-meta a {
+  font-size: var(--admin-field-font-size);
+}
+
+.message-date {
+  font-size: var(--admin-label-font-size);
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .message-body {
@@ -581,8 +657,10 @@ button.admin-mode:focus-visible {
 
 .message-references__label {
   color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0;
+  font-family: var(--font-display);
+  font-size: var(--admin-label-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -617,7 +695,8 @@ button.admin-mode:focus-visible {
 
 .reference-card__number {
   color: var(--warning);
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: var(--admin-pill-font-size);
   font-weight: 700;
   line-height: 1;
 }
@@ -638,14 +717,14 @@ button.admin-mode:focus-visible {
 
 .reference-card__title {
   color: var(--text);
-  font-size: 13px;
-  line-height: 1.1;
+  font-size: var(--admin-field-font-size);
+  line-height: 1.15;
 }
 
 .reference-card__url {
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.1;
+  font-size: var(--admin-pill-font-size);
+  line-height: 1.15;
 }
 
 .message-actions {
@@ -730,8 +809,9 @@ button.admin-mode:focus-visible {
 .field legend,
 .switch span {
   color: var(--muted);
-  font-size: 12px;
-  letter-spacing: .08em;
+  font-size: var(--admin-label-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -747,6 +827,7 @@ input[type="number"],
 input[type="email"],
 input[type="password"],
 input[type="file"],
+select,
 textarea {
   width: 100%;
   min-height: 42px;
@@ -755,6 +836,10 @@ textarea {
   padding: 10px 11px;
   background: rgba(2, 4, 6, .36);
   color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--admin-field-font-size);
+  letter-spacing: 0;
+  line-height: 1.25;
   outline: 0;
 }
 
@@ -762,7 +847,19 @@ input[type="file"] {
   overflow: hidden;
   padding: 8px 10px;
   text-overflow: ellipsis;
+  text-transform: none;
   white-space: nowrap;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: rgba(232, 238, 242, .12);
+  color: var(--text);
+  font: inherit;
+  text-transform: none;
 }
 
 input:hover,
@@ -809,7 +906,7 @@ textarea:focus {
     linear-gradient(135deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015)),
     rgba(0, 0, 0, .34);
   color: rgba(232, 238, 242, .44);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(28px, 4vw, 52px);
   line-height: 1;
   text-transform: uppercase;
@@ -856,7 +953,7 @@ textarea:focus {
 
 .preview-meta {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
   margin: auto 0 0;
 }
@@ -864,10 +961,10 @@ textarea:focus {
 .preview-meta div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   min-width: 0;
   border-bottom: 1px solid rgba(232, 238, 242, .08);
-  padding-bottom: 6px;
+  padding-bottom: 7px;
 }
 
 .preview-meta dt,
@@ -878,12 +975,19 @@ textarea:focus {
 .preview-meta dt {
   flex: 0 0 auto;
   color: var(--muted);
+  font-size: var(--admin-label-font-size);
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .preview-meta dd {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--admin-preview-font-size);
+  letter-spacing: 0;
+  line-height: 1.2;
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -909,14 +1013,15 @@ textarea:focus {
 .poster-picker__kicker {
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 11px;
-  letter-spacing: .08em;
+  font-size: var(--admin-label-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
 .poster-picker h3 {
   margin: 0;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(28px, 3vw, 40px);
   font-weight: 400;
   line-height: 1;
@@ -931,8 +1036,8 @@ textarea:focus {
   border-radius: 4px;
   padding: 4px 7px;
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: var(--admin-pill-font-size);
+  line-height: 1;
   text-align: right;
   text-overflow: ellipsis;
   text-transform: uppercase;
@@ -975,7 +1080,7 @@ textarea:focus {
 
 .poster-picker__empty {
   color: rgba(232, 238, 242, .44);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(28px, 4vw, 52px);
   line-height: 1;
   text-transform: uppercase;
@@ -993,7 +1098,10 @@ textarea:focus {
   gap: 12px;
   min-width: 0;
   color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--admin-preview-font-size);
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .poster-picker__time-row span {
@@ -1014,7 +1122,9 @@ textarea:focus {
   min-height: 20px;
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: var(--admin-field-font-size);
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -1044,8 +1154,9 @@ textarea:focus {
 .focus-panel__label {
   display: block;
   color: var(--muted);
-  font-size: 12px;
-  letter-spacing: .08em;
+  font-size: var(--admin-label-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -1088,7 +1199,7 @@ textarea:focus {
   height: 100%;
   place-items: center;
   color: rgba(232, 238, 242, .44);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(30px, 4vw, 56px);
   line-height: 1;
   text-transform: uppercase;
@@ -1221,7 +1332,7 @@ textarea:focus {
 
 .gallery-section__title {
   margin: 0;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(30px, 3vw, 46px);
   font-weight: 400;
   line-height: 1;
@@ -1284,7 +1395,7 @@ body.is-video-card-dragging .media-card[data-video-card] {
   overflow: hidden;
   background: rgba(255, 255, 255, .035);
   color: rgba(232, 238, 242, .44);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 34px;
   line-height: 1;
 }
@@ -1323,8 +1434,8 @@ body.is-video-card-dragging .media-card[data-video-card] {
 .media-card h3 {
   margin: 0;
   overflow: hidden;
-  font-family: "Bebas Neue", Arial, sans-serif;
-  font-size: 26px;
+  font-family: var(--font-display);
+  font-size: 28px;
   font-weight: 400;
   line-height: 1;
   text-overflow: ellipsis;
@@ -1334,7 +1445,8 @@ body.is-video-card-dragging .media-card[data-video-card] {
 .media-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .media-card__bottom {
@@ -1369,9 +1481,12 @@ body.is-video-card-dragging .media-card[data-video-card] {
 .pill {
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 2px 8px;
+  max-width: 100%;
+  padding: 4px 9px 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--admin-pill-font-size);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
@@ -1448,7 +1563,7 @@ body.is-video-card-dragging .media-card[data-video-card] {
 .link-preview-popover__empty {
   padding: 28px 18px;
   color: var(--muted);
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 28px;
   line-height: 1;
   text-align: center;
@@ -1514,7 +1629,7 @@ body.is-video-card-dragging .media-card[data-video-card] {
 
 .modal__dialog h2 {
   margin: 0 40px 8px 0;
-  font-family: "Bebas Neue", Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 38px;
   font-weight: 400;
   line-height: 1;
@@ -1618,8 +1733,9 @@ body.is-video-card-dragging .media-card[data-video-card] {
 
 .watcher-field span {
   color: var(--muted);
-  font-size: 11px;
-  letter-spacing: .08em;
+  font-size: var(--admin-label-font-size);
+  letter-spacing: var(--admin-font-tracking);
+  line-height: 1;
   text-transform: uppercase;
 }
 
