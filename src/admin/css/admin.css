@@ -7,10 +7,18 @@
 }
 
 @font-face {
-  font-family: "IBM Plex Serif";
-  src: url("../../assets/fonts/ibm-plex-serif.regular.ttf") format("truetype");
+  font-family: "IBM Plex Mono";
+  src: url("../../assets/fonts/IBMPlexMono-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../../assets/fonts/IBMPlexMono-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -31,7 +39,7 @@
   --radius: 6px;
   --sidebar: 260px;
   --font-display: "League Gothic", Impact, "Arial Narrow", sans-serif;
-  --font-body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-body: "IBM Plex Mono", "Courier New", monospace;
   --admin-menu-font-size: 19px;
   --admin-control-font-size: 18px;
   --admin-label-font-size: 16px;

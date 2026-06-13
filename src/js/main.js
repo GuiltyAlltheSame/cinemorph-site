@@ -34,6 +34,7 @@ const galleryProgress = document.querySelector(".gallery-progress");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactSubmit = document.querySelector("[data-contact-submit]");
+const dynamicPlaceholderField = document.querySelector("[data-dynamic-placeholder]");
 const referenceToggle = document.querySelector("[data-reference-toggle]");
 const referenceField = document.querySelector("[data-reference-field]");
 const referencePanel = document.querySelector("[data-reference-panel]");
@@ -49,6 +50,22 @@ let resetVcrState = () => {};
 let videoModalRestoreFocus = null;
 let turnstileToken = "";
 const referenceLinks = [];
+const contactMessagePlaceholders = [
+  "Hi, we're opening a coffee shop and need a cinematic promo video...",
+  "Hello, I'd like to film a music video for my upcoming single...",
+  "We need drone footage of a property for a real estate listing...",
+  "I'm looking for a videographer for a documentary project...",
+  "We are launching a new product and need commercial content...",
+  "Hi, I'd like to discuss a creative collaboration...",
+  "We need behind-the-scenes coverage for an upcoming production...",
+  "I have a short film idea and I'm looking for a production team...",
+  "We're planning an event and need video coverage...",
+  "Hi, I found your work online and would like to know your availability...",
+  "We'd like to create something similar to the references attached...",
+  "Looking for a cinematic reel for social media...",
+  "Hi, I don't know exactly what I need yet, but I have an idea...",
+  "Just wanted to say hello and connect with fellow creators..."
+];
 
 const isMobileScene = () => mobileSceneQuery.matches;
 
@@ -64,6 +81,53 @@ const playTapeInsertSound = () => {
 };
 
 const getSupabaseConfig = () => window.CINEMORPH_SUPABASE_CONFIG || {};
+
+const initDynamicPlaceholder = () => {
+  if (!dynamicPlaceholderField || contactMessagePlaceholders.length < 2) return;
+
+  let placeholderIndex = 0;
+  let fadeTimer = null;
+  let intervalId = null;
+
+  const startRotation = () => {
+    if (intervalId || dynamicPlaceholderField.value.trim()) return;
+
+    intervalId = window.setInterval(rotatePlaceholder, 5000);
+  };
+
+  const stopRotation = () => {
+    window.clearInterval(intervalId);
+    window.clearTimeout(fadeTimer);
+    intervalId = null;
+    fadeTimer = null;
+    dynamicPlaceholderField.classList.remove("is-placeholder-changing");
+  };
+
+  const rotatePlaceholder = () => {
+    if (dynamicPlaceholderField.value.trim()) {
+      stopRotation();
+      return;
+    }
+
+    dynamicPlaceholderField.classList.add("is-placeholder-changing");
+
+    fadeTimer = window.setTimeout(() => {
+      placeholderIndex = (placeholderIndex + 1) % contactMessagePlaceholders.length;
+      dynamicPlaceholderField.setAttribute("placeholder", contactMessagePlaceholders[placeholderIndex]);
+      dynamicPlaceholderField.classList.remove("is-placeholder-changing");
+    }, 450);
+  };
+
+  dynamicPlaceholderField.setAttribute("placeholder", contactMessagePlaceholders[placeholderIndex]);
+  startRotation();
+  dynamicPlaceholderField.addEventListener("input", () => {
+    if (dynamicPlaceholderField.value.trim()) {
+      stopRotation();
+    } else {
+      startRotation();
+    }
+  });
+};
 
 const isSupabaseConfigured = () => {
   const config = getSupabaseConfig();
@@ -314,6 +378,7 @@ const submitContactMessage = async (payload) => {
   return result;
 };
 
+initDynamicPlaceholder();
 setReferencePanelState();
 
 referenceToggle?.addEventListener("change", () => {
