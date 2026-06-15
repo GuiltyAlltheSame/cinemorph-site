@@ -1,6 +1,6 @@
 @font-face {
   font-family: "League Gothic";
-  src: url("../../assets/fonts/league-gothic.regular.ttf") format("truetype");
+  src: url("../../assets/fonts/league-gothic.regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,17 +8,17 @@
 
 @font-face {
   font-family: "IBM Plex Mono";
-  src: url("../../assets/fonts/IBMPlexMono-Regular.ttf") format("truetype");
+  src: url("../../assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "IBM Plex Mono";
-  src: url("../../assets/fonts/IBMPlexMono-Italic.ttf") format("truetype");
+  font-family: "vcrosd";
+  src: url("../../assets/fonts/vcrosdmonorus_vhsicons.woff2") format("woff2");
   font-weight: 400;
-  font-style: italic;
+  font-style: normal;
   font-display: swap;
 }
 
@@ -40,6 +40,9 @@
   --sidebar: 260px;
   --font-display: "League Gothic", Impact, "Arial Narrow", sans-serif;
   --font-body: "IBM Plex Mono", "Courier New", monospace;
+  --font-placeholder: "vcrosd", "IBM Plex Mono", "Courier New", monospace;
+  /* Secondary font height control: 1 = normal, .95 = lower, 1.05 = taller. */
+  --font-body-y-scale: 1;
   --admin-menu-font-size: 19px;
   --admin-control-font-size: 18px;
   --admin-label-font-size: 16px;
@@ -837,6 +840,7 @@ input[type="password"],
 input[type="file"],
 select,
 textarea {
+  display: inline-block;
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -849,6 +853,8 @@ textarea {
   letter-spacing: 0;
   line-height: 1.25;
   outline: 0;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 
 input[type="file"] {
@@ -875,6 +881,11 @@ input:focus,
 textarea:hover,
 textarea:focus {
   border-color: var(--line-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-family: var(--font-placeholder);
 }
 
 .switch {
@@ -989,6 +1000,7 @@ textarea:focus {
 }
 
 .preview-meta dd {
+  display: inline-block;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
@@ -999,6 +1011,8 @@ textarea:focus {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: right center;
 }
 
 .poster-picker {
@@ -1110,6 +1124,8 @@ textarea:focus {
   font-size: var(--admin-preview-font-size);
   font-weight: 700;
   line-height: 1.2;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 
 .poster-picker__time-row span {
@@ -1127,6 +1143,7 @@ textarea:focus {
 
 .poster-picker__selection,
 .poster-picker__message {
+  display: inline-block;
   min-height: 20px;
   margin: 0;
   color: var(--muted);
@@ -1134,6 +1151,8 @@ textarea:focus {
   font-size: var(--admin-field-font-size);
   line-height: 1.35;
   overflow-wrap: anywhere;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 
 .poster-picker__message.is-error {

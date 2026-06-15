@@ -1,30 +1,30 @@
 @font-face {
   font-family: "League Gothic";
-  src: url("../assets/fonts/league-gothic.regular.ttf") format("truetype");
+  src: url("../assets/fonts/league-gothic.regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "IBM Plex Mono";
-  src: url("../assets/fonts/IBMPlexMono-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "IBM Plex Mono";
-  src: url("../assets/fonts/IBMPlexMono-Italic.ttf") format("truetype");
-  font-weight: 400;
-  font-style: italic;
   font-display: swap;
 }
 
 @font-face {
   font-family: "Digital 7";
-  src: url("../assets/fonts/digital-7.regular.ttf") format("truetype");
+  src: url("../assets/fonts/digital-7.regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "vcrosd";
+  src: url("../assets/fonts/vcrosdmonorus_vhsicons.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "VHS";
+  src: url("../assets/fonts/VHS.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -32,7 +32,10 @@
 
 :root {
   --font-display: "League Gothic", Impact, "Arial Narrow", sans-serif;
-  --font-body: "IBM Plex Mono", "Courier New", monospace;
+  --font-body: "VHS", Georgia, "Times New Roman", serif;
+  --font-placeholder: "vcrosd", var(--font-body);
+  /* Secondary font height control: 1 = normal, .95 = lower, 1.05 = taller. */
+  --font-body-y-scale: 1.00;
 }
 
 html,
@@ -1499,10 +1502,13 @@ body.is-gallery-progress-dragging {
   text-transform: uppercase;
 }
 .section p{
+  display: inline-block;
   margin:0 0 clamp(6px, .55vw, 10px);
   font-family: var(--font-body);
   font-size: clamp(18px, 1.3vw, 25px);
   line-height: clamp(25px, 1.34vw, 30px);
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 
 .section--dark,
@@ -1520,10 +1526,10 @@ body.is-gallery-progress-dragging {
 
 #about {
   --section-padding-bottom: calc(clamp(36px, 5.2vw, 72px) + var(--site-menu-height));
-  --about-copy-size: clamp(18px, 1.3vw, 25px);
-  --about-copy-line: clamp(25px, 1.34vw, 30px);
-  --about-copy-gap: clamp(6px, .55vw, 10px);
-  --about-statement-size: clamp(18px, .8vw, 24px);
+  --about-copy-size: clamp(18px, 2.3vw, 28px);
+  --about-copy-line: clamp(24px, 24px, 24px);
+  --about-copy-gap: clamp(6px, 17px, 17px);
+  --about-statement-size: clamp(16px, 1.8vw, 21px);
   --about-statement-line: clamp(20px, 1vw, 24px);
   --about-statement-offset: clamp(10px, 1.05vw, 18px);
   --about-team-gap: clamp(10px, 1.5vw, 16px);
@@ -1600,6 +1606,7 @@ body.is-gallery-progress-dragging {
 }
 
 .team-card p {
+  display: inline-block;
   margin: 6px 0 0;
   color: #8f9da5;
   font-family: var(--font-body);
@@ -1608,6 +1615,8 @@ body.is-gallery-progress-dragging {
   font-weight: 400;
   line-height: 1.35;
   letter-spacing: 0;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 
 #portfolio {
@@ -2280,6 +2289,7 @@ body.is-gallery-progress-dragging {
   text-transform:uppercase;
 }
 .input,.textarea{
+  display: inline-block;
   width:100%;
   border:1px solid rgba(255,255,255,.14);
   border-radius:4px;
@@ -2293,12 +2303,15 @@ body.is-gallery-progress-dragging {
     border-color .2s ease,
     background .2s ease,
     color .2s ease;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 .section--light .input,.section--light .textarea{
   background:#fff; color:#111; border:1px solid rgba(0,0,0,.12);
 }
 .input::placeholder,
 .textarea::placeholder{
+  font-family: var(--font-placeholder);
   color:rgba(232,238,242,.30);
   opacity:1;
   transition:opacity .45s ease;
@@ -2533,6 +2546,8 @@ body.is-gallery-progress-dragging {
   font-family: var(--font-body);
   font-size:11px;
   line-height:1.1;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 .reference-card__remove{
   display:grid;
@@ -2563,6 +2578,7 @@ body.is-gallery-progress-dragging {
   outline:0;
 }
 .reference-input__field::placeholder{
+  font-family: var(--font-placeholder);
   color:rgba(232,238,242,.30);
 }
 .btn{
@@ -2591,6 +2607,7 @@ body.is-gallery-progress-dragging {
   opacity:.56;
 }
 .contact__status{
+  display: inline-block;
   min-height:1.25em;
   margin:0;
   color:rgba(232,232,232,.62);
@@ -2600,6 +2617,8 @@ body.is-gallery-progress-dragging {
   line-height:1.35;
   letter-spacing:.04em;
   text-transform:uppercase;
+  transform: scaleY(var(--font-body-y-scale));
+  transform-origin: left center;
 }
 .contact__status:empty{
   display:none;
