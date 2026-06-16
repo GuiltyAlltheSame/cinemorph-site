@@ -1,5 +1,9 @@
 const { createClient } = require("@supabase/supabase-js");
 
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_MESSAGES_TABLE = process.env.SUPABASE_MESSAGES_TABLE || "messages";
+
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
@@ -185,18 +189,36 @@ const validateMessagePayload = (body) => {
 
 const normalizeTableName = (value, fallback) => String(value || fallback).replace(/^public\./, "");
 
-const getSupabaseClient = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const getJwtRole = (token) => {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+};
 
-  if (!supabaseUrl || !serviceRoleKey) {
+const getSupabaseClient = () => {
+  console.log("Contact insert auth debug:", {
+    hasSupabaseUrl: Boolean(SUPABASE_URL),
+    hasServiceRoleKey: Boolean(SUPABASE_SERVICE_ROLE_KEY),
+    serviceRoleLooksLikeJwt: SUPABASE_SERVICE_ROLE_KEY?.split(".").length === 3,
+    serviceRoleJwtRole: getJwtRole(SUPABASE_SERVICE_ROLE_KEY)
+  });
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     throw createHttpError("Server configuration is missing.", 500);
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
-      autoRefreshToken: false,
-      persistSession: false
+      persistSession: false,
+      autoRefreshToken: false
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+      }
     }
   });
 };
@@ -223,7 +245,7 @@ exports.handler = async (event) => {
     await verifyTurnstile(turnstileToken, getRequestIp(event.headers));
 
     const supabase = getSupabaseClient();
-    const table = normalizeTableName(process.env.SUPABASE_MESSAGES_TABLE, "messages");
+    const table = normalizeTableName(SUPABASE_MESSAGES_TABLE, "messages");
     const { error } = await supabase
       .from(table)
       .insert(payload);
