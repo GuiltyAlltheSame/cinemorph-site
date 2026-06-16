@@ -55,6 +55,9 @@
         </svg>
       </a>
     </li>
+    <li class="site-menu__credit">
+      <span class="site-menu__credit-label">developed by&nbsp;</span><a href="https://flexboxer.com" target="_blank" rel="noreferrer">flexboxer</a>
+    </li>
   </ul>
 
   <div class="mobilenav" id="mobileNav" aria-hidden="true">
@@ -131,10 +134,25 @@
     <div class="lamp-glow" aria-hidden="true"></div>
     <div class="tv-bloom" aria-hidden="true"></div>
     <div class="tv-content">
-      <div class="screen" role="img" aria-label="TV screen">
+      <div class="screen" role="group" aria-label="TV screen">
         <span class="screen__signal" aria-hidden="true"></span>
         <div class="screen__video" data-vhs-player aria-live="polite"></div>
       </div>
+    </div>
+    <div class="screen-controls-layer" data-vhs-player-controls hidden>
+      <button class="screen__control" type="button" data-vhs-unmute aria-label="Unmute tape video" aria-pressed="false">
+        <svg class="screen__control-icon screen__control-icon--muted" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 9v6h4l5 4V5L7 9H3Zm14.8-1.8-1.4 1.4 2.4 2.4-2.4 2.4 1.4 1.4 2.4-2.4 2.4 2.4 1.4-1.4-2.4-2.4 2.4-2.4-1.4-1.4-2.4 2.4-2.4-2.4Z"/>
+        </svg>
+        <svg class="screen__control-icon screen__control-icon--sound" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 9v6h4l5 4V5L7 9H3Zm12.4-.7-1.4 1.4A3.2 3.2 0 0 1 15 12c0 .9-.4 1.7-1 2.3l1.4 1.4A5.2 5.2 0 0 0 17 12c0-1.4-.6-2.7-1.6-3.7Zm3-3-1.4 1.4A7.4 7.4 0 0 1 19.2 12c0 2.1-.8 4-2.2 5.3l1.4 1.4A9.4 9.4 0 0 0 21.2 12c0-2.6-1.1-5-2.8-6.7Z"/>
+        </svg>
+      </button>
+      <button class="screen__control" type="button" data-vhs-expand aria-label="Open tape video fullscreen">
+        <svg class="screen__control-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4h7v2H7.4l4.1 4.1-1.4 1.4L6 7.4V11H4V4Zm16 0v7h-2V7.4l-4.1 4.1-1.4-1.4L16.6 6H13V4h7ZM4 13h2v3.6l4.1-4.1 1.4 1.4L7.4 18H11v2H4v-7Zm14 0h2v7h-7v-2h3.6l-4.1-4.1 1.4-1.4 4.1 4.1V13Z"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -142,18 +160,7 @@
   <audio id="tvPowerClick" src="assets/sounds/on-off-click.mp3" preload="auto"></audio>
 
   <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
-    <div class="vhs-menu__content">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-01.png" alt="VHS tape 01" draggable="false" data-tape-id="tape-01" data-video-title="Tape 01" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-02.png" alt="VHS tape 02" draggable="false" data-tape-id="tape-02" data-video-title="Tape 02" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-03.png" alt="VHS tape 03" draggable="false" data-tape-id="tape-03" data-video-title="Tape 03" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-04.png" alt="VHS tape 04" draggable="false" data-tape-id="tape-04" data-video-title="Tape 04" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-05.png" alt="VHS tape 05" draggable="false" data-tape-id="tape-05" data-video-title="Tape 05" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-06.png" alt="VHS tape 06" draggable="false" data-tape-id="tape-06" data-video-title="Tape 06" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-07.png" alt="VHS tape 07" draggable="false" data-tape-id="tape-07" data-video-title="Tape 07" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-08.png" alt="VHS tape 08" draggable="false" data-tape-id="tape-08" data-video-title="Tape 08" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-09.png" alt="VHS tape 09" draggable="false" data-tape-id="tape-09" data-video-title="Tape 09" data-vimeo-id="" data-video-src="">
-      <img class="vhs-menu__cassette" src="assets/img/vhs-10.png" alt="VHS tape 10" draggable="false" data-tape-id="tape-10" data-video-title="Tape 10" data-vimeo-id="" data-video-src="">
-    </div>
+    <div class="vhs-menu__content" data-vhs-menu-content aria-live="polite"></div>
   </div>
 </div>
 <!-- TV Scene Section END -->
@@ -169,36 +176,36 @@
 
       <div class="about-team" aria-label="Cinemorph Studio team">
         <article class="team-card">
-          <img class="team-card__avatar" src="https://www.mirf.ru/backend/wp-content/uploads/2019/07/45b12bd049b8ebcfa0d0f70215431a19.jpg" width="720" height="720" alt="Alex Reed portrait placeholder" loading="lazy" decoding="async">
+          <img class="team-card__avatar" src="assets/img/apollo_avatar.jpg" width="720" height="720" alt="Alex Reed portrait placeholder" loading="lazy" decoding="async">
           <div class="team-card__body">
-            <h3>Mikhail Apollo</h3>
+            <h3>Mikhail Utkin</h3>
             <p>Director of photography</p>
           </div>
         </article>
 
        <article class="team-card">
-          <img class="team-card__avatar" src="https://i.redd.it/are-you-a-one-or-a-zero-v0-1lxgfcq63bmg1.jpg?width=900&format=pjpg&auto=webp&s=3d7a94be1f359abaa1c3cbc91ef858ab07278613" width="720" height="720" alt="Maya Stone portrait placeholder" loading="lazy" decoding="async">
+          <img class="team-card__avatar" src="assets/img/vegas_avatar.png" width="720" height="720" alt="Maya Stone portrait placeholder" loading="lazy" decoding="async">
           <div class="team-card__body">
-            <h3>Artem Vegas</h3>
+            <h3>Artem Kulachek</h3>
             <p>Tech & Photography</p>
           </div>
         </article>
 
-   <!-- <article class="team-card">
-          <img class="team-card__avatar" src="https://i.pravatar.cc/720?img=56" width="720" height="720" alt="Noah Vale portrait placeholder" loading="lazy" decoding="async">
+  <article class="team-card">
+          <img class="team-card__avatar" src="assets/img/morgana_avatar.jpg" width="720" height="720" alt="Noah Vale portrait placeholder" loading="lazy" decoding="async">
           <div class="team-card__body">
             <h3>Morgana Pirins</h3>
-            <p>Director of Photography</p>
+            <p>Production Assistant</p>
           </div>
         </article>
 
         <article class="team-card">
-          <img class="team-card__avatar" src="https://i.pravatar.cc/720?img=68" width="720" height="720" alt="Lena Cross portrait placeholder" loading="lazy" decoding="async">
+          <img class="team-card__avatar" src="assets/img/hauka_avatar.jpg" width="720" height="720" alt="Lena Cross portrait placeholder" loading="lazy" decoding="async">
           <div class="team-card__body">
-            <h3>Lena Cross</h3>
-            <p>Editor</p>
+            <h3>Viktor Hauka</h3>
+            <p>Composer & Sound Designer</p>
           </div>
-        </article> -->
+        </article>
       </div>
     </div>
   </section>
