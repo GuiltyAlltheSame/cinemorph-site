@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CINEMORPH Admin</title>
-  <link rel="stylesheet" href="css/admin.css?v=admin-poster-picker-20260608">
+  <link rel="stylesheet" href="css/admin.css?v=admin-video-order-20260611">
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" focusable="false">
@@ -102,6 +102,7 @@
           <div class="admin-mode admin-mode--metric" data-video-total role="status" aria-live="polite">VIDEO: 0</div>
           <div class="admin-mode admin-mode--metric" data-photo-total role="status" aria-live="polite">PHOTOS: 0</div>
           <button class="admin-mode admin-mode--watcher is-connected" type="button" data-watcher-open aria-haspopup="dialog">WATCHER: OK</button>
+          <button class="admin-mode admin-mode--preview is-connected" type="button" data-link-preview-toggle aria-pressed="true">H/Link: ON</button>
         </div>
         <div class="admin-mode" data-admin-mode role="status" aria-live="polite">Checking connection</div>
       </div>
@@ -202,7 +203,23 @@
         <h2 class="visually-hidden" id="videos-title">Video Upload</h2>
 
         <div class="admin-grid admin-grid--videos">
-          <form class="admin-form" data-video-form>
+          <section class="tape-order-panel" data-tape-order-panel aria-label="Tape Box Order">
+            <div class="tape-order-panel__header">
+              <div>
+                <p class="tape-order-panel__kicker">Cassette stack</p>
+                <h3>Tape Box</h3>
+              </div>
+              <span class="tape-order-panel__count" data-tape-order-count>0 tapes</span>
+            </div>
+
+            <div class="tape-order-box">
+              <div class="tape-order-box__list" data-tape-order-list aria-live="polite"></div>
+            </div>
+
+            <p class="tape-order-panel__status" data-tape-order-status>Drag tapes to change menu order.</p>
+          </section>
+
+          <form class="admin-form" id="video-upload-form" data-video-form>
             <label class="field">
               <span>Title</span>
               <input type="text" name="title" placeholder="Project title" required>
@@ -223,6 +240,11 @@
               <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
             </label>
 
+            <label class="switch">
+              <input type="checkbox" name="poster_picker_enabled">
+              <span>Vimeo poster picker</span>
+            </label>
+
             <input type="hidden" name="poster_time" value="">
             <input type="hidden" name="poster_mode" value="">
 
@@ -231,19 +253,93 @@
               <span>Featured</span>
             </label>
 
+            <label class="switch">
+              <input type="checkbox" name="tape_enabled">
+              <span>TAPE</span>
+            </label>
+
+            <section class="tape-panel" data-video-tape-panel hidden aria-label="Tape Settings">
+              <input type="hidden" name="tape_texture" value="vhs-01">
+
+              <button class="secondary-button" type="button" data-open-tape-picker>
+                <svg class="icon" aria-hidden="true"><use href="#icon-eye"></use></svg>
+                <span data-tape-texture-summary>Texture: VHS-01</span>
+              </button>
+            </section>
+
             <button class="primary-button" type="submit">
               <svg class="icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
               <span>Add video</span>
             </button>
           </form>
 
-          <div class="upload-preview" data-video-preview>
+          <div class="upload-preview upload-preview--video" data-video-preview>
             <div class="media-preview media-preview--empty">No image</div>
             <dl class="preview-meta">
               <div><dt>Title</dt><dd>Untitled</dd></div>
               <div><dt>Card</dt><dd>Standard</dd></div>
             </dl>
           </div>
+
+          <section class="tape-picker" data-tape-picker hidden aria-label="Tape Texture Picker">
+            <div class="tape-picker__header">
+              <div>
+                <p class="tape-picker__kicker">Cassette texture</p>
+                <h3>Tape Picker</h3>
+              </div>
+              <span class="tape-picker__mode" data-tape-picker-mode>VHS-01</span>
+            </div>
+
+            <label class="field tape-picker__title-field">
+              <span>Tape title</span>
+              <input type="text" name="tape_title" form="video-upload-form" data-tape-title-input placeholder="Cassette label">
+            </label>
+
+            <div class="tape-preview tape-picker__preview" data-video-tape-preview aria-label="Tape preview"></div>
+
+            <div class="tape-textures" data-tape-texture-options>
+              <button class="tape-textures__item is-active" type="button" data-tape-texture-option="vhs-01" aria-pressed="true">
+                <img src="../assets/img/vhs-01.png" alt="VHS 01">
+                <span>01</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-02" aria-pressed="false">
+                <img src="../assets/img/vhs-02.png" alt="VHS 02">
+                <span>02</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-03" aria-pressed="false">
+                <img src="../assets/img/vhs-03.png" alt="VHS 03">
+                <span>03</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-04" aria-pressed="false">
+                <img src="../assets/img/vhs-04.png" alt="VHS 04">
+                <span>04</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-05" aria-pressed="false">
+                <img src="../assets/img/vhs-05.png" alt="VHS 05">
+                <span>05</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-06" aria-pressed="false">
+                <img src="../assets/img/vhs-06.png" alt="VHS 06">
+                <span>06</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-07" aria-pressed="false">
+                <img src="../assets/img/vhs-07.png" alt="VHS 07">
+                <span>07</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-08" aria-pressed="false">
+                <img src="../assets/img/vhs-08.png" alt="VHS 08">
+                <span>08</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-09" aria-pressed="false">
+                <img src="../assets/img/vhs-09.png" alt="VHS 09">
+                <span>09</span>
+              </button>
+              <button class="tape-textures__item" type="button" data-tape-texture-option="vhs-10" aria-pressed="false">
+                <img src="../assets/img/vhs-10.png" alt="VHS 10">
+                <span>10</span>
+              </button>
+            </div>
+          </section>
 
           <section class="poster-picker" data-poster-picker hidden aria-label="Poster Picker">
             <div class="poster-picker__header">
@@ -281,6 +377,7 @@
   </div>
 
   <div class="toast" data-toast role="status" aria-live="polite"></div>
+  <div class="link-preview-popover" data-link-preview hidden aria-hidden="true"></div>
 
   <div class="modal" data-delete-modal hidden>
     <div class="modal__backdrop" data-delete-cancel></div>
@@ -318,6 +415,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/admin-config.js"></script>
   <script src="https://player.vimeo.com/api/player.js" defer></script>
-  <script src="js/admin.js?v=admin-poster-picker-20260608" defer></script>
+  <script src="js/admin.js?v=admin-video-order-20260611" defer></script>
 </body>
 </html>
