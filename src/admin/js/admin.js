@@ -44,6 +44,9 @@ const state = {
     seekToken: 0,
     urlTimer: null
   },
+  videoPreview: {
+    urls: []
+  },
   linkPreview: {
     enabled: getInitialLinkPreviewEnabled(),
     activeAnchor: null,
@@ -85,6 +88,17 @@ const dom = {
   galleryList: document.querySelector("[data-gallery-list]"),
   videoForm: document.querySelector("[data-video-form]"),
   videoPreview: document.querySelector("[data-video-preview]"),
+  tapeOrderList: document.querySelector("[data-tape-order-list]"),
+  tapeOrderCount: document.querySelector("[data-tape-order-count]"),
+  tapeOrderStatus: document.querySelector("[data-tape-order-status]"),
+  videoTapePanel: document.querySelector("[data-video-tape-panel]"),
+  videoTapePreview: document.querySelector("[data-video-tape-preview]"),
+  tapePicker: document.querySelector("[data-tape-picker]"),
+  tapePickerMode: document.querySelector("[data-tape-picker-mode]"),
+  tapeTextureSummary: document.querySelector("[data-tape-texture-summary]"),
+  tapeTextureOptions: document.querySelector("[data-tape-texture-options]"),
+  tapeTitleInput: document.querySelector("[data-tape-title-input]"),
+  tapePickerOpen: document.querySelector("[data-open-tape-picker]"),
   posterPicker: document.querySelector("[data-poster-picker]"),
   posterPlayer: document.querySelector("[data-poster-player]"),
   posterControls: document.querySelector("[data-poster-controls]"),
@@ -291,9 +305,7 @@ const normalizeReferenceLinks = (value) => {
   return links;
 };
 
-const renderReferenceLinks = (message) => {
-  const links = normalizeReferenceLinks(message.reference_links ?? message.references ?? message.referenceLinks);
-
+const renderReferenceLinks = (links) => {
   if (!links.length) return "";
 
   return `
@@ -313,6 +325,10 @@ const renderReferenceLinks = (message) => {
     </div>
   `;
 };
+
+const getMessageReferenceLinks = (message) => (
+  normalizeReferenceLinks(message.reference_links ?? message.references ?? message.referenceLinks)
+);
 
 const getLinkPreviewHost = (value) => {
   try {
@@ -1275,6 +1291,20 @@ const service = {
     }
   },
 
+  async updateTapeOrder(orderedIds) {
+    const table = config.supabase.tables.videos;
+    const client = getSupabaseClient();
+    const results = await Promise.all(orderedIds.map((id, index) => client
+      .from(table)
+      .update({ tape_sort_order: index + 1 })
+      .eq("id", id)));
+    const errorResult = results.find((result) => result.error);
+
+    if (errorResult?.error) {
+      throw errorResult.error;
+    }
+  },
+
   async deleteVideoItem(id) {
     const item = state.videos.find((videoItem) => videoItem.id === id);
 
@@ -1557,6 +1587,18 @@ const getFilteredMessages = () => state.messages.filter((message) => {
   return !isArchived;
 });
 
+const messageCollapseCharLimit = 420;
+const messageCollapseLineLimit = 7;
+
+const shouldCollapseMessage = (messageText = "", referenceCount = 0) => {
+  const text = String(messageText ?? "");
+  const lineCount = text.split(/\r?\n/).length;
+
+  return text.length > messageCollapseCharLimit
+    || lineCount > messageCollapseLineLimit
+    || (referenceCount > 0 && text.length > 240);
+};
+
 const isBlank = (value) => !String(value ?? "").trim();
 
 const getWatcherIssues = () => {
@@ -1750,6 +1792,9 @@ const renderMessages = () => {
   dom.messageList.innerHTML = messages.map((message) => {
     const readLabel = message.is_read ? "Mark as unread" : "Mark as read";
     const readIcon = message.is_read ? "icon-eye-off" : "icon-eye";
+    const referenceLinks = getMessageReferenceLinks(message);
+    const referenceCount = referenceLinks.length;
+    const isCollapsible = shouldCollapseMessage(message.message, referenceCount);
     const restoreButton = message.archived_at
       ? `
           <button class="icon-button" type="button" data-restore-message="${escapeHtml(message.id)}" title="Restore from archive" aria-label="Restore from archive">
@@ -1766,15 +1811,23 @@ const renderMessages = () => {
         `;
 
     return `
-      <article class="message-card ${message.is_read ? "is-read" : ""} ${message.archived_at ? "is-archived" : ""}">
+      <article class="message-card ${message.is_read ? "is-read" : ""} ${message.archived_at ? "is-archived" : ""} ${isCollapsible ? "is-collapsible" : ""}" data-message-card>
         <div class="message-meta">
           <h3>${escapeHtml(message.name)}</h3>
           <a href="${escapeHtml(getContactHref(message.contact))}">${escapeHtml(message.contact)}</a>
           <span class="message-date">${escapeHtml(formatDate(message.created_at))}</span>
         </div>
         <div class="message-body">
-          <p class="message-text">${renderMessageText(message.message)}</p>
-          ${renderReferenceLinks(message)}
+          ${referenceCount ? `<span class="message-reference-indicator">${referenceCount} reference${referenceCount === 1 ? "" : "s"}</span>` : ""}
+          <div class="message-collapsible">
+            <p class="message-text">${renderMessageText(message.message)}</p>
+            ${renderReferenceLinks(referenceLinks)}
+          </div>
+          ${isCollapsible ? `
+            <button class="message-expand" type="button" data-message-expand aria-expanded="false">
+              <span>Expand</span>
+            </button>
+          ` : ""}
         </div>
         <div class="message-actions">
           <button class="icon-button" type="button" data-toggle-read="${escapeHtml(message.id)}" title="${readLabel}" aria-label="${readLabel}">
@@ -1982,6 +2035,10 @@ const renderVideos = () => {
     const posterMode = getVideoPosterMode(video);
     const posterModeLabel = getPosterModeLabel(posterMode, video.poster_time);
     const manualPosterLabel = posterMode === "manual" ? getVideoManualPosterLabel(video) : "";
+    const isTape = isVideoTapeEnabled(video);
+    const tapeTexture = normalizeTapeTextureKey(video.tape_texture);
+    const tapeTitle = getVideoTapeTitle(video);
+    const tapeOrder = getVideoTapeSortOrder(video);
 
     return `
       <article class="media-card" data-video-card data-video-id="${escapeHtml(video.id)}">
@@ -1994,6 +2051,9 @@ const renderVideos = () => {
             <div class="media-card__meta">
               <span class="pill">Order ${index + 1}</span>
               ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
+              ${isTape ? `<span class="pill pill--tape">Tape${tapeOrder ? ` ${escapeHtml(tapeOrder)}` : ""}</span>` : ""}
+              ${isTape ? `<span class="pill">Tape texture: ${escapeHtml(tapeTexture.toUpperCase())}</span>` : ""}
+              ${isTape ? `<span class="pill">Tape title: ${escapeHtml(tapeTitle)}</span>` : ""}
               ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
               ${posterMode ? `<span class="pill">Poster mode: ${escapeHtml(posterModeLabel)}</span>` : `<span class="pill">Poster mode: None</span>`}
               ${manualPosterLabel ? `<span class="pill">Poster: ${escapeHtml(manualPosterLabel)}</span>` : ""}
@@ -2003,6 +2063,28 @@ const renderVideos = () => {
               <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
             </button>
           </div>
+          <form class="media-card__tape-form${isTape ? " is-tape-enabled" : ""}" data-video-tape-form data-video-id="${escapeHtml(video.id)}">
+            <label class="switch media-card__tape-switch">
+              <input type="checkbox" name="tape_enabled"${isTape ? " checked" : ""}>
+              <span>TAPE</span>
+            </label>
+            <label class="watcher-field">
+              <span>Tape title</span>
+              <input type="text" name="tape_title" value="${escapeHtml(tapeTitle)}" placeholder="${escapeHtml(video.title || "Cassette label")}">
+            </label>
+            <label class="watcher-field">
+              <span>Texture</span>
+              <select name="tape_texture">
+                ${getTapeTextureOptionsMarkup(tapeTexture)}
+              </select>
+            </label>
+            <div class="tape-preview tape-preview--compact" data-card-tape-preview>
+              ${getTapePreviewMarkup({ enabled: isTape, title: tapeTitle, texture: tapeTexture })}
+            </div>
+            <button class="secondary-button media-card__tape-save" type="submit">
+              <span>Save tape</span>
+            </button>
+          </form>
         </div>
       </article>
     `;
@@ -2012,6 +2094,7 @@ const renderVideos = () => {
 const renderAll = () => {
   renderMessages();
   renderGallery();
+  renderTapeOrderBox();
   renderVideos();
   renderPortfolioIndicators();
 };
@@ -2201,6 +2284,10 @@ const normalizePosterMode = (value) => {
   return mode === "manual" || mode === "vimeo_time" ? mode : "";
 };
 
+const isVideoFormPosterPickerEnabled = (form = dom.videoForm) => (
+  Boolean(form?.elements.poster_picker_enabled?.checked)
+);
+
 const getPosterModeLabel = (mode, time = null) => {
   const posterMode = normalizePosterMode(mode);
 
@@ -2223,14 +2310,333 @@ const getVideoManualPosterLabel = (video) => (
   video?.poster_file_name || video?.poster_storage_path || video?.poster_url || ""
 );
 
+const tapeTextureKeys = [
+  "vhs-01",
+  "vhs-02",
+  "vhs-03",
+  "vhs-04",
+  "vhs-05",
+  "vhs-06",
+  "vhs-07",
+  "vhs-08",
+  "vhs-09",
+  "vhs-10"
+];
+const defaultTapeTextureKey = "vhs-01";
+
+const normalizeTapeTextureKey = (value) => {
+  const cleanKey = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^.*\//, "")
+    .replace(/\.(?:png|jpe?g|webp)$/i, "");
+
+  return tapeTextureKeys.includes(cleanKey) ? cleanKey : defaultTapeTextureKey;
+};
+
+const getTapeTextureUrl = (textureKey) => `../assets/img/${normalizeTapeTextureKey(textureKey)}.png`;
+
+const splitTapeLabel = (value, maxLineLength = 20) => {
+  const cleanLabel = String(value || "Untitled tape")
+    .replace(/\s+/g, " ")
+    .trim() || "Untitled tape";
+
+  if (cleanLabel.length <= maxLineLength) {
+    return {
+      isSplit: false,
+      isLong: false,
+      lines: [cleanLabel]
+    };
+  }
+
+  const targetIndex = Math.ceil(cleanLabel.length / 2);
+  const minSplitIndex = Math.max(7, Math.floor(maxLineLength * 0.35));
+  const spaceIndexes = Array.from(cleanLabel.matchAll(/\s/g))
+    .map((match) => match.index)
+    .filter((index) => index >= minSplitIndex && index <= cleanLabel.length - minSplitIndex);
+  const spaceSplitIndex = spaceIndexes.reduce((bestIndex, index) => {
+    if (bestIndex === null) return index;
+
+    const distance = Math.abs(index - targetIndex);
+    const bestDistance = Math.abs(bestIndex - targetIndex);
+
+    return distance < bestDistance ? index : bestIndex;
+  }, null);
+  const breaksInsideWord = spaceSplitIndex === null;
+  const splitIndex = breaksInsideWord ? Math.max(minSplitIndex, targetIndex) : spaceSplitIndex;
+  const firstLine = cleanLabel.slice(0, splitIndex).trim();
+  const secondLineStart = breaksInsideWord ? splitIndex : splitIndex + 1;
+  const secondLine = cleanLabel.slice(secondLineStart).trim();
+  const lines = [
+    `${firstLine}${breaksInsideWord ? "-" : ""}`,
+    secondLine
+  ].filter(Boolean);
+  const longestLineLength = Math.max(...lines.map((line) => line.length), 0);
+
+  return {
+    isSplit: true,
+    isLong: cleanLabel.length > maxLineLength * 1.55 || longestLineLength > maxLineLength,
+    isExtraLong: cleanLabel.length > maxLineLength * 2.25 || longestLineLength > maxLineLength * 1.45,
+    lines
+  };
+};
+
+const getTapeLabelMarkup = (label) => {
+  const splitLabel = splitTapeLabel(label);
+  const className = [
+    "tape-label",
+    splitLabel.isSplit ? "is-split" : "",
+    splitLabel.isLong ? "is-long" : "",
+    splitLabel.isExtraLong ? "is-extra-long" : ""
+  ].filter(Boolean).join(" ");
+
+  return `
+    <span class="${className}">
+      ${splitLabel.lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("")}
+    </span>
+  `;
+};
+
+const isVideoTapeEnabled = (video = {}) => (
+  video.tape_enabled === true
+  || String(video.tape_enabled || "").toLowerCase() === "true"
+);
+
+const getVideoTapeSortOrder = (video = {}) => {
+  const order = Number.parseInt(video.tape_sort_order, 10);
+
+  return Number.isFinite(order) ? order : null;
+};
+
+const getNextTapeSortOrder = (excludeId = "") => {
+  const maxOrder = state.videos.reduce((max, video) => {
+    if (String(video.id || "") === String(excludeId || "")) return max;
+    if (!isVideoTapeEnabled(video)) return max;
+
+    return Math.max(max, getVideoTapeSortOrder(video) || 0);
+  }, 0);
+
+  return maxOrder + 1;
+};
+
+const getVideoTapeTitle = (video = {}) => (
+  String(video.tape_title || video.title || "Untitled tape").trim() || "Untitled tape"
+);
+
+const getTapeTextureOptionsMarkup = (selectedTexture = defaultTapeTextureKey) => tapeTextureKeys
+  .map((textureKey) => `
+    <option value="${escapeHtml(textureKey)}"${textureKey === selectedTexture ? " selected" : ""}>
+      ${escapeHtml(textureKey.toUpperCase())}
+    </option>
+  `)
+  .join("");
+
+const getTapePreviewMarkup = ({ enabled = true, title = "Untitled tape", texture = defaultTapeTextureKey } = {}) => {
+  const textureKey = normalizeTapeTextureKey(texture);
+  const label = String(title || "Untitled tape").trim() || "Untitled tape";
+
+  return `
+    <div class="tape-preview__cassette${enabled ? "" : " is-disabled"}">
+      <img src="${escapeHtml(getTapeTextureUrl(textureKey))}" alt="" aria-hidden="true">
+      ${getTapeLabelMarkup(label)}
+    </div>
+  `;
+};
+
+const compareTapeOrderItems = (a, b) => {
+  const orderA = getVideoTapeSortOrder(a) || Number.MAX_SAFE_INTEGER;
+  const orderB = getVideoTapeSortOrder(b) || Number.MAX_SAFE_INTEGER;
+  const orderDifference = orderA - orderB;
+
+  if (orderDifference) return orderDifference;
+
+  return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+};
+
+const getOrderedTapeItems = () => state.videos
+  .filter(isVideoTapeEnabled)
+  .slice()
+  .sort(compareTapeOrderItems);
+
+const setTapeOrderStatus = (message = "", tone = "") => {
+  if (!dom.tapeOrderStatus) return;
+
+  dom.tapeOrderStatus.textContent = message || "Drag tapes to change menu order.";
+  dom.tapeOrderStatus.classList.toggle("is-saving", tone === "saving");
+  dom.tapeOrderStatus.classList.toggle("is-error", tone === "error");
+};
+
+const getTapeOrderIdsFromList = (list) => Array.from(list?.querySelectorAll("[data-tape-order-item]") || [])
+  .map((item) => item.dataset.videoId)
+  .filter(Boolean);
+
+const applyTapeOrder = (orderedIds) => {
+  const orderById = new Map(orderedIds.map((id, index) => [String(id), index + 1]));
+
+  state.videos.forEach((item) => {
+    const nextOrder = orderById.get(String(item.id));
+
+    if (nextOrder) {
+      item.tape_sort_order = nextOrder;
+    }
+  });
+};
+
+const renderTapeOrderBox = () => {
+  if (!dom.tapeOrderList) return;
+
+  const tapes = getOrderedTapeItems();
+
+  if (dom.tapeOrderCount) {
+    dom.tapeOrderCount.textContent = `${tapes.length} tape${tapes.length === 1 ? "" : "s"}`;
+  }
+
+  if (!tapes.length) {
+    dom.tapeOrderList.innerHTML = `<div class="tape-order-box__empty">No tapes yet</div>`;
+    setTapeOrderStatus("Mark videos as TAPE to build the box.");
+    return;
+  }
+
+  dom.tapeOrderList.innerHTML = tapes.map((video, index) => {
+    const texture = normalizeTapeTextureKey(video.tape_texture);
+    const title = getVideoTapeTitle(video);
+
+    return `
+      <button
+        class="tape-order-box__cassette"
+        type="button"
+        data-tape-order-item
+        data-video-id="${escapeHtml(video.id)}"
+        aria-label="Tape ${index + 1}: ${escapeHtml(title)}"
+      >
+        <img src="${escapeHtml(getTapeTextureUrl(texture))}" alt="" aria-hidden="true">
+        ${getTapeLabelMarkup(title)}
+      </button>
+    `;
+  }).join("");
+
+  setTapeOrderStatus();
+};
+
+const saveTapeOrder = async (orderedIds, successMessage = "") => {
+  const previousVideos = state.videos.map((item) => ({ ...item }));
+
+  applyTapeOrder(orderedIds);
+  renderTapeOrderBox();
+  renderVideos();
+  setTapeOrderStatus("Saving tape order...", "saving");
+
+  try {
+    await service.updateTapeOrder(orderedIds);
+
+    setTapeOrderStatus(successMessage || "Tape order saved.");
+    if (successMessage) {
+      showToast(successMessage);
+    }
+  } catch (error) {
+    state.videos = previousVideos;
+    renderTapeOrderBox();
+    renderVideos();
+    setTapeOrderStatus(error.message || "Could not save tape order.", "error");
+    showToast(error.message || "Could not save tape order");
+    throw error;
+  }
+};
+
+const getVideoFormTapeState = (form, sourceVideo = {}) => {
+  const enabled = Boolean(form.elements.tape_enabled?.checked);
+  const fallbackTitle = String(form.elements.title?.value || sourceVideo.title || "").trim();
+  const title = String(form.elements.tape_title?.value || sourceVideo.tape_title || fallbackTitle || "Untitled tape").trim();
+  const texture = normalizeTapeTextureKey(form.elements.tape_texture?.value || sourceVideo.tape_texture);
+
+  return {
+    enabled,
+    title: title || "Untitled tape",
+    texture
+  };
+};
+
+const getVideoTapePayload = (tapeState, sourceVideo = {}) => {
+  if (!tapeState.enabled) {
+    return {
+      tape_enabled: false,
+      tape_title: null,
+      tape_texture: null,
+      tape_sort_order: null
+    };
+  }
+
+  return {
+    tape_enabled: true,
+    tape_title: tapeState.title,
+    tape_texture: tapeState.texture,
+    tape_sort_order: getVideoTapeSortOrder(sourceVideo) || getNextTapeSortOrder(sourceVideo.id)
+  };
+};
+
+const syncTapePickerUi = (tapeState) => {
+  const texture = normalizeTapeTextureKey(tapeState.texture);
+
+  if (dom.tapeTextureSummary) {
+    dom.tapeTextureSummary.textContent = `Texture: ${texture.toUpperCase()}`;
+  }
+
+  if (dom.tapePickerMode) {
+    dom.tapePickerMode.textContent = texture.toUpperCase();
+  }
+
+  dom.tapeTextureOptions?.querySelectorAll("[data-tape-texture-option]").forEach((button) => {
+    const isActive = button.dataset.tapeTextureOption === texture;
+
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  if (dom.videoTapePreview) {
+    dom.videoTapePreview.innerHTML = getTapePreviewMarkup(tapeState);
+  }
+};
+
+const syncVideoTapePanel = () => {
+  if (!dom.videoForm || !dom.videoTapePanel) return;
+
+  const tapeState = getVideoFormTapeState(dom.videoForm);
+  const tapeTextureInput = dom.videoForm.elements.tape_texture;
+
+  if (tapeTextureInput) {
+    tapeTextureInput.value = tapeState.texture;
+  }
+
+  dom.videoTapePanel.hidden = !tapeState.enabled;
+  if (dom.tapePicker) {
+    dom.tapePicker.hidden = !tapeState.enabled;
+  }
+
+  syncTapePickerUi(tapeState);
+};
+
+const setVideoFormTapeTexture = (textureKey) => {
+  if (!dom.videoForm) return;
+
+  const tapeTextureInput = dom.videoForm.elements.tape_texture;
+
+  if (tapeTextureInput) {
+    tapeTextureInput.value = normalizeTapeTextureKey(textureKey);
+  }
+
+  syncVideoTapePanel();
+  updateVideoPreview();
+};
+
 const getVideoFormPosterState = (form) => {
   const manualPosterFile = form.elements.poster?.files[0] || null;
   const posterMode = normalizePosterMode(form.elements.poster_mode?.value);
   const rawPosterTime = String(form.elements.poster_time?.value || "").trim();
   const posterTime = Number(rawPosterTime);
   const hasPosterTime = rawPosterTime !== "" && Number.isFinite(posterTime) && posterTime >= 0;
+  const isPosterPickerEnabled = isVideoFormPosterPickerEnabled(form);
 
-  if (manualPosterFile) {
+  if (!isPosterPickerEnabled && manualPosterFile) {
     return {
       mode: "manual",
       time: null,
@@ -2238,7 +2644,7 @@ const getVideoFormPosterState = (form) => {
     };
   }
 
-  if (posterMode === "vimeo_time" && hasPosterTime) {
+  if (isPosterPickerEnabled && posterMode === "vimeo_time" && hasPosterTime) {
     return {
       mode: "vimeo_time",
       time: posterTime,
@@ -2384,6 +2790,10 @@ const resetPosterPicker = (options = {}) => {
 
 const initPosterPicker = async () => {
   if (!dom.videoForm || !dom.posterPicker || !dom.posterPlayer) return;
+  if (!isVideoFormPosterPickerEnabled(dom.videoForm)) {
+    resetPosterPicker();
+    return;
+  }
 
   const rawUrl = dom.videoForm.elements.vimeo_url?.value.trim() || "";
 
@@ -2393,7 +2803,7 @@ const initPosterPicker = async () => {
   }
 
   if (!rawUrl) {
-    resetPosterPicker();
+    resetPosterPicker({ keepVisible: true });
     return;
   }
 
@@ -2492,6 +2902,10 @@ const initPosterPicker = async () => {
 
 const queuePosterPickerInit = () => {
   if (!dom.videoForm) return;
+  if (!isVideoFormPosterPickerEnabled(dom.videoForm)) {
+    resetPosterPicker();
+    return;
+  }
 
   const rawUrl = dom.videoForm.elements.vimeo_url?.value.trim() || "";
 
@@ -2500,7 +2914,7 @@ const queuePosterPickerInit = () => {
   }
 
   if (!rawUrl) {
-    resetPosterPicker();
+    resetPosterPicker({ keepVisible: true });
     return;
   }
 
@@ -2544,24 +2958,83 @@ const handleUseCurrentFrame = async () => {
   }
 };
 
+const handlePosterPickerToggle = () => {
+  if (!dom.videoForm) return;
+
+  const isEnabled = syncPosterPickerToggle();
+  const posterInput = dom.videoForm.elements.poster;
+
+  if (isEnabled) {
+    if (posterInput) {
+      posterInput.value = "";
+    }
+
+    setPosterMode("");
+    initPosterPicker();
+  } else {
+    resetPosterPicker();
+    setPosterMode("");
+  }
+
+  updateVideoPreview();
+};
+
+const revokeVideoPreviewUrls = () => {
+  state.videoPreview.urls.forEach((url) => URL.revokeObjectURL(url));
+  state.videoPreview.urls = [];
+};
+
+const createVideoPreviewUrl = (file) => {
+  if (!file) return "";
+
+  const url = URL.createObjectURL(file);
+
+  state.videoPreview.urls.push(url);
+  return url;
+};
+
 const updateVideoPreview = () => {
   if (!dom.videoPreview || !dom.videoForm) return;
 
   const title = dom.videoForm.elements.title.value.trim() || "Untitled";
   const isFeatured = dom.videoForm.elements.featured.checked;
+  const isPosterPickerEnabled = syncPosterPickerToggle();
   const gifFile = dom.videoForm.elements.thumbnail_gif.files[0];
-  const posterFile = dom.videoForm.elements.poster.files[0];
+  const posterFile = isPosterPickerEnabled ? null : dom.videoForm.elements.poster.files[0];
   const posterState = getVideoFormPosterState(dom.videoForm);
-  const mediaFile = gifFile || (posterState.mode === "vimeo_time" ? null : posterFile);
+  const tapeState = getVideoFormTapeState(dom.videoForm);
   const posterModeLabel = getPosterModeLabel(posterState.mode, posterState.time);
+  const posterMetaLabel = posterFile?.name
+    || (posterState.mode === "vimeo_time" ? `Vimeo ${formatTimestamp(posterState.time)}` : "None");
+
+  syncVideoTapePanel();
+  revokeVideoPreviewUrls();
+
+  const posterUrl = createVideoPreviewUrl(posterFile);
+  const gifUrl = createVideoPreviewUrl(gifFile);
+  const hasPosterTime = posterState.mode === "vimeo_time";
+  const hasHoverGif = Boolean(gifUrl && (posterUrl || hasPosterTime));
+  const primaryPreviewUrl = posterUrl || (!hasPosterTime ? gifUrl : "");
   let previewContent = `<div class="media-preview media-preview--empty media-preview--landscape">No image</div>`;
 
-  if (mediaFile) {
-    const url = URL.createObjectURL(mediaFile);
-
+  if (primaryPreviewUrl || hasPosterTime || gifUrl) {
     previewContent = `
-      <div class="media-preview media-preview--landscape">
-        <img src="${url}" alt="">
+      <div
+        class="media-preview media-preview--landscape video-upload-preview${hasHoverGif ? " has-hover-gif" : ""}${hasPosterTime && !posterUrl ? " has-vimeo-poster" : ""}"
+        ${hasHoverGif ? "tabindex=\"0\"" : ""}
+        aria-label="${escapeHtml(hasHoverGif ? "Video upload preview, hover to show GIF" : "Video upload preview")}"
+      >
+        ${primaryPreviewUrl ? `<img class="video-upload-preview__poster" src="${escapeHtml(primaryPreviewUrl)}" alt="">` : `
+          <div class="video-upload-preview__placeholder">
+            <span>Vimeo poster</span>
+            <strong>${escapeHtml(formatTimestamp(posterState.time))}</strong>
+          </div>
+        `}
+        ${hasHoverGif ? `<img class="video-upload-preview__gif" src="${escapeHtml(gifUrl)}" alt="" aria-hidden="true">` : ""}
+        <div class="video-upload-preview__badges" aria-hidden="true">
+          <span>${posterUrl ? "Poster" : hasPosterTime ? "Vimeo frame" : "GIF only"}</span>
+          ${gifUrl ? `<span>${hasHoverGif ? "Hover GIF" : "GIF"}</span>` : ""}
+        </div>
       </div>
     `;
   }
@@ -2572,11 +3045,29 @@ const updateVideoPreview = () => {
       <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
       <div><dt>Card</dt><dd>${isFeatured ? "Featured" : "Standard"}</dd></div>
       <div><dt>GIF</dt><dd>${escapeHtml(gifFile?.name || "None")}</dd></div>
-      <div><dt>Poster</dt><dd>${escapeHtml(posterFile?.name || "None")}</dd></div>
+      <div><dt>Poster</dt><dd>${escapeHtml(posterMetaLabel)}</dd></div>
       <div><dt>Poster mode</dt><dd>${escapeHtml(posterModeLabel)}</dd></div>
+      <div><dt>Tape</dt><dd>${tapeState.enabled ? escapeHtml(`${tapeState.title} / ${tapeState.texture.toUpperCase()}`) : "Off"}</dd></div>
       ${posterState.mode === "vimeo_time" ? `<div><dt>Poster time</dt><dd>${formatTimestamp(posterState.time)}</dd></div>` : ""}
     </dl>
   `;
+};
+
+const syncPosterPickerToggle = () => {
+  if (!dom.videoForm) return false;
+
+  const isEnabled = isVideoFormPosterPickerEnabled(dom.videoForm);
+  const posterInput = dom.videoForm.elements.poster;
+
+  if (posterInput) {
+    posterInput.disabled = isEnabled;
+  }
+
+  if (!isEnabled && dom.posterPicker) {
+    dom.posterPicker.hidden = true;
+  }
+
+  return isEnabled;
 };
 
 const getDeleteContext = (type, id) => {
@@ -2867,10 +3358,25 @@ dom.messageFilters?.addEventListener("click", (event) => {
 });
 
 dom.messageList?.addEventListener("click", async (event) => {
+  const expandButton = event.target.closest("[data-message-expand]");
   const readButton = event.target.closest("[data-toggle-read]");
   const archiveButton = event.target.closest("[data-archive-message]");
   const restoreButton = event.target.closest("[data-restore-message]");
   const deleteButton = event.target.closest("[data-delete-message]");
+
+  if (expandButton) {
+    const card = expandButton.closest("[data-message-card]");
+    const isExpanded = !card?.classList.contains("is-expanded");
+    const label = expandButton.querySelector("span");
+
+    card?.classList.toggle("is-expanded", isExpanded);
+    expandButton.setAttribute("aria-expanded", String(isExpanded));
+    if (label) {
+      label.textContent = isExpanded ? "Collapse" : "Expand";
+    }
+
+    return;
+  }
 
   if (readButton) {
     try {
@@ -3089,6 +3595,157 @@ window.addEventListener("pointermove", handleGalleryDragMove, { passive: false }
 window.addEventListener("pointerup", finishGalleryDrag);
 window.addEventListener("pointercancel", finishGalleryDrag);
 
+let tapeOrderDragState = null;
+
+const moveTapeOrderDragGhost = (event) => {
+  if (!tapeOrderDragState?.ghost) return;
+
+  tapeOrderDragState.ghost.style.left = `${event.clientX - tapeOrderDragState.offsetX}px`;
+  tapeOrderDragState.ghost.style.top = `${event.clientY - tapeOrderDragState.offsetY}px`;
+};
+
+const createTapeOrderDragGhost = (item, event) => {
+  const rect = item.getBoundingClientRect();
+  const ghost = item.cloneNode(true);
+
+  ghost.classList.add("tape-order-drag-ghost");
+  ghost.classList.remove("is-drag-source");
+  ghost.removeAttribute("data-tape-order-item");
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.setAttribute("tabindex", "-1");
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  ghost.querySelectorAll("img").forEach((image) => {
+    image.draggable = false;
+  });
+  document.body.append(ghost);
+
+  tapeOrderDragState.ghost = ghost;
+  tapeOrderDragState.offsetX = event.clientX - rect.left;
+  tapeOrderDragState.offsetY = event.clientY - rect.top;
+  moveTapeOrderDragGhost(event);
+};
+
+const getTapeOrderDropTarget = (event) => {
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+
+  if (!(element instanceof Element)) return null;
+
+  const item = element.closest("[data-tape-order-item]");
+
+  if (item && dom.tapeOrderList?.contains(item)) {
+    return { item, list: dom.tapeOrderList };
+  }
+
+  const list = element.closest("[data-tape-order-list]");
+
+  if (list && list === dom.tapeOrderList) {
+    return { item: null, list };
+  }
+
+  return null;
+};
+
+const moveTapeOrderDragItem = (event) => {
+  if (!tapeOrderDragState?.isDragging) return;
+
+  const target = getTapeOrderDropTarget(event);
+
+  if (!target || target.list !== tapeOrderDragState.list) return;
+
+  if (!target.item) {
+    target.list.append(tapeOrderDragState.item);
+    return;
+  }
+
+  if (target.item === tapeOrderDragState.item) return;
+
+  const rect = target.item.getBoundingClientRect();
+  const insertBefore = event.clientY < rect.top + (rect.height / 2);
+
+  target.list.insertBefore(tapeOrderDragState.item, insertBefore ? target.item : target.item.nextSibling);
+};
+
+const cleanupTapeOrderDrag = () => {
+  tapeOrderDragState?.item?.classList.remove("is-drag-source");
+  tapeOrderDragState?.ghost?.remove();
+  tapeOrderDragState = null;
+};
+
+const handleTapeOrderDragMove = (event) => {
+  if (!tapeOrderDragState || tapeOrderDragState.pointerId !== event.pointerId) return;
+
+  const distance = Math.hypot(
+    event.clientX - tapeOrderDragState.startX,
+    event.clientY - tapeOrderDragState.startY
+  );
+
+  if (!tapeOrderDragState.isDragging) {
+    if (distance < 5) return;
+
+    tapeOrderDragState.isDragging = true;
+    tapeOrderDragState.item.classList.add("is-drag-source");
+    tapeOrderDragState.item.setPointerCapture?.(event.pointerId);
+    createTapeOrderDragGhost(tapeOrderDragState.item, event);
+  }
+
+  event.preventDefault();
+  moveTapeOrderDragGhost(event);
+  moveTapeOrderDragItem(event);
+};
+
+const finishTapeOrderDrag = (event) => {
+  if (!tapeOrderDragState || tapeOrderDragState.pointerId !== event.pointerId) return;
+
+  const dragState = tapeOrderDragState;
+
+  if (
+    typeof dragState.item.hasPointerCapture === "function"
+    && dragState.item.hasPointerCapture(event.pointerId)
+  ) {
+    dragState.item.releasePointerCapture(event.pointerId);
+  }
+
+  const orderedIds = dragState.isDragging ? getTapeOrderIdsFromList(dragState.list) : dragState.originalIds;
+  const isChanged = dragState.isDragging && orderedIds.join("|") !== dragState.originalIds.join("|");
+
+  if (dragState.isDragging) {
+    event.preventDefault();
+  }
+
+  cleanupTapeOrderDrag();
+
+  if (isChanged) {
+    saveTapeOrder(orderedIds, "Tape order saved")
+      .catch((error) => console.error("Tape order save error:", error));
+  }
+};
+
+dom.tapeOrderList?.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const item = target?.closest("[data-tape-order-item]");
+
+  if (!item || !dom.tapeOrderList?.contains(item)) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  tapeOrderDragState = {
+    ghost: null,
+    isDragging: false,
+    item,
+    list: dom.tapeOrderList,
+    offsetX: 0,
+    offsetY: 0,
+    originalIds: getTapeOrderIdsFromList(dom.tapeOrderList),
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY
+  };
+});
+
+window.addEventListener("pointermove", handleTapeOrderDragMove, { passive: false });
+window.addEventListener("pointerup", finishTapeOrderDrag);
+window.addEventListener("pointercancel", finishTapeOrderDrag);
+
 let videoDragState = null;
 let shouldSuppressVideoClick = false;
 
@@ -3225,7 +3882,7 @@ dom.videoList?.addEventListener("pointerdown", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   const card = target?.closest("[data-video-card]");
 
-  if (!card || target.closest("button, input, textarea, select")) return;
+  if (!card || target.closest("button, input, textarea, select, label, .media-card__tape-form")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
 
   const list = card.closest("[data-video-list]");
@@ -3249,6 +3906,71 @@ dom.videoList?.addEventListener("pointerdown", (event) => {
 window.addEventListener("pointermove", handleVideoDragMove, { passive: false });
 window.addEventListener("pointerup", finishVideoDrag);
 window.addEventListener("pointercancel", finishVideoDrag);
+
+const syncVideoCardTapeForm = (form) => {
+  const id = form?.dataset.videoId;
+  const video = state.videos.find((item) => String(item.id) === String(id));
+  const preview = form?.querySelector("[data-card-tape-preview]");
+
+  if (!form || !preview) return;
+
+  const tapeState = getVideoFormTapeState(form, video || {});
+
+  form.classList.toggle("is-tape-enabled", tapeState.enabled);
+  preview.innerHTML = getTapePreviewMarkup(tapeState);
+};
+
+dom.videoList?.addEventListener("input", (event) => {
+  const form = event.target instanceof Element ? event.target.closest("[data-video-tape-form]") : null;
+
+  if (form) {
+    syncVideoCardTapeForm(form);
+  }
+});
+
+dom.videoList?.addEventListener("change", (event) => {
+  const form = event.target instanceof Element ? event.target.closest("[data-video-tape-form]") : null;
+
+  if (form) {
+    syncVideoCardTapeForm(form);
+  }
+});
+
+dom.videoList?.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-video-tape-form]");
+
+  if (!form) return;
+
+  event.preventDefault();
+
+  const id = form.dataset.videoId;
+  const video = state.videos.find((item) => String(item.id) === String(id));
+  const submit = form.querySelector("button[type='submit']");
+
+  if (!video) {
+    showToast("Video was not found");
+    return;
+  }
+
+  const tapeState = getVideoFormTapeState(form, video);
+  const payload = getVideoTapePayload(tapeState, video);
+
+  submit?.setAttribute("disabled", "true");
+
+  try {
+    const result = await service.updateVideoItem(id, payload);
+
+    renderTapeOrderBox();
+    renderVideos();
+    renderPortfolioIndicators();
+    showCleanupAwareToast(tapeState.enabled ? "Tape settings saved" : "Tape disabled", result);
+  } catch (error) {
+    console.error("Tape settings save error:", error);
+    showToast(error.message || "Could not save tape settings");
+  } finally {
+    submit?.removeAttribute("disabled");
+  }
+});
 
 dom.videoList?.addEventListener("click", async (event) => {
   if (shouldSuppressVideoClick && event.target.closest("[data-video-card]")) {
@@ -3443,8 +4165,13 @@ dom.galleryForm?.addEventListener("change", (event) => {
 dom.galleryForm?.addEventListener("input", updateGalleryPreview);
 
 dom.videoForm?.addEventListener("change", (event) => {
+  if (event.target?.name === "poster_picker_enabled") {
+    handlePosterPickerToggle();
+    return;
+  }
+
   if (event.target?.name === "poster") {
-    if (event.target.files[0]) {
+    if (!isVideoFormPosterPickerEnabled(dom.videoForm) && event.target.files[0]) {
       setPosterMode("manual");
     } else if (state.posterPicker.mode === "manual") {
       setPosterMode("");
@@ -3452,7 +4179,9 @@ dom.videoForm?.addEventListener("change", (event) => {
   }
 
   if (event.target?.name === "vimeo_url") {
-    initPosterPicker();
+    if (isVideoFormPosterPickerEnabled(dom.videoForm)) {
+      initPosterPicker();
+    }
   }
 
   updateVideoPreview();
@@ -3460,7 +4189,9 @@ dom.videoForm?.addEventListener("change", (event) => {
 
 dom.videoForm?.addEventListener("input", (event) => {
   if (event.target?.name === "vimeo_url") {
-    queuePosterPickerInit();
+    if (isVideoFormPosterPickerEnabled(dom.videoForm)) {
+      queuePosterPickerInit();
+    }
   }
 
   updateVideoPreview();
@@ -3468,6 +4199,31 @@ dom.videoForm?.addEventListener("input", (event) => {
 
 dom.posterSlider?.addEventListener("input", handlePosterSliderInput);
 dom.posterUseFrame?.addEventListener("click", handleUseCurrentFrame);
+
+dom.tapePickerOpen?.addEventListener("click", () => {
+  if (!dom.videoForm) return;
+
+  dom.videoForm.elements.tape_enabled.checked = true;
+  syncVideoTapePanel();
+  dom.tapePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  dom.tapeTitleInput?.focus({ preventScroll: true });
+});
+
+dom.tapePicker?.addEventListener("input", (event) => {
+  if (event.target?.name === "tape_title") {
+    updateVideoPreview();
+  }
+});
+
+dom.tapeTextureOptions?.addEventListener("click", (event) => {
+  const option = event.target instanceof Element
+    ? event.target.closest("[data-tape-texture-option]")
+    : null;
+
+  if (!option) return;
+
+  setVideoFormTapeTexture(option.dataset.tapeTextureOption);
+});
 
 dom.galleryForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -3525,6 +4281,7 @@ dom.videoForm?.addEventListener("submit", async (event) => {
   const defaultSubmitLabel = submitLabel?.textContent || "Add video";
   const posterState = getVideoFormPosterState(form);
   const posterMode = posterState.mode;
+  const tapeState = getVideoFormTapeState(form);
 
   if (posterMode === "manual" && form.elements.poster_mode.value !== "manual") {
     setPosterMode("manual");
@@ -3536,7 +4293,8 @@ dom.videoForm?.addEventListener("submit", async (event) => {
     featured: form.elements.featured.checked,
     sort_order: state.videos.length + 1,
     poster_time: posterMode === "vimeo_time" ? posterState.time : null,
-    poster_mode: posterMode || null
+    poster_mode: posterMode || null,
+    ...getVideoTapePayload(tapeState)
   };
   const files = {
     thumbnailGif: form.elements.thumbnail_gif.files[0] || null,
@@ -3570,11 +4328,13 @@ dom.videoForm?.addEventListener("submit", async (event) => {
         showToast("Video added, poster generated");
       } catch (posterError) {
         console.error("Vimeo poster generation error:", posterError);
+        renderTapeOrderBox();
         renderVideos();
         renderPortfolioIndicators();
         showToast(`Video added, poster generation failed: ${posterError.message || "Unknown error"}`);
       }
     } else {
+      renderTapeOrderBox();
       renderVideos();
       renderPortfolioIndicators();
       showToast("Video added");
