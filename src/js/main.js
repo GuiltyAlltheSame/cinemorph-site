@@ -57,6 +57,7 @@ let shouldResumeTapeAfterModalClose = false;
 let resumeTapeInlinePlayer = () => {};
 let videoModalRestoreFocus = null;
 let turnstileToken = "";
+let isContactSubmitting = false;
 const referenceLinks = [];
 const contactMessagePlaceholders = [
   "Hi, we're opening a coffee shop and need a cinematic promo video...",
@@ -183,6 +184,12 @@ window.onTurnstileExpired = () => {
 window.onTurnstileError = () => {
   turnstileToken = "";
   setContactStatus("Verification could not be completed. Please try again.", "error");
+};
+
+const getCurrentTurnstileToken = (formData) => {
+  const formToken = String(formData.get("cf-turnstile-response") || "").trim();
+
+  return formToken || turnstileToken;
 };
 
 const splitTrailingUrlPunctuation = (value) => {
@@ -447,6 +454,11 @@ referenceInput?.addEventListener("blur", () => {
 if (contactForm) {
   contactForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (isContactSubmitting) {
+      return;
+    }
+
     const hasReferences = Boolean(referenceToggle?.checked);
 
     if (hasReferences) {
@@ -460,12 +472,13 @@ if (contactForm) {
     }
 
     const formData = new FormData(contactForm);
+    const currentTurnstileToken = getCurrentTurnstileToken(formData);
     const payload = {
       name: String(formData.get("name") || "").trim(),
       contact: String(formData.get("contact") || "").trim(),
       message: String(formData.get("message") || "").trim(),
       company: String(formData.get("company") || ""),
-      turnstileToken
+      turnstileToken: currentTurnstileToken
     };
 
     if (!payload.name || !payload.contact || !payload.message) {
@@ -479,15 +492,18 @@ if (contactForm) {
       return;
     }
 
-    if (!turnstileToken) {
+    if (!currentTurnstileToken) {
       setContactStatus("Please complete the verification before sending.", "error");
       return;
     }
+
+    turnstileToken = currentTurnstileToken;
 
     if (hasReferences) {
       payload.reference_links = getReferencePayload();
     }
 
+    isContactSubmitting = true;
     contactSubmit?.setAttribute("disabled", "true");
     setContactStatus("Sending...");
 
@@ -501,11 +517,15 @@ if (contactForm) {
       setContactStatus("Message sent. We will get back to you soon.", "success");
     } catch (error) {
       console.error("Contact form submit error:", error);
-      if (error.status === 403) {
-        resetTurnstile();
-      }
-      setContactStatus(error.message || "Message could not be sent. Please try again later.", "error");
+      resetTurnstile();
+      setContactStatus(
+        error.status === 403
+          ? "Verification expired or was already used. Please complete the check again."
+          : error.message || "Message could not be sent. Please try again later.",
+        "error"
+      );
     } finally {
+      isContactSubmitting = false;
       contactSubmit?.removeAttribute("disabled");
     }
   });
