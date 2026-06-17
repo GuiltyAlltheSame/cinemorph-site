@@ -13,7 +13,8 @@ const menuLinks = document.querySelectorAll("[data-section-link]");
 const tvContent = document.querySelector(".tv-content");
 const tvNoise = document.querySelector("#tvNoise");
 const tvPowerClick = document.querySelector("#tvPowerClick");
-const vcrTapeInsertSound = new Audio("assets/sounds/edr-vcr-tape-eject.mp3");
+const vcrTapeInsertSoundSrc = "assets/sounds/edr-vcr-tape-eject.mp3?v=20260616";
+const vcrTapeInsertSound = document.querySelector("#vcrTapeInsertSound") || new Audio(vcrTapeInsertSoundSrc);
 const tvPowerButton = document.querySelector(".hotspot-tv-power");
 const tvBloom = document.querySelector(".tv-bloom");
 const tapePlayer = document.querySelector("[data-vhs-player]");
@@ -77,14 +78,22 @@ const contactMessagePlaceholders = [
 const isMobileScene = () => mobileSceneQuery.matches;
 
 vcrTapeInsertSound.preload = "auto";
+vcrTapeInsertSound.src ||= vcrTapeInsertSoundSrc;
 vcrTapeInsertSound.volume = 0.65;
 
 const playTapeInsertSound = () => {
   if (isMobileScene()) return;
 
   vcrTapeInsertSound.pause();
-  vcrTapeInsertSound.currentTime = 0;
-  vcrTapeInsertSound.play().catch(() => {});
+  try {
+    vcrTapeInsertSound.currentTime = 0;
+  } catch {
+    vcrTapeInsertSound.load();
+  }
+
+  vcrTapeInsertSound.play().catch((error) => {
+    console.warn("Tape insert sound could not play:", error);
+  });
 };
 
 const getSupabaseConfig = () => window.CINEMORPH_SUPABASE_CONFIG || {};
