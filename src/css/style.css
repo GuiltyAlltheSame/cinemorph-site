@@ -2284,6 +2284,7 @@ body.is-gallery-progress-dragging {
     rgba(255,255,255,.02);
 }
 .portfolio-poster,
+.portfolio-preview,
 .portfolio-gif{
   position:absolute;
   inset:0;
@@ -2303,11 +2304,19 @@ body.is-gallery-progress-dragging {
 .portfolio-poster:not([src]){
   opacity:0;
 }
+.portfolio-preview,
 .portfolio-gif{
   z-index:2;
   opacity:0;
   transition:opacity .49s ease;
 }
+.portfolio-preview{
+  background:#050606;
+}
+.portfolio-preview--gif{
+  background:transparent;
+}
+.portfolio-preview.is-playing,
 .portfolio-gif.is-playing{
   opacity:1;
 }

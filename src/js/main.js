@@ -97,6 +97,10 @@ const mobileViewportEffects = new Map();
 let mobileViewportObserver = null;
 let mobileViewportRefreshFrame = null;
 
+if ("scrollRestoration" in window.history) {
+  window.history.scrollRestoration = "manual";
+}
+
 const setMobileViewportEffectActive = (element, isActive) => {
   const effect = mobileViewportEffects.get(element);
 
@@ -114,6 +118,16 @@ const setMobileViewportEffectActive = (element, isActive) => {
   } else {
     effect.onExit?.();
   }
+};
+
+const clearLocationHash = () => {
+  if (!window.location.hash) return;
+
+  window.history.replaceState(
+    null,
+    document.title,
+    `${window.location.pathname}${window.location.search}`
+  );
 };
 
 const isElementInMobileFocusBand = (element) => {
@@ -1626,22 +1640,66 @@ document.addEventListener("focusin", (event) => {
   videoModal.querySelector(".video-modal__close")?.focus({ preventScroll: true });
 });
 
-const gifFadeDuration = 490;
+const previewFadeDuration = 490;
 const stopTimers = new WeakMap();
 
-const setupPortfolioGif = (card, thumb, gifSrc) => {
-  let playGif = null;
-  let pauseGif = null;
+const getVideoPreviewMp4Url = (video = {}) => String(
+  video.preview_mp4_url
+  || video.preview_video_url
+  || video.thumbnail_mp4_url
+  || ""
+).trim();
 
-  if (gifSrc) {
+const setupPortfolioPreview = (card, thumb, { mp4Src = "", gifSrc = "" } = {}) => {
+  let playPreview = null;
+  let pausePreview = null;
+
+  if (mp4Src) {
+    const video = document.createElement("video");
+
+    video.className = "portfolio-preview";
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = "none";
+    video.setAttribute("aria-hidden", "true");
+    thumb.append(video);
+
+    playPreview = () => {
+      window.clearTimeout(stopTimers.get(video));
+
+      if (!video.getAttribute("src")) {
+        video.setAttribute("src", mp4Src);
+        video.load();
+      }
+
+      video.play().catch(() => {});
+
+      window.requestAnimationFrame(() => {
+        video.classList.add("is-playing");
+      });
+    };
+
+    pausePreview = () => {
+      video.classList.remove("is-playing");
+      video.pause();
+
+      const timer = window.setTimeout(() => {
+        video.removeAttribute("src");
+        video.load();
+      }, previewFadeDuration);
+
+      stopTimers.set(video, timer);
+    };
+  } else if (gifSrc) {
     const image = document.createElement("img");
 
-    image.className = "portfolio-gif";
+    image.className = "portfolio-preview portfolio-preview--gif";
     image.alt = "";
     image.decoding = "async";
     thumb.append(image);
 
-    playGif = () => {
+    playPreview = () => {
       window.clearTimeout(stopTimers.get(image));
 
       if (!image.getAttribute("src")) {
@@ -1653,32 +1711,34 @@ const setupPortfolioGif = (card, thumb, gifSrc) => {
       });
     };
 
-    pauseGif = () => {
+    pausePreview = () => {
       image.classList.remove("is-playing");
 
       const timer = window.setTimeout(() => {
         image.removeAttribute("src");
-      }, gifFadeDuration);
+      }, previewFadeDuration);
 
       stopTimers.set(image, timer);
     };
+  }
 
-    const playGifOnDesktop = () => {
-      if (!isMobileScene()) playGif();
+  if (playPreview && pausePreview) {
+    const playPreviewOnDesktop = () => {
+      if (!isMobileScene()) playPreview();
     };
-    const pauseGifOnDesktop = () => {
-      if (!isMobileScene()) pauseGif();
+    const pausePreviewOnDesktop = () => {
+      if (!isMobileScene()) pausePreview();
     };
 
-    card.addEventListener("pointerenter", playGifOnDesktop);
-    card.addEventListener("pointerleave", pauseGifOnDesktop);
-    card.addEventListener("focusin", playGifOnDesktop);
-    card.addEventListener("focusout", pauseGifOnDesktop);
+    card.addEventListener("pointerenter", playPreviewOnDesktop);
+    card.addEventListener("pointerleave", pausePreviewOnDesktop);
+    card.addEventListener("focusin", playPreviewOnDesktop);
+    card.addEventListener("focusout", pausePreviewOnDesktop);
   }
 
   observeMobileViewportEffect(card, {
-    onEnter: playGif,
-    onExit: pauseGif
+    onEnter: playPreview,
+    onExit: pausePreview
   });
 };
 
@@ -1878,6 +1938,7 @@ const renderPortfolio = (videos) => {
     const title = document.createElement("h3");
     const thumb = document.createElement(video.vimeo_url ? "a" : "div");
     const posterUrl = String(video.poster_url || "").trim();
+    const previewMp4Url = getVideoPreviewMp4Url(video);
     const gifUrl = String(video.thumbnail_gif_url || "").trim();
     const projectTitle = video.title || "Untitled project";
     const href = getPortfolioHref(video.vimeo_url);
@@ -1925,7 +1986,10 @@ const renderPortfolio = (videos) => {
       thumb.classList.add("ph-thumb--empty");
     }
 
-    setupPortfolioGif(card, thumb, gifUrl);
+    setupPortfolioPreview(card, thumb, {
+      mp4Src: previewMp4Url,
+      gifSrc: gifUrl
+    });
     body.append(title);
     card.append(body, thumb);
     portfolioGrid.append(card);
@@ -2183,6 +2247,16 @@ const setTapeControlsVisible = (isVisible) => {
   tapePlayerControls.hidden = !isVisible;
 };
 
+const releaseTapeControlsFocus = () => {
+  if (!tapePlayerControls) return;
+
+  const activeElement = document.activeElement;
+
+  if (activeElement instanceof HTMLElement && tapePlayerControls.contains(activeElement)) {
+    activeElement.blur();
+  }
+};
+
 const postVimeoPlayerCommand = (iframe, method, value) => {
   if (!iframe?.contentWindow) return;
 
@@ -2407,6 +2481,8 @@ tapeExpandButton?.addEventListener("click", (event) => {
   event.stopPropagation();
   openTapeFullscreen();
 });
+
+tapePlayerControls?.addEventListener("pointerleave", releaseTapeControlsFocus);
 
 if (vhsTrigger && vhsMenu) {
   const tapeInsertDuration = 620;
@@ -3357,9 +3433,14 @@ if (scene && content && sceneLoader) {
       const targetIndex = targets.findIndex((target) => target.id === sectionId);
 
       if (targetIndex === -1) return;
-      if (!shouldUseSectionScroller()) return;
 
       event.preventDefault();
+      clearLocationHash();
+      mobileMenu?.classList.remove("is-open");
+      mobileMenu?.setAttribute("aria-hidden", "true");
+      mobileMenuToggle?.setAttribute("aria-expanded", "false");
+      mobileMenuToggle?.setAttribute("aria-label", "Open menu");
+      document.body.classList.remove("menu-open");
       goToTarget(targetIndex, { showLoader: false });
     });
   });
@@ -3383,11 +3464,36 @@ if (scene && content && sceneLoader) {
     }
   };
 
+  const startAtHome = () => {
+    clearTransitionFinish();
+    window.clearTimeout(scrollLockTimer);
+    scrollLockTarget = null;
+    isTransitioning = false;
+    trailingInputUntil = 0;
+    activeTargetIndex = 0;
+    resetPull();
+    resetQueuedScroll();
+    clearLocationHash();
+    window.scrollTo({ top: targetTop(0), behavior: "auto" });
+    updateMenuState();
+    updateAudioForTarget();
+
+    if (shouldUseSectionScroller()) {
+      lockScrollAt(targetTop(0));
+    }
+  };
+
   if (typeof mobileSceneQuery.addEventListener === "function") {
     mobileSceneQuery.addEventListener("change", syncSectionScrollerMode);
   } else if (typeof mobileSceneQuery.addListener === "function") {
     mobileSceneQuery.addListener(syncSectionScrollerMode);
   }
 
-  syncSectionScrollerMode();
+  startAtHome();
+
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      startAtHome();
+    }
+  });
 }

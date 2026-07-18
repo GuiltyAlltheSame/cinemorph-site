@@ -1283,7 +1283,8 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
-.media-preview img {
+.media-preview img,
+.media-preview video {
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -1310,30 +1311,37 @@ textarea::placeholder {
 
 .video-upload-preview__poster,
 .video-upload-preview__gif,
+.video-upload-preview__motion,
 .video-upload-preview__placeholder {
   grid-area: 1 / 1;
 }
 
 .video-upload-preview__poster,
-.video-upload-preview__gif {
+.video-upload-preview__gif,
+.video-upload-preview__motion {
   transition:
     opacity .22s ease,
     transform .28s ease;
 }
 
-.video-upload-preview__gif {
+.video-upload-preview__gif,
+.video-upload-preview__motion {
   z-index: 1;
   opacity: 0;
 }
 
 .video-upload-preview.has-hover-gif:hover .video-upload-preview__gif,
-.video-upload-preview.has-hover-gif:focus-visible .video-upload-preview__gif {
+.video-upload-preview.has-hover-gif:focus-visible .video-upload-preview__gif,
+.video-upload-preview.has-hover-preview:hover .video-upload-preview__motion,
+.video-upload-preview.has-hover-preview:focus-visible .video-upload-preview__motion {
   opacity: 1;
   transform: scale(1.015);
 }
 
 .video-upload-preview.has-hover-gif:hover .video-upload-preview__poster,
-.video-upload-preview.has-hover-gif:focus-visible .video-upload-preview__poster {
+.video-upload-preview.has-hover-gif:focus-visible .video-upload-preview__poster,
+.video-upload-preview.has-hover-preview:hover .video-upload-preview__poster,
+.video-upload-preview.has-hover-preview:focus-visible .video-upload-preview__poster {
   opacity: .18;
 }
 
@@ -2265,14 +2273,16 @@ body.is-video-card-dragging .media-card[data-video-card] {
   line-height: 1;
 }
 
-.media-card__image img {
+.media-card__image img,
+.media-card__image video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
 .media-card__poster,
-.media-card__gif {
+.media-card__gif,
+.media-card__preview {
   grid-area: 1 / 1;
   transition: opacity .22s ease;
 }
@@ -2281,12 +2291,16 @@ body.is-video-card-dragging .media-card[data-video-card] {
   opacity: 1;
 }
 
-.media-card__gif {
+.media-card__gif,
+.media-card__preview {
   opacity: 0;
 }
 
 .media-card__image:hover .media-card__gif,
-.media-card__image:focus-visible .media-card__gif {
+.media-card__image:focus-visible .media-card__gif,
+.media-card__image:hover .media-card__preview,
+.media-card__image:focus-visible .media-card__preview,
+.media-card__preview.is-primary {
   opacity: 1;
 }
 
@@ -2573,38 +2587,33 @@ body.is-video-card-dragging .media-card[data-video-card] {
 
 .video-edit-form {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
   overflow: auto;
   padding-right: 2px;
 }
 
-.video-edit-form__grid,
-.video-edit-form__media,
-.video-edit-form__tape {
+.video-edit-form__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.video-edit-form__wide,
-.video-edit-form__media,
-.video-edit-form__tape,
-.video-edit-form__status,
-.video-edit-form__actions {
-  grid-column: 1 / -1;
-}
-
+.video-edit-form__details,
 .video-edit-form__media,
 .video-edit-form__tape {
+  display: grid;
+  gap: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 12px;
   background: rgba(255, 255, 255, .032);
 }
 
-.video-edit-form__media-heading,
-.video-edit-form__tape-heading {
+.video-edit-form__details {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.video-edit-form__section-heading {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -2613,8 +2622,7 @@ body.is-video-card-dragging .media-card[data-video-card] {
   min-width: 0;
 }
 
-.video-edit-form__media-heading h3,
-.video-edit-form__tape-heading h3 {
+.video-edit-form__section-heading h3 {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(28px, 3vw, 38px);
@@ -2623,14 +2631,45 @@ body.is-video-card-dragging .media-card[data-video-card] {
   text-transform: uppercase;
 }
 
-.video-edit-form__media-heading span,
-.video-edit-form__tape-heading span {
+.video-edit-form__section-heading span {
   color: var(--muted);
   font-size: var(--admin-pill-font-size);
   letter-spacing: var(--admin-font-tracking);
   line-height: 1;
   text-align: right;
   text-transform: uppercase;
+}
+
+.video-edit-form__wide,
+.video-edit-form__status,
+.video-edit-form__actions {
+  grid-column: 1 / -1;
+}
+
+.video-edit-form__featured {
+  min-height: 100%;
+}
+
+.video-edit-form__media-layout,
+.video-edit-form__tape-layout {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  min-width: 0;
+}
+
+.video-edit-form__media-layout {
+  grid-template-columns: minmax(260px, .95fr) minmax(260px, 1.05fr);
+  align-items: start;
+}
+
+.video-edit-form__media-current,
+.video-edit-form__media-files,
+.video-edit-form__tape-fields {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
 }
 
 .video-edit-preview {
@@ -2650,7 +2689,8 @@ body.is-video-card-dragging .media-card[data-video-card] {
   text-transform: uppercase;
 }
 
-.video-edit-preview img {
+.video-edit-preview img,
+.video-edit-preview video {
   grid-area: 1 / 1;
   width: 100%;
   height: 100%;
@@ -2667,11 +2707,24 @@ body.is-video-card-dragging .media-card[data-video-card] {
   margin: 0;
 }
 
+.video-edit-form__tape-layout {
+  grid-template-columns: minmax(270px, .88fr) minmax(280px, 1.12fr);
+  align-items: center;
+}
+
+.video-edit-form__tape-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .video-edit-tape-preview {
   display: grid;
-  grid-column: 1 / -1;
-  min-height: 120px;
+  min-height: 136px;
   place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(232, 238, 242, .08);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: rgba(0, 0, 0, .18);
 }
 
 .video-edit-form__status {
@@ -2859,9 +2912,10 @@ body.is-video-card-dragging .media-card[data-video-card] {
     align-items: stretch;
   }
 
-  .video-edit-form__grid,
-  .video-edit-form__media,
-  .video-edit-form__tape {
+  .video-edit-form__details,
+  .video-edit-form__media-layout,
+  .video-edit-form__tape-layout,
+  .video-edit-form__tape-fields {
     grid-template-columns: 1fr;
   }
 

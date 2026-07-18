@@ -1317,6 +1317,57 @@ const getSupabaseStoragePathFromUrl = (fileUrl, bucket) => {
   }
 };
 
+const getVideoPreviewMp4Url = (video = {}) => String(
+  video.preview_mp4_url
+  || video.preview_video_url
+  || video.thumbnail_mp4_url
+  || ""
+).trim();
+
+const getVideoPreviewMp4StoragePath = (video = {}, bucket = "") => String(
+  video.preview_mp4_storage_path
+  || video.preview_video_storage_path
+  || video.thumbnail_mp4_storage_path
+  || getSupabaseStoragePathFromUrl(getVideoPreviewMp4Url(video), bucket)
+  || ""
+).trim();
+
+const getVideoThumbnailGifUrl = (video = {}) => String(video.thumbnail_gif_url || "").trim();
+
+const getPreviewFileState = (file) => {
+  if (!file) {
+    return {
+      file: null,
+      type: ""
+    };
+  }
+
+  const mimeType = String(file.type || "").toLowerCase();
+  const fileName = String(file.name || "").toLowerCase();
+  const isMp4 = mimeType === "video/mp4" || fileName.endsWith(".mp4");
+  const isGif = mimeType === "image/gif" || fileName.endsWith(".gif");
+
+  if (isMp4) {
+    return {
+      file,
+      type: "mp4"
+    };
+  }
+
+  if (isGif) {
+    return {
+      file,
+      type: "gif"
+    };
+  }
+
+  throw new Error("Preview file must be GIF or MP4");
+};
+
+const hasVideoPreviewFile = (video = {}) => Boolean(
+  getVideoPreviewMp4Url(video) || getVideoThumbnailGifUrl(video)
+);
+
 const normalizeStoragePaths = (paths) => Array.from(new Set(
   (Array.isArray(paths) ? paths : [paths])
     .map((path) => String(path || "").trim().replace(/^\/+/, ""))
@@ -1532,6 +1583,7 @@ const service = {
     if (!item) return;
 
     const bucket = config.supabase.storage.videoBucket;
+    const previewMp4Path = getVideoPreviewMp4StoragePath(item, bucket);
     const gifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
     const posterPath = item.poster_storage_path || getSupabaseStoragePathFromUrl(item.poster_url, bucket);
     const cleanupWarnings = [];
@@ -1545,6 +1597,10 @@ const service = {
 
     state.videos = state.videos.filter((videoItem) => videoItem.id !== id);
 
+    if (getVideoPreviewMp4Url(item) && !previewMp4Path) {
+      cleanupWarnings.push(new Error("Video MP4 preview storage path is missing"));
+    }
+
     if (item.thumbnail_gif_url && !gifPath) {
       cleanupWarnings.push(new Error("Video GIF storage path is missing"));
     }
@@ -1553,7 +1609,7 @@ const service = {
       cleanupWarnings.push(new Error("Video poster storage path is missing"));
     }
 
-    const cleanup = await removeSupabaseFilesSafely(bucket, [gifPath, posterPath], "Video media");
+    const cleanup = await removeSupabaseFilesSafely(bucket, [previewMp4Path, gifPath, posterPath], "Video media");
 
     if (cleanup.error) {
       cleanupWarnings.push(cleanup.error);
@@ -1617,8 +1673,10 @@ const service = {
   },
 
   async createVideoItem(payload, files) {
+    const previewFileState = getPreviewFileState(files.previewFile || null);
     const uploadFiles = {
-      thumbnailGif: files.thumbnailGif,
+      previewFile: previewFileState.file,
+      previewType: previewFileState.type,
       poster: files.poster
         ? await optimizeImageFile(files.poster, {
             maxLongEdge: imageUploadDefaults.posterMaxLongEdge,
@@ -1628,22 +1686,35 @@ const service = {
     };
 
     const bucket = config.supabase.storage.videoBucket;
+    let previewMp4Upload = null;
     let gifUpload = null;
     let posterUpload = null;
 
     try {
-      gifUpload = uploadFiles.thumbnailGif ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif) : null;
+      previewMp4Upload = uploadFiles.previewType === "mp4"
+        ? await uploadSupabaseFile(bucket, "previews", uploadFiles.previewFile)
+        : null;
+      gifUpload = uploadFiles.previewType === "gif"
+        ? await uploadSupabaseFile(bucket, "gifs", uploadFiles.previewFile)
+        : null;
       posterUpload = uploadFiles.poster ? await uploadSupabaseFile(bucket, "posters", uploadFiles.poster) : null;
 
       const item = {
         ...payload,
         thumbnail_gif_url: gifUpload?.publicUrl || "",
         thumbnail_gif_storage_path: gifUpload?.path || "",
-        thumbnail_gif_file_name: uploadFiles.thumbnailGif?.name || "",
+        thumbnail_gif_file_name: uploadFiles.previewType === "gif" ? uploadFiles.previewFile.name : "",
         poster_url: posterUpload?.publicUrl || "",
         poster_storage_path: posterUpload?.path || "",
         poster_file_name: uploadFiles.poster?.name || ""
       };
+
+      if (previewMp4Upload) {
+        item.preview_mp4_url = previewMp4Upload.publicUrl;
+        item.preview_mp4_storage_path = previewMp4Upload.path;
+        item.preview_mp4_file_name = uploadFiles.previewFile.name;
+      }
+
       const { data, error } = await getSupabaseClient()
         .from(config.supabase.tables.videos)
         .insert(item)
@@ -1657,7 +1728,7 @@ const service = {
     } catch (error) {
       await removeSupabaseFilesSafely(
         bucket,
-        [gifUpload?.path, posterUpload?.path],
+        [previewMp4Upload?.path, gifUpload?.path, posterUpload?.path],
         "Failed video create upload rollback"
       );
       throw error;
@@ -1712,11 +1783,14 @@ const service = {
     if (!item) return null;
 
     const bucket = config.supabase.storage.videoBucket;
+    const oldPreviewMp4Path = getVideoPreviewMp4StoragePath(item, bucket);
     const oldGifPath = item.thumbnail_gif_storage_path || getSupabaseStoragePathFromUrl(item.thumbnail_gif_url, bucket);
     const oldPosterPath = item.poster_storage_path || getSupabaseStoragePathFromUrl(item.poster_url, bucket);
     const cleanupWarnings = [];
+    const previewFileState = getPreviewFileState(files.previewFile || null);
     const uploadFiles = {
-      thumbnailGif: files.thumbnailGif || null,
+      previewFile: previewFileState.file,
+      previewType: previewFileState.type,
       poster: files.poster
         ? await optimizeImageFile(files.poster, {
             maxLongEdge: imageUploadDefaults.posterMaxLongEdge,
@@ -1725,16 +1799,31 @@ const service = {
         : null
     };
     const nextPayload = { ...payload };
+    let previewMp4Upload = null;
     let gifUpload = null;
     let posterUpload = null;
 
     try {
-      if (uploadFiles.thumbnailGif) {
-        gifUpload = await uploadSupabaseFile(bucket, "gifs", uploadFiles.thumbnailGif);
+      if (uploadFiles.previewType === "mp4") {
+        previewMp4Upload = await uploadSupabaseFile(bucket, "previews", uploadFiles.previewFile);
+
+        nextPayload.preview_mp4_url = previewMp4Upload.publicUrl;
+        nextPayload.preview_mp4_storage_path = previewMp4Upload.path;
+        nextPayload.preview_mp4_file_name = uploadFiles.previewFile.name;
+        nextPayload.thumbnail_gif_url = "";
+        nextPayload.thumbnail_gif_storage_path = "";
+        nextPayload.thumbnail_gif_file_name = "";
+      }
+
+      if (uploadFiles.previewType === "gif") {
+        gifUpload = await uploadSupabaseFile(bucket, "gifs", uploadFiles.previewFile);
 
         nextPayload.thumbnail_gif_url = gifUpload.publicUrl;
         nextPayload.thumbnail_gif_storage_path = gifUpload.path;
-        nextPayload.thumbnail_gif_file_name = uploadFiles.thumbnailGif.name;
+        nextPayload.thumbnail_gif_file_name = uploadFiles.previewFile.name;
+        nextPayload.preview_mp4_url = "";
+        nextPayload.preview_mp4_storage_path = "";
+        nextPayload.preview_mp4_file_name = "";
       }
 
       if (uploadFiles.poster) {
@@ -1756,7 +1845,13 @@ const service = {
 
       const replacedPaths = [];
 
-      if (uploadFiles.thumbnailGif) {
+      if (uploadFiles.previewType) {
+        if (oldPreviewMp4Path) {
+          replacedPaths.push(oldPreviewMp4Path);
+        } else if (getVideoPreviewMp4Url(item)) {
+          cleanupWarnings.push(new Error("Previous video MP4 preview storage path is missing"));
+        }
+
         if (oldGifPath) {
           replacedPaths.push(oldGifPath);
         } else if (item.thumbnail_gif_url) {
@@ -1774,7 +1869,11 @@ const service = {
 
       const cleanup = await removeSupabaseFilesSafely(
         bucket,
-        replacedPaths.filter((path) => path !== gifUpload?.path && path !== posterUpload?.path),
+        replacedPaths.filter((path) => (
+          path !== previewMp4Upload?.path
+          && path !== gifUpload?.path
+          && path !== posterUpload?.path
+        )),
         "Replaced video media"
       );
 
@@ -1787,7 +1886,7 @@ const service = {
     } catch (error) {
       await removeSupabaseFilesSafely(
         bucket,
-        [gifUpload?.path, posterUpload?.path],
+        [previewMp4Upload?.path, gifUpload?.path, posterUpload?.path],
         "Failed video update upload rollback"
       );
       throw error;
@@ -1854,8 +1953,8 @@ const getWatcherIssues = () => {
         missing.push({ key: "vimeo_url", label: "Vimeo URL" });
       }
 
-      if (isBlank(item.thumbnail_gif_url)) {
-        missing.push({ key: "thumbnail_gif", label: "GIF" });
+      if (!hasVideoPreviewFile(item)) {
+        missing.push({ key: "preview_file", label: "Preview" });
       }
 
       if (isBlank(item.poster_url)) {
@@ -1907,11 +2006,11 @@ const renderWatcherFields = (issue) => {
     `);
   }
 
-  if (issue.type === "video" && hasMissing("thumbnail_gif")) {
+  if (issue.type === "video" && hasMissing("preview_file")) {
     fields.push(`
       <label class="watcher-field watcher-field--file">
-        <span>GIF</span>
-        <input type="file" name="thumbnail_gif" accept="image/gif">
+        <span>Preview</span>
+        <input type="file" name="preview_file" accept="image/gif,video/mp4">
       </label>
     `);
   }
@@ -1932,12 +2031,12 @@ const renderWatcherModal = () => {
   if (!dom.watcherList) return;
 
   const issues = getWatcherIssues();
-  const gifMissing = issues.filter((issue) => issue.type === "video" && issue.missing.some((item) => item.key === "thumbnail_gif")).length;
+  const previewMissing = issues.filter((issue) => issue.type === "video" && issue.missing.some((item) => item.key === "preview_file")).length;
   const posterMissing = issues.filter((issue) => issue.type === "video" && issue.missing.some((item) => item.key === "poster")).length;
 
   if (dom.watcherSummary) {
     dom.watcherSummary.textContent = issues.length
-      ? `${issues.length} file${issues.length === 1 ? "" : "s"} need attention. GIF missing: ${gifMissing}. Poster missing: ${posterMissing}.`
+      ? `${issues.length} file${issues.length === 1 ? "" : "s"} need attention. Preview missing: ${previewMissing}. Poster missing: ${posterMissing}.`
       : "All portfolio files have the required data.";
   }
 
@@ -1953,7 +2052,7 @@ const renderWatcherModal = () => {
       </div>
       <div class="watcher-row__name">
         <strong>${escapeHtml(issue.label)}</strong>
-        <span>${escapeHtml(issue.item.file_name || issue.item.thumbnail_gif_file_name || issue.item.poster_file_name || issue.item.vimeo_url || "No file label")}</span>
+        <span>${escapeHtml(issue.item.file_name || issue.item.preview_mp4_file_name || issue.item.thumbnail_gif_file_name || issue.item.poster_file_name || issue.item.vimeo_url || "No file label")}</span>
       </div>
       <div class="watcher-row__missing">
         ${issue.missing.map((item) => `<span class="pill pill--warning">${escapeHtml(item.label)}</span>`).join("")}
@@ -2227,18 +2326,33 @@ const renderGallery = () => {
 };
 
 const getVideoMediaMarkup = (video) => {
-  if (!video.thumbnail_gif_url && !video.poster_url) {
+  const previewMp4Url = getVideoPreviewMp4Url(video);
+  const gifUrl = getVideoThumbnailGifUrl(video);
+  const posterUrl = String(video.poster_url || "").trim();
+
+  if (!previewMp4Url && !gifUrl && !posterUrl) {
     return "No image";
   }
 
-  if (video.poster_url && video.thumbnail_gif_url) {
+  if (posterUrl && previewMp4Url) {
     return `
-      <img class="media-card__poster" src="${escapeHtml(video.poster_url)}" alt="${escapeHtml(video.title)}">
-      <img class="media-card__gif" src="${escapeHtml(video.thumbnail_gif_url)}" alt="" aria-hidden="true">
+      <img class="media-card__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(video.title)}">
+      <video class="media-card__preview" src="${escapeHtml(previewMp4Url)}" muted loop playsinline preload="metadata" aria-hidden="true"></video>
     `;
   }
 
-  return `<img src="${escapeHtml(video.poster_url || video.thumbnail_gif_url)}" alt="${escapeHtml(video.title)}">`;
+  if (posterUrl && gifUrl) {
+    return `
+      <img class="media-card__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(video.title)}">
+      <img class="media-card__gif" src="${escapeHtml(gifUrl)}" alt="" aria-hidden="true">
+    `;
+  }
+
+  if (previewMp4Url) {
+    return `<video class="media-card__preview is-primary" src="${escapeHtml(previewMp4Url)}" muted loop playsinline preload="metadata" aria-label="${escapeHtml(video.title)}"></video>`;
+  }
+
+  return `<img src="${escapeHtml(posterUrl || gifUrl)}" alt="${escapeHtml(video.title)}">`;
 };
 
 const renderVideos = () => {
@@ -2252,6 +2366,8 @@ const renderVideos = () => {
   dom.videoList.innerHTML = getOrderedVideoItems().map((video, index) => {
     const isTape = isVideoTapeEnabled(video);
     const tapeOrder = getVideoTapeSortOrder(video);
+    const hasMp4Preview = Boolean(getVideoPreviewMp4Url(video));
+    const hasGifPreview = Boolean(getVideoThumbnailGifUrl(video));
 
     return `
       <article class="media-card" data-video-card data-video-id="${escapeHtml(video.id)}">
@@ -2265,9 +2381,10 @@ const renderVideos = () => {
               <span class="pill">Order ${index + 1}</span>
               ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
               ${isTape ? `<span class="pill pill--tape">Tape${tapeOrder ? ` ${escapeHtml(tapeOrder)}` : ""}</span>` : ""}
-              ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
+              ${hasMp4Preview ? `<span class="pill">MP4</span>` : ""}
+              ${hasGifPreview ? `<span class="pill">${hasMp4Preview ? "GIF fallback" : "GIF"}</span>` : ""}
               ${video.poster_url ? `<span class="pill">Poster</span>` : ""}
-              ${!video.thumbnail_gif_url && !video.poster_url ? `<span class="pill">No image</span>` : ""}
+              ${!hasMp4Preview && !hasGifPreview && !video.poster_url ? `<span class="pill">No image</span>` : ""}
             </div>
             <div class="media-card__actions">
               <button class="icon-button media-card__edit" type="button" data-edit-video="${escapeHtml(video.id)}" title="Edit video" aria-label="Edit video">
@@ -2879,6 +2996,12 @@ const getVideoEditOrderValue = (video = {}) => {
 };
 
 const getVideoCurrentFileLabel = (video = {}, type = "poster") => {
+  if (type === "mp4") {
+    return video.preview_mp4_file_name
+      || video.preview_mp4_storage_path
+      || (getVideoPreviewMp4Url(video) ? "Uploaded MP4 preview" : "None");
+  }
+
   if (type === "gif") {
     return video.thumbnail_gif_file_name
       || video.thumbnail_gif_storage_path
@@ -2888,6 +3011,25 @@ const getVideoCurrentFileLabel = (video = {}, type = "poster") => {
   return video.poster_file_name
     || video.poster_storage_path
     || (video.poster_url ? "Uploaded poster" : "None");
+};
+
+const getVideoCurrentPreviewLabel = (video = {}) => {
+  if (getVideoPreviewMp4Url(video)) {
+    return getVideoCurrentFileLabel(video, "mp4");
+  }
+
+  if (getVideoThumbnailGifUrl(video)) {
+    return getVideoCurrentFileLabel(video, "gif");
+  }
+
+  return "None";
+};
+
+const getVideoCurrentPreviewTypeLabel = (video = {}) => {
+  if (getVideoPreviewMp4Url(video)) return "MP4";
+  if (getVideoThumbnailGifUrl(video)) return "GIF";
+
+  return "None";
 };
 
 const getVideoEditMediaMarkup = (video = {}) => {
@@ -2906,99 +3048,117 @@ const getVideoEditFormMarkup = (video) => {
 
   return `
     <div class="video-edit-form__grid">
-      <label class="field video-edit-form__wide">
-        <span>Title</span>
-        <input type="text" name="title" value="${escapeHtml(video.title || "")}" required>
-      </label>
-
-      <label class="field video-edit-form__wide">
-        <span>Vimeo URL</span>
-        <input type="url" name="vimeo_url" value="${escapeHtml(video.vimeo_url || "")}" required>
-      </label>
-
-      <label class="switch">
-        <input type="checkbox" name="featured"${video.featured ? " checked" : ""}>
-        <span>Featured</span>
-      </label>
-
-      <label class="field">
-        <span>Portfolio order</span>
-        <input type="number" name="sort_order" min="1" step="1" value="${escapeHtml(getVideoEditOrderValue(video))}">
-      </label>
-
-      <label class="field">
-        <span>Poster mode</span>
-        <select name="poster_mode">
-          <option value=""${posterMode ? "" : " selected"}>None</option>
-          <option value="manual"${posterMode === "manual" ? " selected" : ""}>Manual file</option>
-          <option value="vimeo_time"${posterMode === "vimeo_time" ? " selected" : ""}>Vimeo timestamp</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span>Poster time</span>
-        <input type="number" name="poster_time" min="0" step="0.1" value="${posterTime === null ? "" : escapeHtml(posterTime)}" placeholder="Seconds">
-      </label>
-
-      <section class="video-edit-form__media" aria-label="Video media">
-        <div class="video-edit-form__media-heading">
-          <h3>Media</h3>
-          <span>Replace files</span>
+      <section class="video-edit-form__details" aria-label="Video details">
+        <div class="video-edit-form__section-heading">
+          <h3>Details</h3>
+          <span>Project</span>
         </div>
 
-        <div class="video-edit-preview" aria-label="Current video preview">
-          ${getVideoEditMediaMarkup(video)}
-        </div>
+        <label class="field video-edit-form__wide">
+          <span>Title</span>
+          <input type="text" name="title" value="${escapeHtml(video.title || "")}" required>
+        </label>
 
-        <div class="video-edit-current">
-          <dl class="preview-meta">
-            <div><dt>GIF</dt><dd>${escapeHtml(getVideoCurrentFileLabel(video, "gif"))}</dd></div>
-            <div><dt>Poster</dt><dd>${escapeHtml(getVideoCurrentFileLabel(video, "poster"))}</dd></div>
-            <div><dt>Poster mode</dt><dd>${escapeHtml(getPosterModeLabel(posterMode, video.poster_time))}</dd></div>
-          </dl>
-        </div>
-
-        <label class="field">
-          <span>GIF thumbnail</span>
-          <input type="file" name="thumbnail_gif" accept="image/gif">
+        <label class="field video-edit-form__wide">
+          <span>Vimeo URL</span>
+          <input type="url" name="vimeo_url" value="${escapeHtml(video.vimeo_url || "")}" required>
         </label>
 
         <label class="field">
-          <span>Poster frame</span>
-          <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
+          <span>Portfolio order</span>
+          <input type="number" name="sort_order" min="1" step="1" value="${escapeHtml(getVideoEditOrderValue(video))}">
+        </label>
+
+        <label class="switch video-edit-form__featured">
+          <input type="checkbox" name="featured"${video.featured ? " checked" : ""}>
+          <span>Featured</span>
+        </label>
+
+        <label class="field">
+          <span>Poster mode</span>
+          <select name="poster_mode">
+            <option value=""${posterMode ? "" : " selected"}>None</option>
+            <option value="manual"${posterMode === "manual" ? " selected" : ""}>Manual file</option>
+            <option value="vimeo_time"${posterMode === "vimeo_time" ? " selected" : ""}>Vimeo timestamp</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Poster time</span>
+          <input type="number" name="poster_time" min="0" step="0.1" value="${posterTime === null ? "" : escapeHtml(posterTime)}" placeholder="Seconds">
         </label>
       </section>
 
+      <section class="video-edit-form__media" aria-label="Video media">
+        <div class="video-edit-form__section-heading">
+          <h3>Media</h3>
+          <span>Files</span>
+        </div>
+
+        <div class="video-edit-form__media-layout">
+          <div class="video-edit-form__media-current">
+            <div class="video-edit-preview" aria-label="Current video preview">
+              ${getVideoEditMediaMarkup(video)}
+            </div>
+
+            <div class="video-edit-current">
+              <dl class="preview-meta">
+                <div><dt>Preview</dt><dd>${escapeHtml(getVideoCurrentPreviewLabel(video))}</dd></div>
+                <div><dt>Preview type</dt><dd>${escapeHtml(getVideoCurrentPreviewTypeLabel(video))}</dd></div>
+                <div><dt>Poster</dt><dd>${escapeHtml(getVideoCurrentFileLabel(video, "poster"))}</dd></div>
+                <div><dt>Poster mode</dt><dd>${escapeHtml(getPosterModeLabel(posterMode, video.poster_time))}</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="video-edit-form__media-files">
+            <label class="field">
+              <span>Preview (GIF, MP4)</span>
+              <input type="file" name="preview_file" accept="image/gif,video/mp4">
+            </label>
+
+            <label class="field">
+              <span>Poster frame</span>
+              <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
+            </label>
+          </div>
+        </div>
+      </section>
+
       <section class="video-edit-form__tape${isTape ? " is-tape-enabled" : ""}" aria-label="Tape settings">
-        <div class="video-edit-form__tape-heading">
+        <div class="video-edit-form__section-heading">
           <h3>Tape</h3>
           <span data-video-edit-tape-mode>${isTape ? "On" : "Off"}</span>
         </div>
 
-        <label class="switch">
-          <input type="checkbox" name="tape_enabled"${isTape ? " checked" : ""}>
-          <span>TAPE</span>
-        </label>
+        <div class="video-edit-form__tape-layout">
+          <div class="video-edit-form__tape-fields">
+            <label class="switch">
+              <input type="checkbox" name="tape_enabled"${isTape ? " checked" : ""}>
+              <span>TAPE</span>
+            </label>
 
-        <label class="field">
-          <span>Tape order</span>
-          <input type="number" name="tape_sort_order" min="1" step="1" value="${tapeSortOrder ? escapeHtml(tapeSortOrder) : ""}">
-        </label>
+            <label class="field">
+              <span>Tape order</span>
+              <input type="number" name="tape_sort_order" min="1" step="1" value="${tapeSortOrder ? escapeHtml(tapeSortOrder) : ""}">
+            </label>
 
-        <label class="field">
-          <span>Tape title</span>
-          <input type="text" name="tape_title" value="${escapeHtml(tapeTitle)}" placeholder="${escapeHtml(video.title || "Cassette label")}">
-        </label>
+            <label class="field video-edit-form__wide">
+              <span>Tape title</span>
+              <input type="text" name="tape_title" value="${escapeHtml(tapeTitle)}" placeholder="${escapeHtml(video.title || "Cassette label")}">
+            </label>
 
-        <label class="field">
-          <span>Texture</span>
-          <select name="tape_texture">
-            ${getTapeTextureOptionsMarkup(tapeTexture)}
-          </select>
-        </label>
+            <label class="field video-edit-form__wide">
+              <span>Texture</span>
+              <select name="tape_texture">
+                ${getTapeTextureOptionsMarkup(tapeTexture)}
+              </select>
+            </label>
+          </div>
 
-        <div class="video-edit-tape-preview" data-video-edit-tape-preview>
-          ${getTapePreviewMarkup({ enabled: isTape, title: tapeTitle, texture: tapeTexture })}
+          <div class="video-edit-tape-preview" data-video-edit-tape-preview>
+            ${getTapePreviewMarkup({ enabled: isTape, title: tapeTitle, texture: tapeTexture })}
+          </div>
         </div>
       </section>
 
@@ -3059,6 +3219,8 @@ const syncVideoEditPosterUi = () => {
   }
 };
 
+const getVideoPreviewState = (form) => getPreviewFileState(form.elements.preview_file?.files[0] || null);
+
 const openVideoEditModal = (id, trigger = null) => {
   const video = getVideoById(id);
 
@@ -3106,9 +3268,9 @@ const collectVideoEditPayload = (form, video) => {
   const title = form.elements.title.value.trim();
   const vimeoUrl = form.elements.vimeo_url.value.trim();
   const posterFile = form.elements.poster?.files[0] || null;
-  const thumbnailGif = form.elements.thumbnail_gif?.files[0] || null;
   const posterMode = posterFile ? "manual" : normalizePosterMode(form.elements.poster_mode?.value);
   const posterTime = posterMode === "vimeo_time" ? getOptionalPosterTime(form.elements.poster_time?.value) : null;
+  const previewState = getVideoPreviewState(form);
   const sortOrder = getOptionalPositiveInteger(form.elements.sort_order?.value);
   const tapeOrder = getOptionalPositiveInteger(form.elements.tape_sort_order?.value);
 
@@ -3143,7 +3305,7 @@ const collectVideoEditPayload = (form, video) => {
   return {
     payload,
     files: {
-      thumbnailGif,
+      previewFile: previewState.file,
       poster: posterMode === "manual" ? posterFile : null
     },
     posterMode,
@@ -3522,11 +3684,25 @@ const updateVideoPreview = () => {
   const title = dom.videoForm.elements.title.value.trim() || "Untitled";
   const isFeatured = dom.videoForm.elements.featured.checked;
   const isPosterPickerEnabled = syncPosterPickerToggle();
-  const gifFile = dom.videoForm.elements.thumbnail_gif.files[0];
   const posterFile = isPosterPickerEnabled ? null : dom.videoForm.elements.poster.files[0];
   const posterState = getVideoFormPosterState(dom.videoForm);
+  let previewState = {
+    file: null,
+    type: ""
+  };
+  let previewWarning = "";
+
+  try {
+    previewState = getVideoPreviewState(dom.videoForm);
+  } catch (error) {
+    previewWarning = error.message || "Preview file needs attention";
+  }
+
   const tapeState = getVideoFormTapeState(dom.videoForm);
   const posterModeLabel = getPosterModeLabel(posterState.mode, posterState.time);
+  const previewModeLabel = previewState.file
+    ? `${previewState.type.toUpperCase()} ${previewState.file.name}`
+    : "None";
   const posterMetaLabel = posterFile?.name
     || (posterState.mode === "vimeo_time" ? `Vimeo ${formatTimestamp(posterState.time)}` : "None");
 
@@ -3534,29 +3710,51 @@ const updateVideoPreview = () => {
   revokeVideoPreviewUrls();
 
   const posterUrl = createVideoPreviewUrl(posterFile);
-  const gifUrl = createVideoPreviewUrl(gifFile);
+  const previewUrl = createVideoPreviewUrl(previewState.file);
   const hasPosterTime = posterState.mode === "vimeo_time";
-  const hasHoverGif = Boolean(gifUrl && (posterUrl || hasPosterTime));
-  const primaryPreviewUrl = posterUrl || (!hasPosterTime ? gifUrl : "");
+  const hasHoverPreview = Boolean(previewUrl && (posterUrl || hasPosterTime));
+  const isMp4Preview = previewState.type === "mp4";
+  const isGifPreview = previewState.type === "gif";
+  const primaryPreviewUrl = posterUrl || (!hasPosterTime ? previewUrl : "");
   let previewContent = `<div class="media-preview media-preview--empty media-preview--landscape">No image</div>`;
 
-  if (primaryPreviewUrl || hasPosterTime || gifUrl) {
+  if (primaryPreviewUrl || hasPosterTime || previewUrl) {
+    const hoverClass = hasHoverPreview ? (isMp4Preview ? " has-hover-preview" : " has-hover-gif") : "";
+    const primaryPreviewMarkup = isMp4Preview && primaryPreviewUrl === previewUrl
+      ? `<video class="video-upload-preview__poster" src="${escapeHtml(primaryPreviewUrl)}" muted loop playsinline autoplay></video>`
+      : `<img class="video-upload-preview__poster" src="${escapeHtml(primaryPreviewUrl)}" alt="">`;
+    const hoverPreviewMarkup = hasHoverPreview
+      ? isMp4Preview
+        ? `<video class="video-upload-preview__motion" src="${escapeHtml(previewUrl)}" muted loop playsinline autoplay aria-hidden="true"></video>`
+        : `<img class="video-upload-preview__gif" src="${escapeHtml(previewUrl)}" alt="" aria-hidden="true">`
+      : "";
+    const primaryBadge = posterUrl
+      ? "Poster"
+      : hasPosterTime
+        ? "Vimeo frame"
+        : isMp4Preview
+          ? "MP4"
+          : isGifPreview
+            ? "GIF"
+            : "Preview";
+    const hoverBadge = hasHoverPreview ? `<span>Hover ${isMp4Preview ? "MP4" : "GIF"}</span>` : "";
+
     previewContent = `
       <div
-        class="media-preview media-preview--landscape video-upload-preview${hasHoverGif ? " has-hover-gif" : ""}${hasPosterTime && !posterUrl ? " has-vimeo-poster" : ""}"
-        ${hasHoverGif ? "tabindex=\"0\"" : ""}
-        aria-label="${escapeHtml(hasHoverGif ? "Video upload preview, hover to show GIF" : "Video upload preview")}"
+        class="media-preview media-preview--landscape video-upload-preview${hoverClass}${hasPosterTime && !posterUrl ? " has-vimeo-poster" : ""}"
+        ${hasHoverPreview ? "tabindex=\"0\"" : ""}
+        aria-label="${escapeHtml(hasHoverPreview ? "Video upload preview, hover to show selected preview" : "Video upload preview")}"
       >
-        ${primaryPreviewUrl ? `<img class="video-upload-preview__poster" src="${escapeHtml(primaryPreviewUrl)}" alt="">` : `
+        ${primaryPreviewUrl ? primaryPreviewMarkup : `
           <div class="video-upload-preview__placeholder">
             <span>Vimeo poster</span>
             <strong>${escapeHtml(formatTimestamp(posterState.time))}</strong>
           </div>
         `}
-        ${hasHoverGif ? `<img class="video-upload-preview__gif" src="${escapeHtml(gifUrl)}" alt="" aria-hidden="true">` : ""}
+        ${hoverPreviewMarkup}
         <div class="video-upload-preview__badges" aria-hidden="true">
-          <span>${posterUrl ? "Poster" : hasPosterTime ? "Vimeo frame" : "GIF only"}</span>
-          ${gifUrl ? `<span>${hasHoverGif ? "Hover GIF" : "GIF"}</span>` : ""}
+          <span>${primaryBadge}</span>
+          ${hoverBadge}
         </div>
       </div>
     `;
@@ -3567,7 +3765,8 @@ const updateVideoPreview = () => {
     <dl class="preview-meta">
       <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
       <div><dt>Card</dt><dd>${isFeatured ? "Featured" : "Standard"}</dd></div>
-      <div><dt>GIF</dt><dd>${escapeHtml(gifFile?.name || "None")}</dd></div>
+      <div><dt>Preview</dt><dd>${escapeHtml(previewModeLabel)}</dd></div>
+      ${previewWarning ? `<div><dt>Preview warning</dt><dd>${escapeHtml(previewWarning)}</dd></div>` : ""}
       <div><dt>Poster</dt><dd>${escapeHtml(posterMetaLabel)}</dd></div>
       <div><dt>Poster mode</dt><dd>${escapeHtml(posterModeLabel)}</dd></div>
       <div><dt>Tape</dt><dd>${tapeState.enabled ? escapeHtml(`${tapeState.title} / ${tapeState.texture.toUpperCase()}`) : "Off"}</dd></div>
@@ -4546,7 +4745,7 @@ dom.videoEditForm?.addEventListener("submit", async (event) => {
   } catch (error) {
     console.error("Video edit save error:", error);
     const message = didSaveVideo
-      ? `Video saved, poster update failed: ${error.message || "Unknown error"}`
+      ? `Video saved, media update failed: ${error.message || "Unknown error"}`
       : error.message || "Could not save video";
 
     setVideoEditStatus(message, "error");
@@ -4624,10 +4823,10 @@ dom.watcherModal?.addEventListener("submit", async (event) => {
   });
 
   const files = {
-    thumbnailGif: form.elements.thumbnail_gif?.files[0] || null,
+    previewFile: form.elements.preview_file?.files[0] || null,
     poster: form.elements.poster?.files[0] || null
   };
-  const hasFiles = Boolean(files.thumbnailGif || files.poster);
+  const hasFiles = Boolean(files.previewFile || files.poster);
 
   if (!Object.keys(payload).length && !hasFiles) {
     showToast("Nothing to save");
@@ -4949,7 +5148,15 @@ dom.videoForm?.addEventListener("submit", async (event) => {
   const defaultSubmitLabel = submitLabel?.textContent || "Add video";
   const posterState = getVideoFormPosterState(form);
   const posterMode = posterState.mode;
+  let previewState;
   const tapeState = getVideoFormTapeState(form);
+
+  try {
+    previewState = getVideoPreviewState(form);
+  } catch (error) {
+    showToast(error.message || "Could not read preview fields");
+    return;
+  }
 
   if (posterMode === "manual" && form.elements.poster_mode.value !== "manual") {
     setPosterMode("manual");
@@ -4965,7 +5172,7 @@ dom.videoForm?.addEventListener("submit", async (event) => {
     ...getVideoTapePayload(tapeState)
   };
   const files = {
-    thumbnailGif: form.elements.thumbnail_gif.files[0] || null,
+    previewFile: previewState.file,
     poster: posterMode === "manual" ? posterState.file : null
   };
 
@@ -4982,6 +5189,7 @@ dom.videoForm?.addEventListener("submit", async (event) => {
     setPosterMode("");
     resetPosterPicker();
     updateVideoPreview();
+    let didGenerateMedia = false;
 
     if (posterMode === "vimeo_time") {
       if (submitLabel) {
@@ -5001,7 +5209,11 @@ dom.videoForm?.addEventListener("submit", async (event) => {
         renderPortfolioIndicators();
         showToast(`Video added, poster generation failed: ${posterError.message || "Unknown error"}`);
       }
-    } else {
+
+      didGenerateMedia = true;
+    }
+
+    if (!didGenerateMedia) {
       renderTapeOrderBox();
       renderVideos();
       renderPortfolioIndicators();

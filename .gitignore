@@ -6,3 +6,5 @@ node_modules/
 Thumbs.db
 docs/
 admin/sql
+.agents/
+src/admin/sql/
