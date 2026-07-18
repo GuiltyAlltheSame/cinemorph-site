@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cinemorph Studio</title>
-  <meta name="description" content="Cinemorph Studio creates cinematic video production, photography, and visual storytelling for clients in Washington and Oregon.">
+  <meta name="description" content="Cinemorph Studio is a cinematic storytelling studio based in Vancouver, Washington, serving clients throughout Washington and Oregon.">
   <link rel="canonical" href="https://cinemorphstudio.com/">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=site-stage-3-20260718">
 </head>
 <body>
 
@@ -285,7 +285,7 @@
         </div>
         <div class="field">
           <label for="contact-field">Email / Phone</label>
-          <input class="input" type="text" id="contact-field" name="contact" placeholder="you@example.com / +1 555 010 2030" autocomplete="email" required>
+          <input class="input" type="text" id="contact-field" name="contact" placeholder="you@example.com / +1 XXX XXX XXXX" autocomplete="email" required>
         </div>
         <div class="field field--message">
           <label for="msg">Message</label>
@@ -374,8 +374,29 @@
   </div>
 </div>
 
+<div class="gallery-modal" data-gallery-modal role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title" aria-hidden="true">
+  <div class="gallery-modal__backdrop" data-gallery-modal-close aria-hidden="true"></div>
+  <div class="gallery-modal__panel" role="document">
+    <div class="gallery-modal__bar">
+      <div class="gallery-modal__heading">
+        <span class="gallery-modal__number" data-gallery-modal-number aria-hidden="true">01</span>
+        <h2 class="gallery-modal__title" id="gallery-modal-title">Gallery image</h2>
+      </div>
+      <button class="gallery-modal__close" type="button" data-gallery-modal-close aria-label="Close gallery image">
+        <span aria-hidden="true"></span>
+      </button>
+    </div>
+    <button class="gallery-modal__nav gallery-modal__nav--prev" type="button" data-gallery-modal-prev aria-label="Previous image"></button>
+    <figure class="gallery-modal__figure">
+      <img data-gallery-modal-image alt="">
+    </figure>
+    <button class="gallery-modal__nav gallery-modal__nav--next" type="button" data-gallery-modal-next aria-label="Next image"></button>
+  </div>
+</div>
+
 <script src="js/supabase-config.js" defer></script>
-<script src="js/main.js" defer></script>
+<script src="https://player.vimeo.com/api/player.js" defer></script>
+<script src="js/main.js?v=site-stage-3-20260718" defer></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 </html>

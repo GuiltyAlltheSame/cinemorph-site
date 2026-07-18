@@ -32,6 +32,13 @@ const videoModalPlayer = document.querySelector("[data-video-modal-player]");
 const videoModalTitle = document.querySelector("#video-modal-title");
 const videoModalNumber = document.querySelector("[data-video-modal-number]");
 const videoModalCloseButtons = document.querySelectorAll("[data-video-modal-close]");
+const galleryModal = document.querySelector("[data-gallery-modal]");
+const galleryModalImage = document.querySelector("[data-gallery-modal-image]");
+const galleryModalTitle = document.querySelector("#gallery-modal-title");
+const galleryModalNumber = document.querySelector("[data-gallery-modal-number]");
+const galleryModalCloseButtons = document.querySelectorAll("[data-gallery-modal-close]");
+const galleryModalPrev = document.querySelector("[data-gallery-modal-prev]");
+const galleryModalNext = document.querySelector("[data-gallery-modal-next]");
 const galleryStage = document.querySelector("[data-gallery-stage]");
 const galleryStrips = Array.from(document.querySelectorAll("[data-gallery-strip]"));
 const galleryProgress = document.querySelector(".gallery-progress");
@@ -56,6 +63,14 @@ let isTapeAudioMuted = true;
 let shouldResumeTapeAfterModalClose = false;
 let resumeTapeInlinePlayer = () => {};
 let videoModalRestoreFocus = null;
+let tapeInlineVimeoPlayer = null;
+let tapeModalVimeoPlayer = null;
+let tapeInlineVideoElement = null;
+let tapePlaybackTime = 0;
+let tapeModalPlaybackTime = 0;
+let galleryModalItems = [];
+let activeGalleryModalIndex = 0;
+let galleryModalRestoreFocus = null;
 let turnstileToken = "";
 let isContactSubmitting = false;
 const referenceLinks = [];
@@ -649,7 +664,26 @@ const loadPublicMedia = async () => {
   return { gallery, videos };
 };
 
-const createGalleryItem = (item) => {
+const getGalleryModalPreviewUrl = (imageUrl) => getSupabaseImagePreviewUrl(imageUrl, {
+  width: 2200,
+  quality: 100
+});
+
+const createGalleryModalItem = (item) => {
+  const imageUrl = String(item.image_url || "").trim();
+  const title = item.title || item.file_name || "Gallery image";
+  const focus = getGalleryFocus(item);
+
+  return {
+    alt: item.alt_text || title,
+    fullSrc: imageUrl,
+    previewSrc: getGalleryModalPreviewUrl(imageUrl),
+    title,
+    focus
+  };
+};
+
+const createGalleryItem = (item, index = 0) => {
   const imageUrl = String(item.image_url || "").trim();
 
   if (!imageUrl) return null;
@@ -669,6 +703,7 @@ const createGalleryItem = (item) => {
   link.href = imageUrl;
   link.target = "_blank";
   link.rel = "noreferrer";
+  link.dataset.galleryIndex = String(index);
   link.setAttribute("aria-label", title);
 
   image.dataset.src = previewUrl;
@@ -682,6 +717,14 @@ const createGalleryItem = (item) => {
   image.style.setProperty("--gallery-focus-y", `${focus.y}%`);
 
   link.append(image);
+  link.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+    openGalleryModal(index, link);
+  });
 
   return link;
 };
@@ -699,6 +742,7 @@ const renderGallery = (items) => {
   if (!galleryStrips.length || !galleryStage) return;
 
   const galleryItems = items.filter((item) => String(item.image_url || "").trim());
+  galleryModalItems = galleryItems.map(createGalleryModalItem);
 
   galleryStage.classList.toggle("is-empty", !galleryItems.length);
 
@@ -708,8 +752,8 @@ const renderGallery = (items) => {
     strip.replaceChildren();
     strip.classList.toggle("is-empty-row", !rowItems.length);
 
-    rowItems.forEach((item) => {
-      const galleryItem = createGalleryItem(item);
+    rowItems.forEach((item, index) => {
+      const galleryItem = createGalleryItem(item, index);
 
       if (galleryItem) {
         strip.append(galleryItem);
@@ -723,6 +767,89 @@ const renderGallery = (items) => {
     galleryProgress?.toggleAttribute("hidden", true);
   }
 };
+
+const isGalleryModalOpen = () => Boolean(galleryModal?.classList.contains("is-open"));
+
+const renderGalleryModalItem = () => {
+  if (!galleryModal || !galleryModalImage || !galleryModalItems.length) return;
+
+  const item = galleryModalItems[activeGalleryModalIndex];
+
+  if (!item) return;
+
+  galleryModalImage.removeAttribute("src");
+  galleryModalImage.alt = item.alt || item.title || "Gallery image";
+  galleryModalImage.style.setProperty("--gallery-focus-x", `${item.focus.x}%`);
+  galleryModalImage.style.setProperty("--gallery-focus-y", `${item.focus.y}%`);
+  setImageSourceWithFallback(galleryModalImage, item.previewSrc, item.fullSrc);
+
+  if (galleryModalTitle) {
+    galleryModalTitle.textContent = item.title || "Gallery image";
+  }
+
+  if (galleryModalNumber) {
+    galleryModalNumber.textContent = String(activeGalleryModalIndex + 1).padStart(2, "0");
+  }
+
+  const hasMultipleItems = galleryModalItems.length > 1;
+
+  galleryModalPrev?.toggleAttribute("hidden", !hasMultipleItems);
+  galleryModalNext?.toggleAttribute("hidden", !hasMultipleItems);
+};
+
+const openGalleryModal = (index = 0, trigger = null) => {
+  if (!galleryModal || !galleryModalItems.length) return false;
+
+  activeGalleryModalIndex = Math.max(0, Math.min(index, galleryModalItems.length - 1));
+  galleryModalRestoreFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+  renderGalleryModalItem();
+  galleryModal.classList.add("is-open");
+  galleryModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-gallery-modal-open");
+
+  window.requestAnimationFrame(() => {
+    galleryModal.querySelector(".gallery-modal__close")?.focus({ preventScroll: true });
+  });
+
+  return true;
+};
+
+const closeGalleryModal = () => {
+  if (!galleryModal) return;
+
+  galleryModal.classList.remove("is-open");
+  galleryModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-gallery-modal-open");
+
+  if (galleryModalImage) {
+    galleryModalImage.removeAttribute("src");
+    galleryModalImage.removeAttribute("alt");
+  }
+
+  const focusTarget = galleryModalRestoreFocus;
+
+  galleryModalRestoreFocus = null;
+
+  if (focusTarget instanceof HTMLElement && document.contains(focusTarget)) {
+    focusTarget.focus({ preventScroll: true });
+  }
+};
+
+const moveGalleryModal = (direction) => {
+  if (!galleryModalItems.length) return;
+
+  activeGalleryModalIndex = (
+    activeGalleryModalIndex + direction + galleryModalItems.length
+  ) % galleryModalItems.length;
+  renderGalleryModalItem();
+};
+
+galleryModalCloseButtons.forEach((button) => {
+  button.addEventListener("click", closeGalleryModal);
+});
+
+galleryModalPrev?.addEventListener("click", () => moveGalleryModal(-1));
+galleryModalNext?.addEventListener("click", () => moveGalleryModal(1));
 
 const setupGalleryScroller = () => {
   if (!galleryStrips.length || !galleryProgress) return;
@@ -1061,6 +1188,9 @@ const getVimeoEmbedSrc = (url, options = {}) => {
       embedUrl.searchParams.set("api", "1");
       embedUrl.searchParams.set("player_id", options.playerId || "vhs-tv-player");
     }
+    if (Number.isFinite(Number(options.startTime)) && Number(options.startTime) > 0) {
+      embedUrl.hash = `t=${Math.floor(Number(options.startTime))}s`;
+    }
     embedUrl.searchParams.set("playsinline", "1");
     embedUrl.searchParams.set("title", "0");
     embedUrl.searchParams.set("byline", "0");
@@ -1074,6 +1204,64 @@ const getVimeoEmbedSrc = (url, options = {}) => {
   }
 };
 
+const getVimeoPlayerApi = () => window.Vimeo?.Player || null;
+
+const createVimeoPlayer = (iframe) => {
+  const Player = getVimeoPlayerApi();
+
+  if (!Player || !iframe) return null;
+
+  try {
+    return new Player(iframe);
+  } catch (error) {
+    console.warn("Vimeo player could not initialize:", error);
+    return null;
+  }
+};
+
+const getSafePlaybackTime = (value) => {
+  const number = Number(value);
+
+  return Number.isFinite(number) && number >= 0 ? number : 0;
+};
+
+const addVimeoStartHash = (src, seconds) => {
+  const time = getSafePlaybackTime(seconds);
+
+  if (!src || time <= 0.05) return src;
+
+  try {
+    const url = new URL(src);
+
+    url.hash = `t=${Math.floor(time)}s`;
+    return url.toString();
+  } catch {
+    return src;
+  }
+};
+
+const getVimeoPlayerTime = async (player, fallback = 0) => {
+  if (!player || typeof player.getCurrentTime !== "function") return getSafePlaybackTime(fallback);
+
+  try {
+    return getSafePlaybackTime(await player.getCurrentTime());
+  } catch {
+    return getSafePlaybackTime(fallback);
+  }
+};
+
+const setVimeoPlayerTime = async (player, seconds) => {
+  const time = getSafePlaybackTime(seconds);
+
+  if (!player || typeof player.setCurrentTime !== "function" || time <= 0.05) return;
+
+  try {
+    await player.setCurrentTime(time);
+  } catch (error) {
+    console.warn("Vimeo player seek failed:", error);
+  }
+};
+
 const isVideoModalOpen = () => Boolean(videoModal?.classList.contains("is-open"));
 
 const getVideoModalFocusableElements = () => {
@@ -1083,12 +1271,82 @@ const getVideoModalFocusableElements = () => {
     .filter((element) => !element.hasAttribute("disabled") && element.tabIndex >= 0);
 };
 
-const closePortfolioVideoModal = () => {
+const getTapeInlinePlaybackTime = async () => {
+  if (tapeInlineVimeoPlayer) {
+    tapePlaybackTime = await getVimeoPlayerTime(tapeInlineVimeoPlayer, tapePlaybackTime);
+    return tapePlaybackTime;
+  }
+
+  const video = tapeInlineVideoElement || tapePlayer?.querySelector("video");
+
+  if (video) {
+    tapePlaybackTime = getSafePlaybackTime(video.currentTime);
+  }
+
+  return tapePlaybackTime;
+};
+
+const getTapeModalPlaybackTime = async () => {
+  if (tapeModalVimeoPlayer) {
+    tapeModalPlaybackTime = await getVimeoPlayerTime(tapeModalVimeoPlayer, tapeModalPlaybackTime);
+  }
+
+  return tapeModalPlaybackTime;
+};
+
+const resetTapeModalPlayer = () => {
+  tapeModalVimeoPlayer = null;
+  tapeModalPlaybackTime = 0;
+};
+
+const seekAndResumeTapeInlinePlayer = async (seconds = tapePlaybackTime) => {
+  const time = getSafePlaybackTime(seconds);
+  const iframe = tapePlayer?.querySelector("iframe");
+  const video = tapeInlineVideoElement || tapePlayer?.querySelector("video");
+
+  tapePlaybackTime = time;
+
+  if (tapeInlineVimeoPlayer) {
+    await setVimeoPlayerTime(tapeInlineVimeoPlayer, time);
+
+    try {
+      await tapeInlineVimeoPlayer.setMuted?.(isTapeAudioMuted);
+      await tapeInlineVimeoPlayer.setVolume?.(isTapeAudioMuted ? 0 : 1);
+      await tapeInlineVimeoPlayer.play?.();
+      return;
+    } catch {
+      // Fall back to postMessage below.
+    }
+  }
+
+  if (iframe) {
+    if (time > 0.05) {
+      postVimeoPlayerCommand(iframe, "setCurrentTime", time);
+    }
+    postVimeoPlayerCommand(iframe, "play");
+    postVimeoPlayerCommand(iframe, "setMuted", isTapeAudioMuted);
+    postVimeoPlayerCommand(iframe, "setVolume", isTapeAudioMuted ? 0 : 1);
+  }
+
+  if (video) {
+    try {
+      video.currentTime = time;
+    } catch {}
+
+    video.muted = isTapeAudioMuted;
+    video.volume = isTapeAudioMuted ? 0 : 1;
+    video.play().catch(() => {});
+  }
+};
+
+const closePortfolioVideoModal = async () => {
   if (!videoModal) return;
 
   const resumeTapeAfterClose = shouldResumeTapeAfterModalClose;
+  const nextTapeTime = resumeTapeAfterClose ? await getTapeModalPlaybackTime() : tapePlaybackTime;
 
   shouldResumeTapeAfterModalClose = false;
+  resetTapeModalPlayer();
   videoModal.classList.remove("is-open");
   videoModal.setAttribute("aria-hidden", "true");
   videoModalPlayer?.replaceChildren();
@@ -1103,14 +1361,22 @@ const closePortfolioVideoModal = () => {
   }
 
   if (resumeTapeAfterClose) {
-    resumeTapeInlinePlayer();
+    await seekAndResumeTapeInlinePlayer(nextTapeTime);
   }
 };
 
-const openPortfolioVideoModal = ({ title, embedSrc, trigger, number }) => {
+const openPortfolioVideoModal = ({
+  title,
+  embedSrc,
+  trigger,
+  number,
+  syncTape = false,
+  startTime = 0
+}) => {
   if (!videoModal || !videoModalPlayer || !embedSrc) return false;
 
   const iframe = document.createElement("iframe");
+  const modalStartTime = getSafePlaybackTime(startTime);
 
   iframe.title = title || "Portfolio video";
   iframe.src = embedSrc;
@@ -1133,6 +1399,27 @@ const openPortfolioVideoModal = ({ title, embedSrc, trigger, number }) => {
   videoModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-video-modal-open");
 
+  resetTapeModalPlayer();
+
+  if (syncTape) {
+    tapeModalPlaybackTime = modalStartTime;
+    tapeModalVimeoPlayer = createVimeoPlayer(iframe);
+
+    if (tapeModalVimeoPlayer) {
+      const modalPlayerReady = tapeModalVimeoPlayer.ready?.() || Promise.resolve();
+
+      modalPlayerReady
+        .then(async () => {
+          await setVimeoPlayerTime(tapeModalVimeoPlayer, modalStartTime);
+          await tapeModalVimeoPlayer.play?.();
+        })
+        .catch(() => {});
+      tapeModalVimeoPlayer.on?.("timeupdate", (data) => {
+        tapeModalPlaybackTime = getSafePlaybackTime(data?.seconds);
+      });
+    }
+  }
+
   window.requestAnimationFrame(() => {
     videoModal.querySelector(".video-modal__close")?.focus({ preventScroll: true });
   });
@@ -1145,6 +1432,47 @@ videoModalCloseButtons.forEach((button) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (isGalleryModalOpen()) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeGalleryModal();
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      moveGalleryModal(-1);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      moveGalleryModal(1);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(galleryModal?.querySelectorAll("button, [href], [tabindex]:not([tabindex='-1'])") || [])
+      .filter((element) => !element.hasAttribute("disabled") && !element.hasAttribute("hidden") && element.tabIndex >= 0);
+
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+
+    return;
+  }
+
   if (!isVideoModalOpen()) return;
 
   if (event.key === "Escape") {
@@ -1173,6 +1501,13 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("focusin", (event) => {
+  if (isGalleryModalOpen() && galleryModal) {
+    if (event.target instanceof Node && galleryModal.contains(event.target)) return;
+
+    galleryModal.querySelector(".gallery-modal__close")?.focus({ preventScroll: true });
+    return;
+  }
+
   if (!isVideoModalOpen() || !videoModal) return;
   if (event.target instanceof Node && videoModal.contains(event.target)) return;
 
@@ -1742,6 +2077,11 @@ const setTapeAudioMuted = (isMuted) => {
 
   isTapeAudioMuted = Boolean(isMuted);
 
+  if (tapeInlineVimeoPlayer) {
+    tapeInlineVimeoPlayer.setMuted?.(isTapeAudioMuted)?.catch?.(() => {});
+    tapeInlineVimeoPlayer.setVolume?.(isTapeAudioMuted ? 0 : 1)?.catch?.(() => {});
+  }
+
   if (iframe) {
     postVimeoPlayerCommand(iframe, "setMuted", isTapeAudioMuted);
     postVimeoPlayerCommand(iframe, "setVolume", isTapeAudioMuted ? 0 : 1);
@@ -1767,6 +2107,10 @@ const pauseTapeInlinePlayer = () => {
   const iframe = tapePlayer?.querySelector("iframe");
   const video = tapePlayer?.querySelector("video");
 
+  if (tapeInlineVimeoPlayer) {
+    tapeInlineVimeoPlayer.pause?.()?.catch?.(() => {});
+  }
+
   if (iframe) {
     postVimeoPlayerCommand(iframe, "pause");
   }
@@ -1777,33 +2121,25 @@ const pauseTapeInlinePlayer = () => {
 };
 
 resumeTapeInlinePlayer = () => {
-  const iframe = tapePlayer?.querySelector("iframe");
-  const video = tapePlayer?.querySelector("video");
-
-  if (iframe) {
-    postVimeoPlayerCommand(iframe, "play");
-    postVimeoPlayerCommand(iframe, "setMuted", isTapeAudioMuted);
-    postVimeoPlayerCommand(iframe, "setVolume", isTapeAudioMuted ? 0 : 1);
-  }
-
-  if (video) {
-    video.muted = isTapeAudioMuted;
-    video.volume = isTapeAudioMuted ? 0 : 1;
-    video.play().catch(() => {});
-  }
+  seekAndResumeTapeInlinePlayer(tapePlaybackTime);
 };
 
-const openTapeFullscreen = () => {
-  const embedSrc = tapePlayer?.dataset.modalEmbedSrc || "";
+const openTapeFullscreen = async () => {
+  const baseEmbedSrc = tapePlayer?.dataset.modalEmbedSrc || "";
 
-  if (!embedSrc) return;
+  if (!baseEmbedSrc) return;
+
+  const startTime = await getTapeInlinePlaybackTime();
+  const embedSrc = addVimeoStartHash(baseEmbedSrc, startTime);
 
   shouldResumeTapeAfterModalClose = false;
   const didOpen = openPortfolioVideoModal({
     title: tapePlayer?.dataset.activeTape || "Tape video",
     embedSrc,
     trigger: tapeExpandButton,
-    number: "VHS"
+    number: "VHS",
+    syncTape: true,
+    startTime
   });
 
   if (didOpen) {
@@ -1823,10 +2159,17 @@ const loadTapeVideo = (cassette) => {
     playerId: "vhs-tv-player"
   })
     || (tape.vimeoId ? getVimeoPlayerSrc(tape.vimeoId) : "");
-  const modalEmbedSrc = getVimeoEmbedSrc(tape.vimeoUrl || tape.vimeoId);
+  const modalEmbedSrc = getVimeoEmbedSrc(tape.vimeoUrl || tape.vimeoId, {
+    api: true,
+    playerId: "vhs-modal-player"
+  });
   const hasTapeVideo = Boolean(embedSrc || tape.videoSrc);
 
   shouldResumeTapeAfterModalClose = false;
+  tapePlaybackTime = 0;
+  tapeInlineVimeoPlayer = null;
+  tapeInlineVideoElement = null;
+  resetTapeModalPlayer();
   isTapeVideoPlaying = hasTapeVideo;
   tvPowerController?.powerOn({ startAudio: !hasTapeVideo });
   if (hasTapeVideo) {
@@ -1855,6 +2198,22 @@ const loadTapeVideo = (cassette) => {
     tapePlayer.append(frame);
     tapePlayer.classList.add("has-player");
     tapePlayer.dataset.modalEmbedSrc = modalEmbedSrc || embedSrc;
+    tapeInlineVimeoPlayer = createVimeoPlayer(iframe);
+
+    if (tapeInlineVimeoPlayer) {
+      tapeInlineVimeoPlayer.on?.("timeupdate", (data) => {
+        tapePlaybackTime = getSafePlaybackTime(data?.seconds);
+      });
+      tapeInlineVimeoPlayer.on?.("play", () => {
+        isTapeVideoPlaying = true;
+      });
+      tapeInlineVimeoPlayer.on?.("pause", () => {
+        if (!shouldResumeTapeAfterModalClose) {
+          isTapeVideoPlaying = false;
+        }
+      });
+    }
+
     setTapeControlsVisible(true);
   } else if (tape.videoSrc) {
     const video = document.createElement("video");
@@ -1864,9 +2223,21 @@ const loadTapeVideo = (cassette) => {
     video.controls = false;
     video.muted = true;
     video.playsInline = true;
+    video.addEventListener("timeupdate", () => {
+      tapePlaybackTime = getSafePlaybackTime(video.currentTime);
+    });
+    video.addEventListener("play", () => {
+      isTapeVideoPlaying = true;
+    });
+    video.addEventListener("pause", () => {
+      if (!shouldResumeTapeAfterModalClose) {
+        isTapeVideoPlaying = false;
+      }
+    });
 
     tapePlayer.append(video);
     tapePlayer.classList.add("has-player");
+    tapeInlineVideoElement = video;
     video.play().catch(() => {});
   }
 
@@ -1885,6 +2256,10 @@ const clearTapeVideo = () => {
   tapePlayer.classList.remove("has-player", "is-active");
   shouldResumeTapeAfterModalClose = false;
   isTapeVideoPlaying = false;
+  tapePlaybackTime = 0;
+  tapeInlineVimeoPlayer = null;
+  tapeInlineVideoElement = null;
+  resetTapeModalPlayer();
   delete tapePlayer.dataset.activeTape;
   delete tapePlayer.dataset.modalEmbedSrc;
   tapePlayer.removeAttribute("aria-label");
@@ -2591,7 +2966,7 @@ if (scene && content && sceneLoader) {
   window.addEventListener(
     "wheel",
     (event) => {
-      if (isVideoModalOpen()) {
+      if (isVideoModalOpen() || isGalleryModalOpen()) {
         event.preventDefault();
         return;
       }
@@ -2646,7 +3021,7 @@ if (scene && content && sceneLoader) {
   window.addEventListener(
     "touchmove",
     (event) => {
-      if (isVideoModalOpen()) {
+      if (isVideoModalOpen() || isGalleryModalOpen()) {
         event.preventDefault();
         return;
       }

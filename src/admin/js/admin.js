@@ -32,6 +32,10 @@ const state = {
     token: 0
   },
   videos: [],
+  videoEdit: {
+    id: null,
+    isSaving: false
+  },
   pendingDelete: null,
   posterPicker: {
     player: null,
@@ -91,14 +95,11 @@ const dom = {
   tapeOrderList: document.querySelector("[data-tape-order-list]"),
   tapeOrderCount: document.querySelector("[data-tape-order-count]"),
   tapeOrderStatus: document.querySelector("[data-tape-order-status]"),
-  videoTapePanel: document.querySelector("[data-video-tape-panel]"),
   videoTapePreview: document.querySelector("[data-video-tape-preview]"),
   tapePicker: document.querySelector("[data-tape-picker]"),
   tapePickerMode: document.querySelector("[data-tape-picker-mode]"),
-  tapeTextureSummary: document.querySelector("[data-tape-texture-summary]"),
   tapeTextureOptions: document.querySelector("[data-tape-texture-options]"),
   tapeTitleInput: document.querySelector("[data-tape-title-input]"),
-  tapePickerOpen: document.querySelector("[data-open-tape-picker]"),
   posterPicker: document.querySelector("[data-poster-picker]"),
   posterPlayer: document.querySelector("[data-poster-player]"),
   posterControls: document.querySelector("[data-poster-controls]"),
@@ -110,6 +111,9 @@ const dom = {
   posterMessage: document.querySelector("[data-poster-picker-message]"),
   posterUseFrame: document.querySelector("[data-use-poster-frame]"),
   videoList: document.querySelector("[data-video-list]"),
+  videoEditModal: document.querySelector("[data-video-edit-modal]"),
+  videoEditSummary: document.querySelector("[data-video-edit-summary]"),
+  videoEditForm: document.querySelector("[data-video-edit-form]"),
   logout: document.querySelector("[data-logout]"),
   toast: document.querySelector("[data-toast]"),
   deleteModal: document.querySelector("[data-delete-modal]"),
@@ -2032,12 +2036,7 @@ const renderVideos = () => {
   }
 
   dom.videoList.innerHTML = getOrderedVideoItems().map((video, index) => {
-    const posterMode = getVideoPosterMode(video);
-    const posterModeLabel = getPosterModeLabel(posterMode, video.poster_time);
-    const manualPosterLabel = posterMode === "manual" ? getVideoManualPosterLabel(video) : "";
     const isTape = isVideoTapeEnabled(video);
-    const tapeTexture = normalizeTapeTextureKey(video.tape_texture);
-    const tapeTitle = getVideoTapeTitle(video);
     const tapeOrder = getVideoTapeSortOrder(video);
 
     return `
@@ -2052,39 +2051,19 @@ const renderVideos = () => {
               <span class="pill">Order ${index + 1}</span>
               ${video.featured ? `<span class="pill pill--featured">Featured</span>` : `<span class="pill">Standard</span>`}
               ${isTape ? `<span class="pill pill--tape">Tape${tapeOrder ? ` ${escapeHtml(tapeOrder)}` : ""}</span>` : ""}
-              ${isTape ? `<span class="pill">Tape texture: ${escapeHtml(tapeTexture.toUpperCase())}</span>` : ""}
-              ${isTape ? `<span class="pill">Tape title: ${escapeHtml(tapeTitle)}</span>` : ""}
               ${video.thumbnail_gif_url ? `<span class="pill">GIF</span>` : ""}
-              ${posterMode ? `<span class="pill">Poster mode: ${escapeHtml(posterModeLabel)}</span>` : `<span class="pill">Poster mode: None</span>`}
-              ${manualPosterLabel ? `<span class="pill">Poster: ${escapeHtml(manualPosterLabel)}</span>` : ""}
+              ${video.poster_url ? `<span class="pill">Poster</span>` : ""}
               ${!video.thumbnail_gif_url && !video.poster_url ? `<span class="pill">No image</span>` : ""}
             </div>
-            <button class="icon-button media-card__delete" type="button" data-delete-video="${escapeHtml(video.id)}" title="Delete video" aria-label="Delete video">
-              <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
-            </button>
-          </div>
-          <form class="media-card__tape-form${isTape ? " is-tape-enabled" : ""}" data-video-tape-form data-video-id="${escapeHtml(video.id)}">
-            <label class="switch media-card__tape-switch">
-              <input type="checkbox" name="tape_enabled"${isTape ? " checked" : ""}>
-              <span>TAPE</span>
-            </label>
-            <label class="watcher-field">
-              <span>Tape title</span>
-              <input type="text" name="tape_title" value="${escapeHtml(tapeTitle)}" placeholder="${escapeHtml(video.title || "Cassette label")}">
-            </label>
-            <label class="watcher-field">
-              <span>Texture</span>
-              <select name="tape_texture">
-                ${getTapeTextureOptionsMarkup(tapeTexture)}
-              </select>
-            </label>
-            <div class="tape-preview tape-preview--compact" data-card-tape-preview>
-              ${getTapePreviewMarkup({ enabled: isTape, title: tapeTitle, texture: tapeTexture })}
+            <div class="media-card__actions">
+              <button class="icon-button media-card__edit" type="button" data-edit-video="${escapeHtml(video.id)}" title="Edit video" aria-label="Edit video">
+                <svg class="icon" aria-hidden="true"><use href="#icon-pencil"></use></svg>
+              </button>
+              <button class="icon-button media-card__delete" type="button" data-delete-video="${escapeHtml(video.id)}" title="Delete video" aria-label="Delete video">
+                <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+              </button>
             </div>
-            <button class="secondary-button media-card__tape-save" type="submit">
-              <span>Save tape</span>
-            </button>
-          </form>
+          </div>
         </div>
       </article>
     `;
@@ -2577,10 +2556,6 @@ const getVideoTapePayload = (tapeState, sourceVideo = {}) => {
 const syncTapePickerUi = (tapeState) => {
   const texture = normalizeTapeTextureKey(tapeState.texture);
 
-  if (dom.tapeTextureSummary) {
-    dom.tapeTextureSummary.textContent = `Texture: ${texture.toUpperCase()}`;
-  }
-
   if (dom.tapePickerMode) {
     dom.tapePickerMode.textContent = texture.toUpperCase();
   }
@@ -2598,7 +2573,7 @@ const syncTapePickerUi = (tapeState) => {
 };
 
 const syncVideoTapePanel = () => {
-  if (!dom.videoForm || !dom.videoTapePanel) return;
+  if (!dom.videoForm) return;
 
   const tapeState = getVideoFormTapeState(dom.videoForm);
   const tapeTextureInput = dom.videoForm.elements.tape_texture;
@@ -2607,7 +2582,6 @@ const syncVideoTapePanel = () => {
     tapeTextureInput.value = tapeState.texture;
   }
 
-  dom.videoTapePanel.hidden = !tapeState.enabled;
   if (dom.tapePicker) {
     dom.tapePicker.hidden = !tapeState.enabled;
   }
@@ -2626,6 +2600,320 @@ const setVideoFormTapeTexture = (textureKey) => {
 
   syncVideoTapePanel();
   updateVideoPreview();
+};
+
+const getVideoEditStatus = () => dom.videoEditForm?.querySelector("[data-video-edit-status]");
+
+const setVideoEditStatus = (message = "", tone = "") => {
+  const status = getVideoEditStatus();
+
+  if (!status) return;
+
+  status.textContent = message;
+  status.classList.toggle("is-saving", tone === "saving");
+  status.classList.toggle("is-success", tone === "success");
+  status.classList.toggle("is-error", tone === "error");
+};
+
+const getVideoById = (id) => state.videos.find((item) => String(item.id) === String(id));
+
+const getOptionalPositiveInteger = (value) => {
+  const cleanValue = String(value ?? "").trim();
+
+  if (!cleanValue) return null;
+
+  const number = Number.parseInt(cleanValue, 10);
+
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+const getOptionalPosterTime = (value) => {
+  const cleanValue = String(value ?? "").trim();
+
+  if (!cleanValue) return null;
+
+  const number = Number(cleanValue);
+
+  return Number.isFinite(number) && number >= 0 ? number : null;
+};
+
+const getVideoEditOrderValue = (video = {}) => {
+  const order = getVideoSortOrder(video);
+
+  return order === Number.MAX_SAFE_INTEGER ? "" : String(order);
+};
+
+const getVideoCurrentFileLabel = (video = {}, type = "poster") => {
+  if (type === "gif") {
+    return video.thumbnail_gif_file_name
+      || video.thumbnail_gif_storage_path
+      || (video.thumbnail_gif_url ? "Uploaded GIF" : "None");
+  }
+
+  return video.poster_file_name
+    || video.poster_storage_path
+    || (video.poster_url ? "Uploaded poster" : "None");
+};
+
+const getVideoEditMediaMarkup = (video = {}) => {
+  const media = getVideoMediaMarkup(video);
+
+  return media === "No image" ? `<span>No image</span>` : media;
+};
+
+const getVideoEditFormMarkup = (video) => {
+  const posterMode = getVideoPosterMode(video);
+  const posterTime = getOptionalPosterTime(video.poster_time);
+  const isTape = isVideoTapeEnabled(video);
+  const tapeTexture = normalizeTapeTextureKey(video.tape_texture);
+  const tapeTitle = getVideoTapeTitle(video);
+  const tapeSortOrder = getVideoTapeSortOrder(video);
+
+  return `
+    <div class="video-edit-form__grid">
+      <label class="field video-edit-form__wide">
+        <span>Title</span>
+        <input type="text" name="title" value="${escapeHtml(video.title || "")}" required>
+      </label>
+
+      <label class="field video-edit-form__wide">
+        <span>Vimeo URL</span>
+        <input type="url" name="vimeo_url" value="${escapeHtml(video.vimeo_url || "")}" required>
+      </label>
+
+      <label class="switch">
+        <input type="checkbox" name="featured"${video.featured ? " checked" : ""}>
+        <span>Featured</span>
+      </label>
+
+      <label class="field">
+        <span>Portfolio order</span>
+        <input type="number" name="sort_order" min="1" step="1" value="${escapeHtml(getVideoEditOrderValue(video))}">
+      </label>
+
+      <label class="field">
+        <span>Poster mode</span>
+        <select name="poster_mode">
+          <option value=""${posterMode ? "" : " selected"}>None</option>
+          <option value="manual"${posterMode === "manual" ? " selected" : ""}>Manual file</option>
+          <option value="vimeo_time"${posterMode === "vimeo_time" ? " selected" : ""}>Vimeo timestamp</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Poster time</span>
+        <input type="number" name="poster_time" min="0" step="0.1" value="${posterTime === null ? "" : escapeHtml(posterTime)}" placeholder="Seconds">
+      </label>
+
+      <section class="video-edit-form__media" aria-label="Video media">
+        <div class="video-edit-form__media-heading">
+          <h3>Media</h3>
+          <span>Replace files</span>
+        </div>
+
+        <div class="video-edit-preview" aria-label="Current video preview">
+          ${getVideoEditMediaMarkup(video)}
+        </div>
+
+        <div class="video-edit-current">
+          <dl class="preview-meta">
+            <div><dt>GIF</dt><dd>${escapeHtml(getVideoCurrentFileLabel(video, "gif"))}</dd></div>
+            <div><dt>Poster</dt><dd>${escapeHtml(getVideoCurrentFileLabel(video, "poster"))}</dd></div>
+            <div><dt>Poster mode</dt><dd>${escapeHtml(getPosterModeLabel(posterMode, video.poster_time))}</dd></div>
+          </dl>
+        </div>
+
+        <label class="field">
+          <span>GIF thumbnail</span>
+          <input type="file" name="thumbnail_gif" accept="image/gif">
+        </label>
+
+        <label class="field">
+          <span>Poster frame</span>
+          <input type="file" name="poster" accept="image/png,image/jpeg,image/webp">
+        </label>
+      </section>
+
+      <section class="video-edit-form__tape${isTape ? " is-tape-enabled" : ""}" aria-label="Tape settings">
+        <div class="video-edit-form__tape-heading">
+          <h3>Tape</h3>
+          <span data-video-edit-tape-mode>${isTape ? "On" : "Off"}</span>
+        </div>
+
+        <label class="switch">
+          <input type="checkbox" name="tape_enabled"${isTape ? " checked" : ""}>
+          <span>TAPE</span>
+        </label>
+
+        <label class="field">
+          <span>Tape order</span>
+          <input type="number" name="tape_sort_order" min="1" step="1" value="${tapeSortOrder ? escapeHtml(tapeSortOrder) : ""}">
+        </label>
+
+        <label class="field">
+          <span>Tape title</span>
+          <input type="text" name="tape_title" value="${escapeHtml(tapeTitle)}" placeholder="${escapeHtml(video.title || "Cassette label")}">
+        </label>
+
+        <label class="field">
+          <span>Texture</span>
+          <select name="tape_texture">
+            ${getTapeTextureOptionsMarkup(tapeTexture)}
+          </select>
+        </label>
+
+        <div class="video-edit-tape-preview" data-video-edit-tape-preview>
+          ${getTapePreviewMarkup({ enabled: isTape, title: tapeTitle, texture: tapeTexture })}
+        </div>
+      </section>
+
+      <p class="video-edit-form__status" data-video-edit-status role="status" aria-live="polite"></p>
+
+      <div class="video-edit-form__actions">
+        <button class="secondary-button" type="button" data-video-edit-close>
+          <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+          <span>Close</span>
+        </button>
+        <button class="primary-button" type="submit" data-video-edit-save>
+          <svg class="icon" aria-hidden="true"><use href="#icon-upload"></use></svg>
+          <span>Save video</span>
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+const syncVideoEditTapeUi = () => {
+  const form = dom.videoEditForm;
+  const video = getVideoById(state.videoEdit.id);
+
+  if (!form || !video) return;
+
+  const tapeState = getVideoFormTapeState(form, video);
+  const tapeSection = form.querySelector(".video-edit-form__tape");
+  const tapeMode = form.querySelector("[data-video-edit-tape-mode]");
+  const preview = form.querySelector("[data-video-edit-tape-preview]");
+
+  tapeSection?.classList.toggle("is-tape-enabled", tapeState.enabled);
+
+  if (tapeMode) {
+    tapeMode.textContent = tapeState.enabled ? "On" : "Off";
+  }
+
+  if (preview) {
+    preview.innerHTML = getTapePreviewMarkup(tapeState);
+  }
+};
+
+const syncVideoEditPosterUi = () => {
+  const form = dom.videoEditForm;
+
+  if (!form) return;
+
+  const posterInput = form.elements.poster;
+  const posterModeInput = form.elements.poster_mode;
+  const posterTimeInput = form.elements.poster_time;
+  const hasManualPoster = Boolean(posterInput?.files?.[0]);
+
+  if (hasManualPoster && posterModeInput) {
+    posterModeInput.value = "manual";
+  }
+
+  if (posterTimeInput) {
+    posterTimeInput.toggleAttribute("disabled", posterModeInput?.value !== "vimeo_time");
+  }
+};
+
+const openVideoEditModal = (id, trigger = null) => {
+  const video = getVideoById(id);
+
+  if (!video || !dom.videoEditModal || !dom.videoEditForm) {
+    showToast("Video was not found");
+    return;
+  }
+
+  state.videoEdit.id = String(video.id);
+  state.videoEdit.restoreFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+  state.videoEdit.isSaving = false;
+
+  if (dom.videoEditSummary) {
+    dom.videoEditSummary.textContent = video.title || video.vimeo_url || "Untitled video";
+  }
+
+  dom.videoEditForm.dataset.videoId = String(video.id);
+  dom.videoEditForm.innerHTML = getVideoEditFormMarkup(video);
+  dom.videoEditModal.hidden = false;
+  syncVideoEditTapeUi();
+  syncVideoEditPosterUi();
+
+  window.requestAnimationFrame(() => {
+    dom.videoEditForm?.elements.title?.focus({ preventScroll: true });
+  });
+};
+
+const closeVideoEditModal = () => {
+  if (!dom.videoEditModal) return;
+
+  dom.videoEditModal.hidden = true;
+  dom.videoEditForm?.replaceChildren();
+  state.videoEdit.id = null;
+  state.videoEdit.isSaving = false;
+
+  const focusTarget = state.videoEdit.restoreFocus;
+  state.videoEdit.restoreFocus = null;
+
+  if (focusTarget instanceof HTMLElement && document.contains(focusTarget)) {
+    focusTarget.focus({ preventScroll: true });
+  }
+};
+
+const collectVideoEditPayload = (form, video) => {
+  const title = form.elements.title.value.trim();
+  const vimeoUrl = form.elements.vimeo_url.value.trim();
+  const posterFile = form.elements.poster?.files[0] || null;
+  const thumbnailGif = form.elements.thumbnail_gif?.files[0] || null;
+  const posterMode = posterFile ? "manual" : normalizePosterMode(form.elements.poster_mode?.value);
+  const posterTime = posterMode === "vimeo_time" ? getOptionalPosterTime(form.elements.poster_time?.value) : null;
+  const sortOrder = getOptionalPositiveInteger(form.elements.sort_order?.value);
+  const tapeOrder = getOptionalPositiveInteger(form.elements.tape_sort_order?.value);
+
+  if (!title || !vimeoUrl) {
+    throw new Error("Title and Vimeo URL are required");
+  }
+
+  if (posterMode === "vimeo_time" && posterTime === null) {
+    throw new Error("Poster time is required for Vimeo timestamp mode");
+  }
+
+  const tapeState = getVideoFormTapeState(form, video);
+  const tapePayload = getVideoTapePayload(tapeState, video);
+
+  if (tapeState.enabled && tapeOrder !== null) {
+    tapePayload.tape_sort_order = tapeOrder;
+  }
+
+  const payload = {
+    title,
+    vimeo_url: vimeoUrl,
+    featured: Boolean(form.elements.featured?.checked),
+    poster_mode: posterMode || null,
+    poster_time: posterMode === "vimeo_time" ? posterTime : null,
+    ...tapePayload
+  };
+
+  if (sortOrder !== null) {
+    payload.sort_order = sortOrder;
+  }
+
+  return {
+    payload,
+    files: {
+      thumbnailGif,
+      poster: posterMode === "manual" ? posterFile : null
+    },
+    posterMode,
+    posterTime
+  };
 };
 
 const getVideoFormPosterState = (form) => {
@@ -3882,7 +4170,7 @@ dom.videoList?.addEventListener("pointerdown", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   const card = target?.closest("[data-video-card]");
 
-  if (!card || target.closest("button, input, textarea, select, label, .media-card__tape-form")) return;
+  if (!card || target.closest("button, input, textarea, select, label")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
 
   const list = card.closest("[data-video-list]");
@@ -3907,71 +4195,6 @@ window.addEventListener("pointermove", handleVideoDragMove, { passive: false });
 window.addEventListener("pointerup", finishVideoDrag);
 window.addEventListener("pointercancel", finishVideoDrag);
 
-const syncVideoCardTapeForm = (form) => {
-  const id = form?.dataset.videoId;
-  const video = state.videos.find((item) => String(item.id) === String(id));
-  const preview = form?.querySelector("[data-card-tape-preview]");
-
-  if (!form || !preview) return;
-
-  const tapeState = getVideoFormTapeState(form, video || {});
-
-  form.classList.toggle("is-tape-enabled", tapeState.enabled);
-  preview.innerHTML = getTapePreviewMarkup(tapeState);
-};
-
-dom.videoList?.addEventListener("input", (event) => {
-  const form = event.target instanceof Element ? event.target.closest("[data-video-tape-form]") : null;
-
-  if (form) {
-    syncVideoCardTapeForm(form);
-  }
-});
-
-dom.videoList?.addEventListener("change", (event) => {
-  const form = event.target instanceof Element ? event.target.closest("[data-video-tape-form]") : null;
-
-  if (form) {
-    syncVideoCardTapeForm(form);
-  }
-});
-
-dom.videoList?.addEventListener("submit", async (event) => {
-  const form = event.target.closest("[data-video-tape-form]");
-
-  if (!form) return;
-
-  event.preventDefault();
-
-  const id = form.dataset.videoId;
-  const video = state.videos.find((item) => String(item.id) === String(id));
-  const submit = form.querySelector("button[type='submit']");
-
-  if (!video) {
-    showToast("Video was not found");
-    return;
-  }
-
-  const tapeState = getVideoFormTapeState(form, video);
-  const payload = getVideoTapePayload(tapeState, video);
-
-  submit?.setAttribute("disabled", "true");
-
-  try {
-    const result = await service.updateVideoItem(id, payload);
-
-    renderTapeOrderBox();
-    renderVideos();
-    renderPortfolioIndicators();
-    showCleanupAwareToast(tapeState.enabled ? "Tape settings saved" : "Tape disabled", result);
-  } catch (error) {
-    console.error("Tape settings save error:", error);
-    showToast(error.message || "Could not save tape settings");
-  } finally {
-    submit?.removeAttribute("disabled");
-  }
-});
-
 dom.videoList?.addEventListener("click", async (event) => {
   if (shouldSuppressVideoClick && event.target.closest("[data-video-card]")) {
     event.preventDefault();
@@ -3979,10 +4202,123 @@ dom.videoList?.addEventListener("click", async (event) => {
     return;
   }
 
+  const editButton = event.target.closest("[data-edit-video]");
   const deleteButton = event.target.closest("[data-delete-video]");
+
+  if (editButton) {
+    openVideoEditModal(editButton.dataset.editVideo, editButton);
+    return;
+  }
 
   if (deleteButton) {
     await deleteItemImmediately("video", deleteButton.dataset.deleteVideo);
+  }
+});
+
+dom.videoEditModal?.addEventListener("click", (event) => {
+  if (state.videoEdit.isSaving) return;
+
+  if (event.target.closest("[data-video-edit-close]")) {
+    closeVideoEditModal();
+  }
+});
+
+dom.videoEditForm?.addEventListener("input", (event) => {
+  if (!event.target?.name) return;
+
+  if (["tape_enabled", "tape_title", "tape_texture"].includes(event.target.name)) {
+    syncVideoEditTapeUi();
+  }
+
+  if (["poster", "poster_mode"].includes(event.target.name)) {
+    syncVideoEditPosterUi();
+  }
+});
+
+dom.videoEditForm?.addEventListener("change", (event) => {
+  if (!event.target?.name) return;
+
+  if (["tape_enabled", "tape_title", "tape_texture"].includes(event.target.name)) {
+    syncVideoEditTapeUi();
+  }
+
+  if (["poster", "poster_mode"].includes(event.target.name)) {
+    syncVideoEditPosterUi();
+  }
+});
+
+dom.videoEditForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (state.videoEdit.isSaving) return;
+
+  const form = event.currentTarget;
+  const id = form.dataset.videoId || state.videoEdit.id;
+  const video = getVideoById(id);
+  const submit = form.querySelector("[data-video-edit-save]");
+
+  if (!video) {
+    setVideoEditStatus("Video was not found", "error");
+    return;
+  }
+
+  let editState;
+
+  try {
+    editState = collectVideoEditPayload(form, video);
+  } catch (error) {
+    setVideoEditStatus(error.message || "Could not read video fields", "error");
+    return;
+  }
+
+  state.videoEdit.isSaving = true;
+  submit?.setAttribute("disabled", "true");
+  setVideoEditStatus("Saving video...", "saving");
+
+  let didSaveVideo = false;
+
+  try {
+    let result = await service.updateVideoItem(id, editState.payload, editState.files);
+    didSaveVideo = true;
+
+    renderTapeOrderBox();
+    renderVideos();
+    renderPortfolioIndicators();
+
+    if (editState.posterMode === "vimeo_time") {
+      setVideoEditStatus("Video saved. Generating Vimeo poster...", "saving");
+      const updatedVideo = getVideoById(id) || result;
+      const posterResult = await service.generateVimeoPoster(updatedVideo, {
+        time: editState.posterTime
+      });
+
+      if (posterResult?.cleanupWarnings?.length) {
+        result = {
+          ...result,
+          cleanupWarnings: [
+            ...(result?.cleanupWarnings || []),
+            ...posterResult.cleanupWarnings
+          ]
+        };
+      }
+    }
+
+    renderTapeOrderBox();
+    renderVideos();
+    renderPortfolioIndicators();
+    setVideoEditStatus("Video saved successfully.", "success");
+    showCleanupAwareToast("Video saved", result);
+  } catch (error) {
+    console.error("Video edit save error:", error);
+    const message = didSaveVideo
+      ? `Video saved, poster update failed: ${error.message || "Unknown error"}`
+      : error.message || "Could not save video";
+
+    setVideoEditStatus(message, "error");
+    showToast(message);
+  } finally {
+    state.videoEdit.isSaving = false;
+    submit?.removeAttribute("disabled");
   }
 });
 
@@ -4087,6 +4423,9 @@ dom.watcherModal?.addEventListener("submit", async (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeDeleteModal();
+    if (!state.videoEdit.isSaving) {
+      closeVideoEditModal();
+    }
     closeWatcherModal();
   }
 });
@@ -4199,15 +4538,6 @@ dom.videoForm?.addEventListener("input", (event) => {
 
 dom.posterSlider?.addEventListener("input", handlePosterSliderInput);
 dom.posterUseFrame?.addEventListener("click", handleUseCurrentFrame);
-
-dom.tapePickerOpen?.addEventListener("click", () => {
-  if (!dom.videoForm) return;
-
-  dom.videoForm.elements.tape_enabled.checked = true;
-  syncVideoTapePanel();
-  dom.tapePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  dom.tapeTitleInput?.focus({ preventScroll: true });
-});
 
 dom.tapePicker?.addEventListener("input", (event) => {
   if (event.target?.name === "tape_title") {
