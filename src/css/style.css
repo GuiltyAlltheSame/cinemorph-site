@@ -2014,7 +2014,7 @@ body.is-gallery-progress-dragging {
 .gallery-strip__item {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 17 / 9;
   flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
@@ -2662,7 +2662,7 @@ body.is-gallery-progress-dragging {
   height:100%;
   max-height:calc(100svh - clamp(86px, 12vw, 156px));
   object-fit:contain;
-  object-position:var(--gallery-focus-x, 50%) var(--gallery-focus-y, 50%);
+  object-position:center;
   background:#050606;
 }
 .gallery-modal__nav{
@@ -3252,6 +3252,15 @@ body.is-gallery-progress-dragging {
 }
 
 @media (max-width: 700px) {
+  .section {
+    height: auto;
+    block-size: auto;
+    min-height: 100vh;
+    min-block-size: 100svh;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
+
   .section h1,
   .section h2 {
     font-size: 2.5rem;
@@ -3294,6 +3303,29 @@ body.is-gallery-progress-dragging {
     max-width: 100%;
   }
 
+  .team-card {
+    pointer-events: none;
+  }
+
+  .team-card:hover .team-card__avatar,
+  .team-card:focus-within .team-card__avatar {
+    filter: grayscale(1) brightness(.82) contrast(1.08);
+    transform: none;
+  }
+
+  .team-card.is-mobile-viewport-active .team-card__avatar {
+    filter: grayscale(.2) brightness(.96) contrast(1.02);
+    transform: scale(1.018);
+  }
+
+  #contact {
+    --section-padding-bottom: calc(clamp(96px, 22vw, 132px) + var(--site-menu-height));
+  }
+
+  .contact {
+    gap:10px;
+  }
+
   .contact__actions {
     grid-template-columns:1fr;
     gap:10px;
@@ -3305,6 +3337,16 @@ body.is-gallery-progress-dragging {
 
   .reference-input {
     width:100%;
+  }
+
+  .textarea {
+    min-height:132px;
+  }
+
+  .cf-turnstile {
+    max-width:100%;
+    min-height:65px;
+    overflow:hidden;
   }
 
   .about-team {
@@ -3331,6 +3373,23 @@ body.is-gallery-progress-dragging {
     grid-auto-rows:auto;
     column-gap: 0;
     row-gap: 18px;
+  }
+
+  .card,
+  .ph-thumb,
+  .gallery-strip__item {
+    touch-action: pan-y;
+  }
+
+  .card:hover .portfolio-poster,
+  .card:focus-within .portfolio-poster {
+    opacity:.74;
+    transform:none;
+  }
+
+  .card.is-mobile-viewport-active .portfolio-poster {
+    opacity:.96;
+    transform:scale(1.025);
   }
 
   .card--feature {
@@ -3462,7 +3521,7 @@ body.is-gallery-progress-dragging {
   }
 
   .gallery-strip__item {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 17 / 9;
     flex: 0 0 auto;
     width: 100%;
     height: auto;
@@ -3477,6 +3536,14 @@ body.is-gallery-progress-dragging {
 
   .gallery-strip__item img {
     transform: scale(1);
+  }
+
+  .gallery-strip__item.is-mobile-viewport-active {
+    opacity:1;
+  }
+
+  .gallery-strip__item.is-mobile-viewport-active img {
+    transform:scale(1.04);
   }
 
   .gallery-progress {

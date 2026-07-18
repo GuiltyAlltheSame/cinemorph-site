@@ -24,6 +24,11 @@ const state = {
     x: 50,
     y: 50
   },
+  galleryCrop: {
+    x: 50,
+    y: 50,
+    zoom: 1
+  },
   galleryPreview: {
     file: null,
     url: "",
@@ -89,6 +94,13 @@ const dom = {
   galleryFocusPreview: document.querySelector("[data-gallery-focus-preview]"),
   galleryFocusReadout: document.querySelector("[data-gallery-focus-readout]"),
   galleryFocusReset: document.querySelector("[data-gallery-focus-reset]"),
+  galleryCropPanel: document.querySelector("[data-gallery-crop-panel]"),
+  galleryCropStage: document.querySelector("[data-gallery-crop-stage]"),
+  galleryCropReadout: document.querySelector("[data-gallery-crop-readout]"),
+  galleryCropX: document.querySelector("[data-gallery-crop-x]"),
+  galleryCropY: document.querySelector("[data-gallery-crop-y]"),
+  galleryCropZoom: document.querySelector("[data-gallery-crop-zoom]"),
+  galleryCropReset: document.querySelector("[data-gallery-crop-reset]"),
   galleryList: document.querySelector("[data-gallery-list]"),
   videoForm: document.querySelector("[data-video-form]"),
   videoPreview: document.querySelector("[data-video-preview]"),
@@ -719,14 +731,17 @@ const sanitizeFileName = (name) => String(name || "upload")
   .replace(/^-+|-+$/g, "");
 
 const galleryFormat = {
-  placement: "16:9",
-  label: "16:9",
-  previewClass: "landscape",
+  placement: "17:9",
+  label: "17:9",
+  previewClass: "gallery",
   storageFolder: "stills"
 };
 
 const getGalleryFormat = () => galleryFormat;
 const galleryFocusDefault = { x: 50, y: 50 };
+const galleryCropDefault = { x: 50, y: 50, zoom: 1 };
+const galleryCropMaxZoom = 3;
+const galleryTargetRatio = 17 / 9;
 
 const normalizeGalleryFocusValue = (value) => {
   const number = Number.parseFloat(value);
@@ -747,56 +762,165 @@ const getGalleryFocusStyle = (item = {}) => {
   return `object-position: ${focus.x}% ${focus.y}%; transform-origin: ${focus.x}% ${focus.y}%;`;
 };
 
-const getGalleryCropWindow = (source = state.galleryPreview, item = state.galleryFocus) => {
+const normalizeGalleryCropValue = (value) => {
+  const number = Number.parseFloat(value);
+
+  if (!Number.isFinite(number)) return 50;
+
+  return Math.max(0, Math.min(100, Math.round(number * 10) / 10));
+};
+
+const normalizeGalleryCropZoom = (value) => {
+  const number = Number.parseFloat(value);
+
+  if (!Number.isFinite(number)) return 1;
+
+  return Math.max(1, Math.min(galleryCropMaxZoom, Math.round(number * 100) / 100));
+};
+
+const getGalleryCrop = (item = {}) => ({
+  x: normalizeGalleryCropValue(item.x ?? galleryCropDefault.x),
+  y: normalizeGalleryCropValue(item.y ?? galleryCropDefault.y),
+  zoom: normalizeGalleryCropZoom(item.zoom ?? galleryCropDefault.zoom)
+});
+
+const getGalleryCropWindow = (source = state.galleryPreview, item = state.galleryCrop) => {
   const width = Number(source?.width) || 0;
   const height = Number(source?.height) || 0;
+  const crop = getGalleryCrop(item);
 
   if (!width || !height) {
     return {
       left: 0,
       top: 0,
       width: 100,
-      height: 100
+      height: 100,
+      centerX: crop.x,
+      centerY: crop.y
     };
   }
 
-  const focus = getGalleryFocus(item);
   const sourceRatio = width / height;
-  const targetRatio = 16 / 9;
+  let cropWidth = 100;
+  let cropHeight = 100;
 
-  if (sourceRatio > targetRatio) {
-    const cropWidth = (targetRatio / sourceRatio) * 100;
-
-    return {
-      left: (100 - cropWidth) * (focus.x / 100),
-      top: 0,
-      width: cropWidth,
-      height: 100
-    };
+  if (sourceRatio > galleryTargetRatio) {
+    cropWidth = (galleryTargetRatio / sourceRatio) * 100;
+  } else if (sourceRatio < galleryTargetRatio) {
+    cropHeight = (sourceRatio / galleryTargetRatio) * 100;
   }
 
-  if (sourceRatio < targetRatio) {
-    const cropHeight = (sourceRatio / targetRatio) * 100;
+  cropWidth /= crop.zoom;
+  cropHeight /= crop.zoom;
 
-    return {
-      left: 0,
-      top: (100 - cropHeight) * (focus.y / 100),
-      width: 100,
-      height: cropHeight
-    };
-  }
+  const left = Math.max(0, Math.min(crop.x - cropWidth / 2, 100 - cropWidth));
+  const top = Math.max(0, Math.min(crop.y - cropHeight / 2, 100 - cropHeight));
 
   return {
-    left: 0,
-    top: 0,
-    width: 100,
-    height: 100
+    left,
+    top,
+    width: cropWidth,
+    height: cropHeight,
+    centerX: left + cropWidth / 2,
+    centerY: top + cropHeight / 2
   };
+};
+
+const isGalleryCropWindow = (item = {}) => (
+  Number.isFinite(Number(item.left))
+  && Number.isFinite(Number(item.top))
+  && Number.isFinite(Number(item.width))
+  && Number.isFinite(Number(item.height))
+);
+
+const getGalleryCropPlacement = (cropWindow = getGalleryCropWindow()) => {
+  const width = Math.max(0.0001, Number(cropWindow.width) || 100);
+  const height = Math.max(0.0001, Number(cropWindow.height) || 100);
+  const left = Number(cropWindow.left) || 0;
+  const top = Number(cropWindow.top) || 0;
+
+  return {
+    imageWidth: `${10000 / width}%`,
+    imageHeight: `${10000 / height}%`,
+    imageLeft: `${-(left / width) * 100}%`,
+    imageTop: `${-(top / height) * 100}%`
+  };
+};
+
+const applyGalleryCropPlacement = (element, cropWindow) => {
+  if (!element) return;
+
+  const placement = getGalleryCropPlacement(cropWindow);
+
+  element.style.setProperty("--crop-window-left", `${cropWindow.left}%`);
+  element.style.setProperty("--crop-window-top", `${cropWindow.top}%`);
+  element.style.setProperty("--crop-window-width", `${cropWindow.width}%`);
+  element.style.setProperty("--crop-window-height", `${cropWindow.height}%`);
+  element.style.setProperty("--crop-image-width", placement.imageWidth);
+  element.style.setProperty("--crop-image-height", placement.imageHeight);
+  element.style.setProperty("--crop-image-left", placement.imageLeft);
+  element.style.setProperty("--crop-image-top", placement.imageTop);
+};
+
+const getGalleryCropPixelWindow = (sourceWidth, sourceHeight, item = state.galleryCrop) => {
+  const cleanWidth = Math.max(1, Math.round(Number(sourceWidth) || 0));
+  const cleanHeight = Math.max(1, Math.round(Number(sourceHeight) || 0));
+  const sourceRatio = cleanWidth / cleanHeight;
+  const crop = getGalleryCrop(item);
+  let cropWidth = cleanWidth;
+  let cropHeight = cleanHeight;
+  let centerX = (crop.x / 100) * cleanWidth;
+  let centerY = (crop.y / 100) * cleanHeight;
+
+  if (isGalleryCropWindow(item)) {
+    cropWidth = (Math.max(0.0001, Number(item.width)) / 100) * cleanWidth;
+    cropHeight = (Math.max(0.0001, Number(item.height)) / 100) * cleanHeight;
+    centerX = ((Number(item.centerX) || (Number(item.left) + Number(item.width) / 2)) / 100) * cleanWidth;
+    centerY = ((Number(item.centerY) || (Number(item.top) + Number(item.height) / 2)) / 100) * cleanHeight;
+  } else if (sourceRatio > galleryTargetRatio) {
+    cropWidth = cleanHeight * galleryTargetRatio;
+  } else if (sourceRatio < galleryTargetRatio) {
+    cropHeight = cleanWidth / galleryTargetRatio;
+  }
+
+  if (!isGalleryCropWindow(item)) {
+    cropWidth /= crop.zoom;
+    cropHeight /= crop.zoom;
+  }
+
+  if (cropWidth / cropHeight > galleryTargetRatio) {
+    cropWidth = cropHeight * galleryTargetRatio;
+  } else {
+    cropHeight = cropWidth / galleryTargetRatio;
+  }
+
+  let pixelWidth = Math.max(1, Math.min(cleanWidth, Math.round(cropWidth)));
+  let pixelHeight = Math.max(1, Math.min(cleanHeight, Math.round(pixelWidth / galleryTargetRatio)));
+
+  if (pixelHeight > cleanHeight) {
+    pixelHeight = cleanHeight;
+    pixelWidth = Math.max(1, Math.min(cleanWidth, Math.round(pixelHeight * galleryTargetRatio)));
+  }
+
+  const sourceX = Math.max(0, Math.min(Math.round(centerX - pixelWidth / 2), cleanWidth - pixelWidth));
+  const sourceY = Math.max(0, Math.min(Math.round(centerY - pixelHeight / 2), cleanHeight - pixelHeight));
+
+  return {
+    sourceX,
+    sourceY,
+    sourceWidth: pixelWidth,
+    sourceHeight: pixelHeight
+  };
+};
+
+const getGalleryCropLabel = (crop = state.galleryCrop) => {
+  const cleanCrop = getGalleryCrop(crop);
+
+  return `${galleryFormat.label} / X ${cleanCrop.x}% / Y ${cleanCrop.y}% / Z ${cleanCrop.zoom.toFixed(2)}x`;
 };
 
 const syncGalleryFocusUi = () => {
   const focus = getGalleryFocus(state.galleryFocus);
-  const cropWindow = getGalleryCropWindow(state.galleryPreview, focus);
 
   state.galleryFocus = focus;
 
@@ -811,10 +935,6 @@ const syncGalleryFocusUi = () => {
   if (dom.galleryFocusPanel) {
     dom.galleryFocusPanel.style.setProperty("--focus-x", `${focus.x}%`);
     dom.galleryFocusPanel.style.setProperty("--focus-y", `${focus.y}%`);
-    dom.galleryFocusPanel.style.setProperty("--crop-left", `${cropWindow.left}%`);
-    dom.galleryFocusPanel.style.setProperty("--crop-top", `${cropWindow.top}%`);
-    dom.galleryFocusPanel.style.setProperty("--crop-width", `${cropWindow.width}%`);
-    dom.galleryFocusPanel.style.setProperty("--crop-height", `${cropWindow.height}%`);
   }
 
   if (dom.galleryPreview) {
@@ -840,6 +960,51 @@ const setGalleryFocus = (nextFocus = galleryFocusDefault) => {
 };
 
 const resetGalleryFocus = () => setGalleryFocus(galleryFocusDefault);
+
+const syncGalleryCropUi = () => {
+  const crop = getGalleryCrop(state.galleryCrop);
+  const cropWindow = getGalleryCropWindow(state.galleryPreview, crop);
+  const actualCrop = {
+    x: normalizeGalleryCropValue(cropWindow.centerX),
+    y: normalizeGalleryCropValue(cropWindow.centerY),
+    zoom: crop.zoom
+  };
+
+  state.galleryCrop = actualCrop;
+
+  if (dom.galleryCropX) dom.galleryCropX.value = String(actualCrop.x);
+  if (dom.galleryCropY) dom.galleryCropY.value = String(actualCrop.y);
+  if (dom.galleryCropZoom) dom.galleryCropZoom.value = actualCrop.zoom.toFixed(2);
+
+  [dom.galleryPreview, dom.galleryCropStage, dom.galleryFocusPreview].forEach((element) => {
+    if (!element) return;
+
+    element.style.setProperty("--crop-x", `${actualCrop.x}%`);
+    element.style.setProperty("--crop-y", `${actualCrop.y}%`);
+    element.style.setProperty("--crop-zoom", String(actualCrop.zoom));
+    applyGalleryCropPlacement(element, cropWindow);
+  });
+
+  dom.galleryPreview
+    ?.querySelector("[data-gallery-preview-crop]")
+    ?.replaceChildren(document.createTextNode(getGalleryCropLabel(actualCrop)));
+
+  if (dom.galleryCropReadout) {
+    dom.galleryCropReadout.textContent = getGalleryCropLabel(actualCrop);
+  }
+};
+
+const setGalleryCrop = (nextCrop = galleryCropDefault) => {
+  state.galleryCrop = {
+    x: normalizeGalleryCropValue(nextCrop.x ?? state.galleryCrop.x),
+    y: normalizeGalleryCropValue(nextCrop.y ?? state.galleryCrop.y),
+    zoom: normalizeGalleryCropZoom(nextCrop.zoom ?? state.galleryCrop.zoom)
+  };
+
+  syncGalleryCropUi();
+};
+
+const resetGalleryCrop = () => setGalleryCrop(galleryCropDefault);
 
 const revokeGalleryPreviewUrl = () => {
   if (state.galleryPreview.url) {
@@ -954,6 +1119,16 @@ const canvasToBlob = (canvas, type, quality) => new Promise((resolve) => {
   canvas.toBlob(resolve, type, quality);
 });
 
+const canCropGalleryFile = (file) => {
+  if (!file) return false;
+
+  const type = String(file.type || "").toLowerCase();
+
+  if (type.startsWith("image/")) return true;
+
+  return /\.(avif|bmp|gif|jpe?g|png|webp)$/i.test(String(file.name || ""));
+};
+
 const optimizeImageFile = async (file, options = {}) => {
   if (!canOptimizeImageFile(file)) return file;
 
@@ -982,6 +1157,48 @@ const optimizeImageFile = async (file, options = {}) => {
 
   if (!blob || (blob.size >= file.size && keepsOriginalDimensions)) {
     return file;
+  }
+
+  return new File([blob], getOptimizedFileName(file.name), {
+    type: blob.type || "image/webp",
+    lastModified: Date.now()
+  });
+};
+
+const createCroppedGalleryUploadFile = async (file, cropState = state.galleryCrop) => {
+  if (!canCropGalleryFile(file)) return file;
+
+  const image = await loadImageElement(file);
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  const cropWindow = getGalleryCropPixelWindow(sourceWidth, sourceHeight, cropState);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Could not prepare gallery crop");
+  }
+
+  canvas.width = cropWindow.sourceWidth;
+  canvas.height = cropWindow.sourceHeight;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    image,
+    cropWindow.sourceX,
+    cropWindow.sourceY,
+    cropWindow.sourceWidth,
+    cropWindow.sourceHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  const blob = await canvasToBlob(canvas, "image/webp", imageUploadDefaults.quality);
+
+  if (!blob) {
+    throw new Error("Could not export gallery crop");
   }
 
   return new File([blob], getOptimizedFileName(file.name), {
@@ -1345,11 +1562,8 @@ const service = {
     return { cleanupWarnings };
   },
 
-  async createGalleryItem(payload, file) {
-    const uploadFile = await optimizeImageFile(file, {
-      maxLongEdge: imageUploadDefaults.galleryMaxLongEdge,
-      quality: imageUploadDefaults.quality
-    });
+  async createGalleryItem(payload, file, cropWindow = state.galleryCrop) {
+    const uploadFile = await createCroppedGalleryUploadFile(file, cropWindow);
 
     const bucket = config.supabase.storage.galleryBucket;
     let upload = null;
@@ -2125,11 +2339,30 @@ const renderGalleryFocusPreview = (source, format) => {
 
   dom.galleryFocusPreview.innerHTML = `
     <div class="focus-control__frame focus-control__frame--${format.previewClass}">
-      <div class="focus-control__source">
-        <img class="focus-control__image" src="${escapeHtml(source.url)}" width="${sourceWidth}" height="${sourceHeight}" alt="">
-        <span class="focus-control__crop" aria-hidden="true"></span>
+      <div class="focus-control__source focus-control__source--cropped">
+        <img class="focus-control__image focus-control__image--cropped" src="${escapeHtml(source.url)}" width="${sourceWidth}" height="${sourceHeight}" alt="">
         <span class="focus-control__target" aria-hidden="true"></span>
       </div>
+    </div>
+  `;
+};
+
+const renderGalleryCropPreview = (source) => {
+  if (!dom.galleryCropStage) return;
+
+  if (!source?.url) {
+    dom.galleryCropStage.innerHTML = `<div class="crop-stage__empty">No image</div>`;
+    return;
+  }
+
+  const sourceWidth = Math.max(1, Math.round(Number(source.width) || 16));
+  const sourceHeight = Math.max(1, Math.round(Number(source.height) || 9));
+
+  dom.galleryCropStage.innerHTML = `
+    <div class="crop-stage__frame">
+      <img class="crop-stage__image" src="${escapeHtml(source.url)}" width="${sourceWidth}" height="${sourceHeight}" alt="">
+      <span class="crop-stage__edge crop-stage__edge--x" aria-hidden="true"></span>
+      <span class="crop-stage__edge crop-stage__edge--y" aria-hidden="true"></span>
     </div>
   `;
 };
@@ -2165,13 +2398,15 @@ const updateGalleryPreview = async () => {
       <div><dt>Title</dt><dd>${escapeHtml(title)}</dd></div>
       <div><dt>Alt text</dt><dd>${escapeHtml(altText)}</dd></div>
       <div><dt>File</dt><dd>${escapeHtml(file?.name || "No file selected")}</dd></div>
-      <div><dt>Crop</dt><dd>${escapeHtml(format.label)} cover</dd></div>
+      <div><dt>Crop</dt><dd data-gallery-preview-crop>${escapeHtml(getGalleryCropLabel())}</dd></div>
       <div><dt>Focus</dt><dd data-gallery-preview-focus>X ${focus.x}% / Y ${focus.y}%</dd></div>
     </dl>
   `;
 
   renderGalleryFocusPreview(source, format);
+  renderGalleryCropPreview(source);
   syncGalleryFocusUi();
+  syncGalleryCropUi();
 };
 
 const parseVimeoUrl = (value) => {
@@ -4492,11 +4727,100 @@ dom.galleryFocusPreview?.addEventListener("lostpointercapture", () => {
   dom.galleryFocusPreview?.classList.remove("is-targeting");
 });
 
+let galleryCropPointerId = null;
+let galleryCropDragStart = null;
+
+const getGalleryCropFrame = () => dom.galleryCropStage?.querySelector(".crop-stage__frame");
+
+const setGalleryCropFromDrag = (event) => {
+  const frame = getGalleryCropFrame();
+
+  if (!frame || !galleryCropDragStart || !state.galleryPreview.url) return false;
+
+  const rect = frame.getBoundingClientRect();
+
+  if (!rect.width || !rect.height) return false;
+
+  const cropWindow = getGalleryCropWindow(state.galleryPreview, galleryCropDragStart.crop);
+  const deltaX = ((event.clientX - galleryCropDragStart.x) / rect.width) * cropWindow.width;
+  const deltaY = ((event.clientY - galleryCropDragStart.y) / rect.height) * cropWindow.height;
+
+  setGalleryCrop({
+    ...galleryCropDragStart.crop,
+    x: galleryCropDragStart.crop.x - deltaX,
+    y: galleryCropDragStart.crop.y - deltaY
+  });
+
+  return true;
+};
+
+const stopGalleryCropPointer = (event) => {
+  if (galleryCropPointerId === null || galleryCropPointerId !== event.pointerId) return;
+
+  if (
+    typeof dom.galleryCropStage?.hasPointerCapture === "function"
+    && dom.galleryCropStage.hasPointerCapture(event.pointerId)
+  ) {
+    dom.galleryCropStage.releasePointerCapture(event.pointerId);
+  }
+
+  galleryCropPointerId = null;
+  galleryCropDragStart = null;
+  dom.galleryCropStage?.classList.remove("is-cropping");
+};
+
+dom.galleryCropStage?.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (!target?.closest(".crop-stage__frame") || !state.galleryPreview.url) return;
+
+  event.preventDefault();
+  galleryCropPointerId = event.pointerId;
+  galleryCropDragStart = {
+    x: event.clientX,
+    y: event.clientY,
+    crop: getGalleryCrop(state.galleryCrop)
+  };
+  dom.galleryCropStage.classList.add("is-cropping");
+  dom.galleryCropStage.setPointerCapture?.(event.pointerId);
+});
+
+dom.galleryCropStage?.addEventListener("pointermove", (event) => {
+  if (galleryCropPointerId !== event.pointerId) return;
+
+  event.preventDefault();
+  setGalleryCropFromDrag(event);
+});
+
+dom.galleryCropStage?.addEventListener("pointerup", stopGalleryCropPointer);
+dom.galleryCropStage?.addEventListener("pointercancel", stopGalleryCropPointer);
+dom.galleryCropStage?.addEventListener("lostpointercapture", () => {
+  galleryCropPointerId = null;
+  galleryCropDragStart = null;
+  dom.galleryCropStage?.classList.remove("is-cropping");
+});
+
 dom.galleryFocusReset?.addEventListener("click", resetGalleryFocus);
+dom.galleryCropPanel?.addEventListener("input", (event) => {
+  const target = event.target instanceof HTMLInputElement ? event.target : null;
+
+  if (!target) return;
+
+  if (target === dom.galleryCropX || target === dom.galleryCropY || target === dom.galleryCropZoom) {
+    setGalleryCrop({
+      x: dom.galleryCropX?.value ?? state.galleryCrop.x,
+      y: dom.galleryCropY?.value ?? state.galleryCrop.y,
+      zoom: dom.galleryCropZoom?.value ?? state.galleryCrop.zoom
+    });
+  }
+});
+dom.galleryCropReset?.addEventListener("click", resetGalleryCrop);
 
 dom.galleryForm?.addEventListener("change", (event) => {
   if (event.target?.name === "image") {
     resetGalleryFocus();
+    resetGalleryCrop();
   }
 
   updateGalleryPreview();
@@ -4567,19 +4891,32 @@ dom.galleryForm?.addEventListener("submit", async (event) => {
     return;
   }
 
-  const payload = {
-    placement: galleryFormat.placement,
-    title: form.elements.title.value.trim(),
-    alt_text: form.elements.alt_text.value.trim(),
-    sort_order: 1,
-    focus_x: normalizeGalleryFocusValue(form.elements.focus_x?.value),
-    focus_y: normalizeGalleryFocusValue(form.elements.focus_y?.value)
-  };
-
   submit?.setAttribute("disabled", "true");
 
   try {
-    const item = await service.createGalleryItem(payload, file);
+    const previewToken = state.galleryPreview.token + 1;
+
+    state.galleryPreview.token = previewToken;
+
+    const previewSource = await getGalleryPreviewSource(file, previewToken);
+
+    if (!previewSource) {
+      throw new Error("Could not prepare image preview");
+    }
+
+    syncGalleryCropUi();
+
+    const cropWindow = getGalleryCropWindow(previewSource, state.galleryCrop);
+    const focus = getGalleryFocus(state.galleryFocus);
+    const payload = {
+      placement: galleryFormat.placement,
+      title: form.elements.title.value.trim(),
+      alt_text: form.elements.alt_text.value.trim(),
+      sort_order: 1,
+      focus_x: focus.x,
+      focus_y: focus.y
+    };
+    const item = await service.createGalleryItem(payload, file, cropWindow);
     let isOrderSaved = true;
 
     try {
@@ -4591,6 +4928,7 @@ dom.galleryForm?.addEventListener("submit", async (event) => {
 
     form.reset();
     resetGalleryFocus();
+    resetGalleryCrop();
     updateGalleryPreview();
     renderGallery();
     renderPortfolioIndicators();

@@ -92,6 +92,114 @@ const contactMessagePlaceholders = [
 ];
 
 const isMobileScene = () => mobileSceneQuery.matches;
+const mobileViewportEffectClass = "is-mobile-viewport-active";
+const mobileViewportEffects = new Map();
+let mobileViewportObserver = null;
+let mobileViewportRefreshFrame = null;
+
+const setMobileViewportEffectActive = (element, isActive) => {
+  const effect = mobileViewportEffects.get(element);
+
+  if (!effect) return;
+
+  const nextActive = Boolean(isActive && isMobileScene());
+
+  if (effect.active === nextActive) return;
+
+  effect.active = nextActive;
+  element.classList.toggle(mobileViewportEffectClass, nextActive);
+
+  if (nextActive) {
+    effect.onEnter?.();
+  } else {
+    effect.onExit?.();
+  }
+};
+
+const isElementInMobileFocusBand = (element) => {
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const rect = element.getBoundingClientRect();
+  const focusTop = viewportHeight * 0.32;
+  const focusBottom = viewportHeight * 0.68;
+
+  return rect.bottom >= focusTop && rect.top <= focusBottom;
+};
+
+const refreshMobileViewportEffects = () => {
+  mobileViewportEffects.forEach((effect, element) => {
+    if (!document.contains(element)) {
+      mobileViewportObserver?.unobserve(element);
+      mobileViewportEffects.delete(element);
+      return;
+    }
+
+    setMobileViewportEffectActive(element, isElementInMobileFocusBand(element));
+  });
+};
+
+const queueMobileViewportRefresh = () => {
+  if (mobileViewportRefreshFrame) return;
+
+  mobileViewportRefreshFrame = window.requestAnimationFrame(() => {
+    mobileViewportRefreshFrame = null;
+    refreshMobileViewportEffects();
+  });
+};
+
+const getMobileViewportObserver = () => {
+  if (!("IntersectionObserver" in window)) return null;
+  if (mobileViewportObserver) return mobileViewportObserver;
+
+  mobileViewportObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      setMobileViewportEffectActive(entry.target, entry.isIntersecting);
+    });
+  }, {
+    root: null,
+    rootMargin: "-32% 0px -32% 0px",
+    threshold: 0.01
+  });
+
+  return mobileViewportObserver;
+};
+
+const observeMobileViewportEffect = (element, callbacks = {}) => {
+  if (!(element instanceof Element)) return;
+
+  mobileViewportEffects.set(element, {
+    active: false,
+    onEnter: callbacks.onEnter,
+    onExit: callbacks.onExit
+  });
+
+  getMobileViewportObserver()?.observe(element);
+  queueMobileViewportRefresh();
+};
+
+const unobserveMobileViewportEffectsWithin = (root) => {
+  if (!(root instanceof Element)) return;
+
+  mobileViewportEffects.forEach((effect, element) => {
+    if (!root.contains(element)) return;
+
+    setMobileViewportEffectActive(element, false);
+    mobileViewportObserver?.unobserve(element);
+    mobileViewportEffects.delete(element);
+  });
+};
+
+document.querySelectorAll(".team-card").forEach((card) => {
+  observeMobileViewportEffect(card);
+});
+
+window.addEventListener("scroll", queueMobileViewportRefresh, { passive: true });
+window.addEventListener("resize", queueMobileViewportRefresh, { passive: true });
+
+if (typeof mobileSceneQuery.addEventListener === "function") {
+  mobileSceneQuery.addEventListener("change", queueMobileViewportRefresh);
+} else if (typeof mobileSceneQuery.addListener === "function") {
+  mobileSceneQuery.addListener(queueMobileViewportRefresh);
+}
 
 vcrTapeInsertSound.preload = "auto";
 vcrTapeInsertSound.src ||= vcrTapeInsertSoundSrc;
@@ -693,6 +801,7 @@ const createGalleryItem = (item, index = 0) => {
   const link = document.createElement("a");
   const image = document.createElement("img");
   const previewWidth = 1600;
+  const previewHeight = Math.round((previewWidth * 9) / 17);
   const previewUrl = getSupabaseImagePreviewUrl(imageUrl, {
     width: previewWidth,
     quality: 100
@@ -712,11 +821,12 @@ const createGalleryItem = (item, index = 0) => {
   image.loading = "lazy";
   image.decoding = "async";
   image.width = previewWidth;
-  image.height = 900;
+  image.height = previewHeight;
   image.style.setProperty("--gallery-focus-x", `${focus.x}%`);
   image.style.setProperty("--gallery-focus-y", `${focus.y}%`);
 
   link.append(image);
+  observeMobileViewportEffect(link);
   link.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
@@ -740,6 +850,8 @@ const loadGalleryImage = (item) => {
 
 const renderGallery = (items) => {
   if (!galleryStrips.length || !galleryStage) return;
+
+  unobserveMobileViewportEffectsWithin(galleryStage);
 
   const galleryItems = items.filter((item) => String(item.image_url || "").trim());
   galleryModalItems = galleryItems.map(createGalleryModalItem);
@@ -1518,41 +1630,56 @@ const gifFadeDuration = 490;
 const stopTimers = new WeakMap();
 
 const setupPortfolioGif = (card, thumb, gifSrc) => {
-  if (!gifSrc) return;
+  let playGif = null;
+  let pauseGif = null;
 
-  const image = document.createElement("img");
+  if (gifSrc) {
+    const image = document.createElement("img");
 
-  image.className = "portfolio-gif";
-  image.alt = "";
-  image.decoding = "async";
-  thumb.append(image);
+    image.className = "portfolio-gif";
+    image.alt = "";
+    image.decoding = "async";
+    thumb.append(image);
 
-  const playGif = () => {
-    window.clearTimeout(stopTimers.get(image));
+    playGif = () => {
+      window.clearTimeout(stopTimers.get(image));
 
-    if (!image.getAttribute("src")) {
-      image.setAttribute("src", gifSrc);
-    }
+      if (!image.getAttribute("src")) {
+        image.setAttribute("src", gifSrc);
+      }
 
-    window.requestAnimationFrame(() => {
-      image.classList.add("is-playing");
-    });
-  };
+      window.requestAnimationFrame(() => {
+        image.classList.add("is-playing");
+      });
+    };
 
-  const pauseGif = () => {
-    image.classList.remove("is-playing");
+    pauseGif = () => {
+      image.classList.remove("is-playing");
 
-    const timer = window.setTimeout(() => {
-      image.removeAttribute("src");
-    }, gifFadeDuration);
+      const timer = window.setTimeout(() => {
+        image.removeAttribute("src");
+      }, gifFadeDuration);
 
-    stopTimers.set(image, timer);
-  };
+      stopTimers.set(image, timer);
+    };
 
-  card.addEventListener("pointerenter", playGif);
-  card.addEventListener("pointerleave", pauseGif);
-  card.addEventListener("focusin", playGif);
-  card.addEventListener("focusout", pauseGif);
+    const playGifOnDesktop = () => {
+      if (!isMobileScene()) playGif();
+    };
+    const pauseGifOnDesktop = () => {
+      if (!isMobileScene()) pauseGif();
+    };
+
+    card.addEventListener("pointerenter", playGifOnDesktop);
+    card.addEventListener("pointerleave", pauseGifOnDesktop);
+    card.addEventListener("focusin", playGifOnDesktop);
+    card.addEventListener("focusout", pauseGifOnDesktop);
+  }
+
+  observeMobileViewportEffect(card, {
+    onEnter: playGif,
+    onExit: pauseGif
+  });
 };
 
 const tapeTextureKeys = [
@@ -1736,6 +1863,7 @@ const renderVhsTapes = (videos = []) => {
 const renderPortfolio = (videos) => {
   if (!portfolioGrid) return;
 
+  unobserveMobileViewportEffectsWithin(portfolioGrid);
   portfolioGrid.replaceChildren();
   portfolioGrid.classList.toggle("is-empty", !videos.length);
 
@@ -2706,15 +2834,17 @@ if (mobileMenuToggle && mobileMenu) {
 
 if (scene && content && sceneLoader) {
   const sections = Array.from(content.querySelectorAll(".section"));
-  const pullThreshold = 900;
+  const pullThreshold = 420;
+  const queuedScrollThreshold = 680;
+  const queuedScrollStartDelay = 240;
   const resetDelay = 520;
   const boundaryTolerance = 3;
   const innerScrollTolerance = 2;
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const transitionDuration = prefersReducedMotion ? 0 : 720;
-  const transitionMaxDuration = prefersReducedMotion ? 0 : 1400;
-  const settleLockDuration = prefersReducedMotion ? 0 : 480;
-  const postTransitionInputCooldown = prefersReducedMotion ? 0 : 1100;
+  const transitionDuration = prefersReducedMotion ? 0 : 520;
+  const transitionMaxDuration = prefersReducedMotion ? 0 : 900;
+  const settleLockDuration = prefersReducedMotion ? 0 : 120;
+  const postTransitionInputCooldown = prefersReducedMotion ? 0 : 160;
 
   const targets = [
     { id: "home", element: scene, top: () => 0 },
@@ -2738,7 +2868,11 @@ if (scene && content && sceneLoader) {
   let trailingInputUntil = 0;
   let lastTouchY = null;
   let touchStartTarget = null;
+  let transitionStartedAt = 0;
+  let queuedScrollDirection = 0;
+  let queuedScrollAmount = 0;
 
+  const shouldUseSectionScroller = () => !isMobileScene();
   const clampIndex = (index) => Math.max(0, Math.min(index, targets.length - 1));
   const targetTop = (index) => targets[clampIndex(index)].top();
   const isScrollLocked = () => scrollLockTarget !== null && performance.now() < scrollLockTarget.until;
@@ -2842,6 +2976,39 @@ if (scene && content && sceneLoader) {
     updateLoader(0);
   };
 
+  const resetQueuedScroll = () => {
+    queuedScrollDirection = 0;
+    queuedScrollAmount = 0;
+  };
+
+  const canMoveToTarget = (direction) => {
+    const nextIndex = activeTargetIndex + direction;
+
+    return nextIndex >= 0 && nextIndex < targets.length;
+  };
+
+  const canQueueChainedScroll = () => (
+    !isTransitioning || performance.now() - transitionStartedAt >= queuedScrollStartDelay
+  );
+
+  const queueSectionScroll = (direction, delta) => {
+    if (!canQueueChainedScroll()) return false;
+
+    if (!canMoveToTarget(direction)) {
+      resetQueuedScroll();
+      return false;
+    }
+
+    if (queuedScrollDirection !== direction) {
+      queuedScrollDirection = direction;
+      queuedScrollAmount = 0;
+    }
+
+    queuedScrollAmount += Math.abs(delta);
+
+    return queuedScrollAmount >= queuedScrollThreshold;
+  };
+
   const queueReset = () => {
     window.clearTimeout(resetTimer);
     resetTimer = window.setTimeout(resetPull, resetDelay);
@@ -2882,14 +3049,28 @@ if (scene && content && sceneLoader) {
 
   const goToTarget = (index, options = {}) => {
     const nextIndex = clampIndex(index);
+
+    if (!shouldUseSectionScroller()) {
+      activeTargetIndex = nextIndex;
+      resetPull();
+      targets[nextIndex]?.element?.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth" });
+      updateMenuState();
+      updateAudioForTarget();
+      return;
+    }
+
     const computedDirection = Math.sign(nextIndex - activeTargetIndex);
     const travelDirection = options.direction ?? (computedDirection || 1);
     const shouldShowLoader = options.showLoader ?? true;
     const currentTransitionId = transitionId + 1;
-    const transitionStartedAt = performance.now();
+    const currentTransitionStartedAt = performance.now();
 
     transitionId = currentTransitionId;
+    transitionStartedAt = currentTransitionStartedAt;
     clearTransitionFinish();
+    window.clearTimeout(scrollLockTimer);
+    scrollLockTarget = null;
+    trailingInputUntil = 0;
 
     isTransitioning = true;
     activeTargetIndex = nextIndex;
@@ -2915,19 +3096,27 @@ if (scene && content && sceneLoader) {
     const finishTransition = () => {
       if (currentTransitionId !== transitionId) return;
 
+      const settledTop = targetTop(nextIndex);
+
       transitionFinishFrame = null;
-      lockScrollAt(targetTop(nextIndex));
+      window.scrollTo({ top: settledTop, behavior: "auto" });
       resetPull();
-      suppressTrailingInput();
       updateMenuState();
       updateAudioForTarget();
       isTransitioning = false;
+
+      if (consumeQueuedScroll()) {
+        return;
+      }
+
+      lockScrollAt(settledTop);
+      suppressTrailingInput();
     };
 
     const waitForScrollSettle = () => {
       if (currentTransitionId !== transitionId) return;
 
-      const elapsed = performance.now() - transitionStartedAt;
+      const elapsed = performance.now() - currentTransitionStartedAt;
       const distance = Math.abs(window.scrollY - targetTop(nextIndex));
 
       if (distance <= boundaryTolerance || elapsed >= transitionMaxDuration) {
@@ -2963,11 +3152,32 @@ if (scene && content && sceneLoader) {
     }
   };
 
+  const consumeQueuedScroll = () => {
+    const direction = queuedScrollDirection;
+
+    resetQueuedScroll();
+
+    if (!direction || !canMoveToTarget(direction)) return false;
+
+    goToTarget(activeTargetIndex + direction, {
+      direction,
+      showLoader: true
+    });
+
+    return true;
+  };
+
   window.addEventListener(
     "wheel",
     (event) => {
       if (isVideoModalOpen() || isGalleryModalOpen()) {
         event.preventDefault();
+        return;
+      }
+
+      if (!shouldUseSectionScroller()) {
+        resetPull();
+        resetQueuedScroll();
         return;
       }
 
@@ -2981,18 +3191,29 @@ if (scene && content && sceneLoader) {
       if (isScrollLocked()) {
         event.preventDefault();
         resetPull();
-        window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
+        if (queueSectionScroll(direction, deltaY)) {
+          window.clearTimeout(scrollLockTimer);
+          scrollLockTarget = null;
+          consumeQueuedScroll();
+        } else {
+          window.scrollTo({ top: scrollLockTarget.top, behavior: "auto" });
+        }
         return;
       }
 
       if (isTransitioning) {
         event.preventDefault();
+        queueSectionScroll(direction, deltaY);
         return;
       }
 
       if (isTrailingInputSuppressed()) {
         event.preventDefault();
         resetPull();
+        if (queueSectionScroll(direction, deltaY)) {
+          trailingInputUntil = 0;
+          consumeQueuedScroll();
+        }
         return;
       }
 
@@ -3002,6 +3223,7 @@ if (scene && content && sceneLoader) {
       }
 
       event.preventDefault();
+      resetQueuedScroll();
       handlePull(direction, deltaY);
     },
     { passive: false }
@@ -3011,6 +3233,12 @@ if (scene && content && sceneLoader) {
     "touchstart",
     (event) => {
       if (event.touches.length !== 1) return;
+
+      if (!shouldUseSectionScroller()) {
+        lastTouchY = null;
+        touchStartTarget = null;
+        return;
+      }
 
       lastTouchY = event.touches[0].clientY;
       touchStartTarget = event.target;
@@ -3023,6 +3251,12 @@ if (scene && content && sceneLoader) {
     (event) => {
       if (isVideoModalOpen() || isGalleryModalOpen()) {
         event.preventDefault();
+        return;
+      }
+
+      if (!shouldUseSectionScroller()) {
+        resetPull();
+        resetQueuedScroll();
         return;
       }
 
@@ -3090,6 +3324,15 @@ if (scene && content && sceneLoader) {
   window.addEventListener(
     "scroll",
     () => {
+      if (!shouldUseSectionScroller()) {
+        activeTargetIndex = nearestTargetIndex();
+        scrollLockTarget = null;
+        resetPull();
+        updateMenuState();
+        updateAudioForTarget();
+        return;
+      }
+
       if (isTransitioning) {
         return;
       }
@@ -3114,14 +3357,37 @@ if (scene && content && sceneLoader) {
       const targetIndex = targets.findIndex((target) => target.id === sectionId);
 
       if (targetIndex === -1) return;
+      if (!shouldUseSectionScroller()) return;
 
       event.preventDefault();
       goToTarget(targetIndex, { showLoader: false });
     });
   });
 
-  activeTargetIndex = nearestTargetIndex();
-  lockScrollAt(targetTop(activeTargetIndex));
-  updateMenuState();
-  updateAudioForTarget();
+  const syncSectionScrollerMode = () => {
+    clearTransitionFinish();
+    window.clearTimeout(scrollLockTimer);
+    scrollLockTarget = null;
+    isTransitioning = false;
+    trailingInputUntil = 0;
+    lastTouchY = null;
+    touchStartTarget = null;
+    activeTargetIndex = nearestTargetIndex();
+    resetPull();
+    resetQueuedScroll();
+    updateMenuState();
+    updateAudioForTarget();
+
+    if (shouldUseSectionScroller()) {
+      lockScrollAt(targetTop(activeTargetIndex));
+    }
+  };
+
+  if (typeof mobileSceneQuery.addEventListener === "function") {
+    mobileSceneQuery.addEventListener("change", syncSectionScrollerMode);
+  } else if (typeof mobileSceneQuery.addListener === "function") {
+    mobileSceneQuery.addListener(syncSectionScrollerMode);
+  }
+
+  syncSectionScrollerMode();
 }

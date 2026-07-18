@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CINEMORPH Admin</title>
-  <link rel="stylesheet" href="css/admin.css?v=admin-stage-2-20260718">
+  <link rel="stylesheet" href="css/admin.css?v=admin-stage-5-crop-fix3-20260718">
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" focusable="false">
@@ -194,6 +194,38 @@
             <div class="focus-control" data-gallery-focus-control>
               <div class="focus-control__stage" data-gallery-focus-preview>
                 <div class="focus-control__empty">No image</div>
+              </div>
+            </div>
+
+            <div class="crop-panel" data-gallery-crop-panel>
+              <div class="crop-panel__header">
+                <div>
+                  <span class="focus-panel__label">17:9 crop</span>
+                  <strong data-gallery-crop-readout>17:9 / X 50% / Y 50% / Z 1.00x</strong>
+                </div>
+                <button class="secondary-button focus-panel__reset" type="button" data-gallery-crop-reset>
+                  <svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
+                  <span>Reset crop</span>
+                </button>
+              </div>
+
+              <div class="crop-stage" data-gallery-crop-stage>
+                <div class="crop-stage__empty">No image</div>
+              </div>
+
+              <div class="crop-panel__controls">
+                <label class="crop-control">
+                  <span>Crop X</span>
+                  <input type="range" min="0" max="100" step="0.1" value="50" data-gallery-crop-x>
+                </label>
+                <label class="crop-control">
+                  <span>Crop Y</span>
+                  <input type="range" min="0" max="100" step="0.1" value="50" data-gallery-crop-y>
+                </label>
+                <label class="crop-control">
+                  <span>Zoom</span>
+                  <input type="range" min="1" max="3" step="0.05" value="1" data-gallery-crop-zoom>
+                </label>
               </div>
             </div>
           </div>
@@ -423,6 +455,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/admin-config.js"></script>
   <script src="https://player.vimeo.com/api/player.js" defer></script>
-  <script src="js/admin.js?v=admin-stage-2-20260718" defer></script>
+  <script src="js/admin.js?v=admin-stage-5-crop-fix3-20260718" defer></script>
 </body>
 </html>
