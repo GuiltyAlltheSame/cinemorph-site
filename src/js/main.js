@@ -130,6 +130,12 @@ const clearLocationHash = () => {
   );
 };
 
+const clearLocationNavigationState = () => {
+  if (!window.location.hash && !window.location.search) return;
+
+  window.history.replaceState(null, document.title, window.location.pathname);
+};
+
 const isElementInMobileFocusBand = (element) => {
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
   const rect = element.getBoundingClientRect();
@@ -2931,6 +2937,16 @@ if (scene && content && sceneLoader) {
     })),
   ];
 
+  const getRequestedTargetIndex = () => {
+    const requestedId = new URLSearchParams(window.location.search).get("section");
+
+    if (!requestedId) return 0;
+
+    const requestedIndex = targets.findIndex((target) => target.id === requestedId);
+
+    return requestedIndex >= 0 ? requestedIndex : 0;
+  };
+
   let activeTargetIndex = 0;
   let pullAmount = 0;
   let pullDirection = 0;
@@ -3464,22 +3480,24 @@ if (scene && content && sceneLoader) {
     }
   };
 
-  const startAtHome = () => {
+  const startAtTarget = (index = 0) => {
+    const nextIndex = clampIndex(index);
+
     clearTransitionFinish();
     window.clearTimeout(scrollLockTimer);
     scrollLockTarget = null;
     isTransitioning = false;
     trailingInputUntil = 0;
-    activeTargetIndex = 0;
+    activeTargetIndex = nextIndex;
     resetPull();
     resetQueuedScroll();
-    clearLocationHash();
-    window.scrollTo({ top: targetTop(0), behavior: "auto" });
+    clearLocationNavigationState();
+    window.scrollTo({ top: targetTop(nextIndex), behavior: "auto" });
     updateMenuState();
     updateAudioForTarget();
 
     if (shouldUseSectionScroller()) {
-      lockScrollAt(targetTop(0));
+      lockScrollAt(targetTop(nextIndex));
     }
   };
 
@@ -3489,11 +3507,11 @@ if (scene && content && sceneLoader) {
     mobileSceneQuery.addListener(syncSectionScrollerMode);
   }
 
-  startAtHome();
+  startAtTarget(getRequestedTargetIndex());
 
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) {
-      startAtHome();
+      startAtTarget();
     }
   });
 }
