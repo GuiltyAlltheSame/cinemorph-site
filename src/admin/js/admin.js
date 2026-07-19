@@ -132,6 +132,20 @@ const dom = {
   deleteMessageTitle: document.querySelector("[data-delete-message-title]")
 };
 
+const syncAdminModalState = () => {
+  document.body.classList.toggle("is-admin-modal-open", Boolean(
+    dom.deleteModal && !dom.deleteModal.hidden
+    || dom.videoEditModal && !dom.videoEditModal.hidden
+    || dom.watcherModal && !dom.watcherModal.hidden
+  ));
+};
+
+const adminMobileQuery = window.matchMedia("(max-width: 700px)");
+const isAdminMobile = () => adminMobileQuery.matches;
+const isAdminModalBackdropElement = (element) => (
+  element instanceof HTMLElement && element.classList.contains("modal__backdrop")
+);
+
 const hasSupabaseConfig = () => Boolean(config.supabase?.url && config.supabase?.anonKey);
 const isAuthEnabled = () => config.authEnabled !== false;
 const getPosterGenerationEndpoint = () => (
@@ -2161,10 +2175,6 @@ const renderMessages = () => {
   }).join("");
 };
 
-const gallerySections = [
-  { placement: galleryFormat.placement, title: "Stills" }
-];
-
 const getGallerySortOrder = (item = {}) => {
   const order = Number.parseInt(item.sort_order, 10);
 
@@ -2285,44 +2295,37 @@ const renderGallery = () => {
     return;
   }
 
-  dom.galleryList.innerHTML = gallerySections.map((section) => {
-    const items = getOrderedGalleryItems();
-    const cards = items.map((item, index) => {
-      const focus = getGalleryFocus(item);
-
-      return `
-        <article class="media-card" data-gallery-card data-gallery-id="${escapeHtml(item.id)}" data-gallery-placement="${escapeHtml(section.placement)}">
-          <div class="media-card__image">
-            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.alt_text || item.title || "Gallery image")}" style="${escapeHtml(getGalleryFocusStyle(item))}">
-          </div>
-          <div class="media-card__body">
-            <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
-            <div class="media-card__bottom">
-              <div class="media-card__meta">
-                <span class="pill">Order ${index + 1}</span>
-                <span class="pill">Focus ${focus.x}/${focus.y}</span>
-              </div>
-              <button class="icon-button media-card__delete" type="button" data-delete-gallery="${escapeHtml(item.id)}" title="Delete image" aria-label="Delete image">
-                <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
-              </button>
-            </div>
-          </div>
-        </article>
-      `;
-    }).join("");
+  const placement = galleryFormat.placement;
+  const items = getOrderedGalleryItems();
+  const cards = items.map((item, index) => {
+    const focus = getGalleryFocus(item);
 
     return `
-      <section class="gallery-section" data-gallery-section="${escapeHtml(section.placement)}">
-        <div class="gallery-section__header">
-          <h3 class="gallery-section__title">${escapeHtml(section.title)}</h3>
-          <span class="pill">${items.length} image${items.length === 1 ? "" : "s"}</span>
+      <article class="media-card" data-gallery-card data-gallery-id="${escapeHtml(item.id)}" data-gallery-placement="${escapeHtml(placement)}">
+        <div class="media-card__image">
+          <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.alt_text || item.title || "Gallery image")}" style="${escapeHtml(getGalleryFocusStyle(item))}">
         </div>
-        <div class="media-list gallery-section__list" data-gallery-section-list="${escapeHtml(section.placement)}">
-          ${cards || `<div class="empty-state gallery-section__empty">No gallery images yet</div>`}
+        <div class="media-card__body">
+          <h3>${escapeHtml(item.title || item.file_name || "Untitled image")}</h3>
+          <div class="media-card__bottom">
+            <div class="media-card__meta">
+              <span class="pill">Order ${index + 1}</span>
+              <span class="pill">Focus ${focus.x}/${focus.y}</span>
+            </div>
+            <button class="icon-button media-card__delete" type="button" data-delete-gallery="${escapeHtml(item.id)}" title="Delete image" aria-label="Delete image">
+              <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+            </button>
+          </div>
         </div>
-      </section>
+      </article>
     `;
   }).join("");
+
+  dom.galleryList.innerHTML = `
+    <div class="media-list gallery-section__list" data-gallery-section-list="${escapeHtml(placement)}">
+      ${cards || `<div class="empty-state gallery-section__empty">No gallery images yet</div>`}
+    </div>
+  `;
 };
 
 const getVideoMediaMarkup = (video) => {
@@ -3240,6 +3243,7 @@ const openVideoEditModal = (id, trigger = null) => {
   dom.videoEditForm.dataset.videoId = String(video.id);
   dom.videoEditForm.innerHTML = getVideoEditFormMarkup(video);
   dom.videoEditModal.hidden = false;
+  syncAdminModalState();
   syncVideoEditTapeUi();
   syncVideoEditPosterUi();
 
@@ -3252,6 +3256,7 @@ const closeVideoEditModal = () => {
   if (!dom.videoEditModal) return;
 
   dom.videoEditModal.hidden = true;
+  syncAdminModalState();
   dom.videoEditForm?.replaceChildren();
   state.videoEdit.id = null;
   state.videoEdit.isSaving = false;
@@ -3863,6 +3868,7 @@ const openDeleteModal = (type, id) => {
   }
 
   dom.deleteModal.hidden = false;
+  syncAdminModalState();
 };
 
 const closeDeleteModal = () => {
@@ -3871,6 +3877,8 @@ const closeDeleteModal = () => {
   if (dom.deleteModal) {
     dom.deleteModal.hidden = true;
   }
+
+  syncAdminModalState();
 };
 
 const openWatcherModal = () => {
@@ -3878,12 +3886,15 @@ const openWatcherModal = () => {
 
   renderWatcherModal();
   dom.watcherModal.hidden = false;
+  syncAdminModalState();
 };
 
 const closeWatcherModal = () => {
   if (dom.watcherModal) {
     dom.watcherModal.hidden = true;
   }
+
+  syncAdminModalState();
 };
 
 const refreshData = async () => {
@@ -4652,7 +4663,9 @@ dom.videoList?.addEventListener("click", async (event) => {
 dom.videoEditModal?.addEventListener("click", (event) => {
   if (state.videoEdit.isSaving) return;
 
-  if (event.target.closest("[data-video-edit-close]")) {
+  const closeTarget = event.target.closest("[data-video-edit-close]");
+
+  if (closeTarget && (!isAdminModalBackdropElement(closeTarget) || isAdminMobile())) {
     closeVideoEditModal();
   }
 });
@@ -4761,6 +4774,8 @@ dom.deleteModal?.addEventListener("click", async (event) => {
   const actionButton = event.target.closest("[data-delete-action]");
 
   if (cancelButton) {
+    if (isAdminModalBackdropElement(cancelButton) && !isAdminMobile()) return;
+
     closeDeleteModal();
     return;
   }
@@ -4799,7 +4814,9 @@ dom.deleteModal?.addEventListener("click", async (event) => {
 });
 
 dom.watcherModal?.addEventListener("click", (event) => {
-  if (event.target.closest("[data-watcher-close]")) {
+  const closeTarget = event.target.closest("[data-watcher-close]");
+
+  if (closeTarget && (!isAdminModalBackdropElement(closeTarget) || isAdminMobile())) {
     closeWatcherModal();
   }
 });

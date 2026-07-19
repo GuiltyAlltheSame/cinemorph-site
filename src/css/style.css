@@ -2383,6 +2383,7 @@ body.is-gallery-progress-dragging {
   opacity:1;
   visibility:visible;
   pointer-events:auto;
+  touch-action:manipulation;
   transition:
     opacity .24s ease,
     visibility 0s;
@@ -2393,7 +2394,8 @@ body.is-gallery-progress-dragging {
   border:0;
   padding:0;
   background:rgba(0,0,0,.92);
-  cursor:pointer;
+  cursor:default;
+  touch-action:manipulation;
 }
 .video-modal__panel{
   position:relative;
@@ -2467,6 +2469,7 @@ body.is-gallery-progress-dragging {
   color:rgba(232,232,232,.86);
   cursor:pointer;
   opacity:.76;
+  touch-action:manipulation;
   transition:
     background .18s ease,
     color .18s ease,
@@ -2509,6 +2512,7 @@ body.is-gallery-progress-dragging {
   aspect-ratio:16 / 9;
   max-height:calc(100svh - clamp(86px, 12vw, 156px));
   overflow:hidden;
+  touch-action:manipulation;
   background:
     linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 62%, rgba(255,255,255,.035)),
     rgba(255,255,255,.018);
@@ -2539,6 +2543,7 @@ body.is-gallery-progress-dragging {
   opacity:1;
   visibility:visible;
   pointer-events:auto;
+  touch-action:none;
   transition:
     opacity .24s ease,
     visibility 0s;
@@ -2549,7 +2554,8 @@ body.is-gallery-progress-dragging {
   border:0;
   padding:0;
   background:rgba(0,0,0,.94);
-  cursor:pointer;
+  cursor:default;
+  touch-action:manipulation;
 }
 .gallery-modal__panel{
   --gallery-modal-bar-space:46px;
@@ -2666,6 +2672,8 @@ body.is-gallery-progress-dragging {
   margin:0;
   overflow:hidden;
   background:rgba(255,255,255,.018);
+  touch-action:none;
+  user-select:none;
 }
 .gallery-modal__figure img{
   display:block;
@@ -2676,6 +2684,9 @@ body.is-gallery-progress-dragging {
   object-fit:contain;
   object-position:center;
   background:#050606;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
 }
 .gallery-modal__nav{
   position:absolute;
@@ -2693,9 +2704,13 @@ body.is-gallery-progress-dragging {
   color:rgba(232,232,232,.78);
   cursor:pointer;
   opacity:0;
+  touch-action:manipulation;
   transition:
     opacity .22s ease,
     color .18s ease;
+}
+.gallery-modal__close{
+  touch-action:manipulation;
 }
 .gallery-modal__nav::before{
   content:"";
@@ -3544,6 +3559,11 @@ body.is-gallery-progress-dragging {
   .gallery-modal__nav::before {
     width:16px;
     height:16px;
+  }
+
+  .video-modal__backdrop,
+  .gallery-modal__backdrop {
+    cursor:pointer;
   }
 
   #gallery {

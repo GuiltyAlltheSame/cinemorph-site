@@ -68,9 +68,14 @@ let tapeModalVimeoPlayer = null;
 let tapeInlineVideoElement = null;
 let tapePlaybackTime = 0;
 let tapeModalPlaybackTime = 0;
+let isTapeInlineSuspendedBySection = false;
+let shouldResumeTapeInlineAfterSection = false;
+let tapeMutedBeforeSectionSuspend = true;
 let galleryModalItems = [];
 let activeGalleryModalIndex = 0;
 let galleryModalRestoreFocus = null;
+let galleryModalSwipeStart = null;
+let didSwipeGalleryModal = false;
 let turnstileToken = "";
 let isContactSubmitting = false;
 const referenceLinks = [];
@@ -92,6 +97,13 @@ const contactMessagePlaceholders = [
 ];
 
 const isMobileScene = () => mobileSceneQuery.matches;
+const isModalBackdropElement = (element) => (
+  element instanceof HTMLElement
+  && (
+    element.classList.contains("video-modal__backdrop")
+    || element.classList.contains("gallery-modal__backdrop")
+  )
+);
 const mobileViewportEffectClass = "is-mobile-viewport-active";
 const mobileViewportEffects = new Map();
 let mobileViewportObserver = null;
@@ -976,12 +988,96 @@ const moveGalleryModal = (direction) => {
   renderGalleryModalItem();
 };
 
+const isPointOutsideRenderedGalleryImage = (event) => {
+  if (!galleryModalImage?.naturalWidth || !galleryModalImage.naturalHeight) return false;
+
+  const rect = galleryModalImage.getBoundingClientRect();
+  const imageRatio = galleryModalImage.naturalWidth / galleryModalImage.naturalHeight;
+  const frameRatio = rect.width / rect.height;
+  let renderedWidth = rect.width;
+  let renderedHeight = rect.height;
+
+  if (imageRatio > frameRatio) {
+    renderedHeight = rect.width / imageRatio;
+  } else {
+    renderedWidth = rect.height * imageRatio;
+  }
+
+  const renderedLeft = rect.left + (rect.width - renderedWidth) / 2;
+  const renderedTop = rect.top + (rect.height - renderedHeight) / 2;
+
+  return (
+    event.clientX < renderedLeft
+    || event.clientX > renderedLeft + renderedWidth
+    || event.clientY < renderedTop
+    || event.clientY > renderedTop + renderedHeight
+  );
+};
+
 galleryModalCloseButtons.forEach((button) => {
-  button.addEventListener("click", closeGalleryModal);
+  button.addEventListener("click", (event) => {
+    if (isModalBackdropElement(event.currentTarget) && !isMobileScene()) return;
+
+    closeGalleryModal();
+  });
 });
 
 galleryModalPrev?.addEventListener("click", () => moveGalleryModal(-1));
 galleryModalNext?.addEventListener("click", () => moveGalleryModal(1));
+
+galleryModal?.addEventListener("click", (event) => {
+  if (!isMobileScene() || !isGalleryModalOpen() || didSwipeGalleryModal) return;
+
+  const target = event.target;
+
+  if (
+    target === galleryModal
+    || target instanceof HTMLElement && (
+      isModalBackdropElement(target)
+      || (
+        (target.classList.contains("gallery-modal__figure") || target === galleryModalImage)
+        && isPointOutsideRenderedGalleryImage(event)
+      )
+    )
+  ) {
+    closeGalleryModal();
+  }
+});
+
+galleryModal?.addEventListener("pointerdown", (event) => {
+  if (!isMobileScene() || !isGalleryModalOpen() || event.pointerType === "mouse") return;
+  if (event.target instanceof Element && event.target.closest("button")) return;
+
+  galleryModalSwipeStart = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY
+  };
+  didSwipeGalleryModal = false;
+});
+
+galleryModal?.addEventListener("pointerup", (event) => {
+  if (!galleryModalSwipeStart || galleryModalSwipeStart.id !== event.pointerId) return;
+
+  const deltaX = event.clientX - galleryModalSwipeStart.x;
+  const deltaY = event.clientY - galleryModalSwipeStart.y;
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
+
+  galleryModalSwipeStart = null;
+
+  if (absX < 48 || absX < absY * 1.2) return;
+
+  didSwipeGalleryModal = true;
+  moveGalleryModal(deltaX > 0 ? -1 : 1);
+  window.setTimeout(() => {
+    didSwipeGalleryModal = false;
+  }, 260);
+});
+
+galleryModal?.addEventListener("pointercancel", () => {
+  galleryModalSwipeStart = null;
+});
 
 const setupGalleryScroller = () => {
   if (!galleryStrips.length || !galleryProgress) return;
@@ -1560,7 +1656,21 @@ const openPortfolioVideoModal = ({
 };
 
 videoModalCloseButtons.forEach((button) => {
-  button.addEventListener("click", closePortfolioVideoModal);
+  button.addEventListener("click", (event) => {
+    if (isModalBackdropElement(event.currentTarget) && !isMobileScene()) return;
+
+    closePortfolioVideoModal();
+  });
+});
+
+videoModal?.addEventListener("click", (event) => {
+  if (!isMobileScene() || !isVideoModalOpen()) return;
+
+  const target = event.target;
+
+  if (target === videoModal || isModalBackdropElement(target)) {
+    closePortfolioVideoModal();
+  }
 });
 
 document.addEventListener("keydown", (event) => {
@@ -2328,6 +2438,43 @@ const pauseTapeInlinePlayer = () => {
   }
 };
 
+const hasTapeInlinePlayer = () => Boolean(
+  tapePlayer?.classList.contains("has-player")
+  && (tapeInlineVimeoPlayer || tapeInlineVideoElement || tapePlayer.querySelector("iframe, video"))
+);
+
+const suspendTapeInlinePlaybackForSection = () => {
+  if (!hasTapeInlinePlayer() || isTapeInlineSuspendedBySection || shouldResumeTapeAfterModalClose) return;
+
+  isTapeInlineSuspendedBySection = true;
+  shouldResumeTapeInlineAfterSection = isTapeVideoPlaying;
+  tapeMutedBeforeSectionSuspend = isTapeAudioMuted;
+
+  getTapeInlinePlaybackTime()
+    .catch(() => tapePlaybackTime)
+    .finally(() => {
+      setTapeAudioMuted(true);
+      pauseTapeInlinePlayer();
+    });
+};
+
+const resumeTapeInlinePlaybackForSection = () => {
+  if (!isTapeInlineSuspendedBySection) return;
+
+  const shouldResume = shouldResumeTapeInlineAfterSection;
+  const shouldRestoreMuted = tapeMutedBeforeSectionSuspend;
+
+  isTapeInlineSuspendedBySection = false;
+  shouldResumeTapeInlineAfterSection = false;
+  tapeMutedBeforeSectionSuspend = true;
+
+  setTapeAudioMuted(shouldRestoreMuted);
+
+  if (shouldResume && hasTapeInlinePlayer()) {
+    seekAndResumeTapeInlinePlayer(tapePlaybackTime);
+  }
+};
+
 resumeTapeInlinePlayer = () => {
   seekAndResumeTapeInlinePlayer(tapePlaybackTime);
 };
@@ -2374,6 +2521,9 @@ const loadTapeVideo = (cassette) => {
   const hasTapeVideo = Boolean(embedSrc || tape.videoSrc);
 
   shouldResumeTapeAfterModalClose = false;
+  isTapeInlineSuspendedBySection = false;
+  shouldResumeTapeInlineAfterSection = false;
+  tapeMutedBeforeSectionSuspend = true;
   tapePlaybackTime = 0;
   tapeInlineVimeoPlayer = null;
   tapeInlineVideoElement = null;
@@ -2463,6 +2613,9 @@ const clearTapeVideo = () => {
   tapePlayer.replaceChildren();
   tapePlayer.classList.remove("has-player", "is-active");
   shouldResumeTapeAfterModalClose = false;
+  isTapeInlineSuspendedBySection = false;
+  shouldResumeTapeInlineAfterSection = false;
+  tapeMutedBeforeSectionSuspend = true;
   isTapeVideoPlaying = false;
   tapePlaybackTime = 0;
   tapeInlineVimeoPlayer = null;
@@ -3055,10 +3208,17 @@ if (scene && content && sceneLoader) {
 
   const updateAudioForTarget = () => {
     if (activeTargetIndex === 0) {
+      resumeTapeInlinePlaybackForSection();
+      if (hasTapeInlinePlayer()) {
+        tvNoiseController?.silence();
+        return;
+      }
+
       tvNoiseController?.fadeIn();
       return;
     }
 
+    suspendTapeInlinePlaybackForSection();
     tvNoiseController?.fadeOut();
   };
 
@@ -3177,6 +3337,7 @@ if (scene && content && sceneLoader) {
     }
 
     if (nextIndex !== 0) {
+      suspendTapeInlinePlaybackForSection();
       tvNoiseController?.fadeOut();
     }
 
