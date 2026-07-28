@@ -1,161 +1,254 @@
-# Cinemorph Studio
+<div align="center">
 
-A custom portfolio website created for Cinemorph Studio — a cinematic
-storytelling and production team based in Vancouver, Washington.
+# CINEMORPH STUDIO
 
-[Visit the live website](https://cinemorphstudio.com/)
+### An interactive cinematic portfolio built around television, VHS, and film
 
-## About the Project
+[Live Website](https://cinemorphstudio.com/) ·
+[English](#english) ·
+[Русский](#russian)
 
-Cinemorph Studio needed more than a traditional production portfolio. The
-website was designed as an interactive visual experience inspired by analog
-television, VHS tapes, film equipment, and late-night editing rooms.
+<br>
 
-The result combines a cinematic presentation with a practical content system.
-Visitors can explore the studio, watch selected projects, browse stills, learn
-about production services, and contact the team. Studio administrators can
-manage the portfolio and incoming enquiries through a protected dashboard.
+<img src=".github/assets/public-tv.webp" alt="Cinemorph Studio interactive television scene" width="100%">
 
-## Public Website
+<br><br>
 
-### Interactive TV and VHS Experience
+![HTML5](https://img.shields.io/badge/HTML5-111820?style=flat-square&logo=html5&logoColor=E34F26)
+![CSS3](https://img.shields.io/badge/CSS3-111820?style=flat-square&logo=css&logoColor=639)
+![JavaScript](https://img.shields.io/badge/JavaScript-111820?style=flat-square&logo=javascript&logoColor=F7DF1E)
+![Supabase](https://img.shields.io/badge/Supabase-111820?style=flat-square&logo=supabase&logoColor=3FCF8E)
+![Netlify](https://img.shields.io/badge/Netlify-111820?style=flat-square&logo=netlify&logoColor=00C7B7)
+![Vimeo](https://img.shields.io/badge/Vimeo-111820?style=flat-square&logo=vimeo&logoColor=1AB7EA)
 
-- Custom television scene used as the main landing experience
-- Working TV power control with visual and audio feedback
-- Interactive VHS box with dynamically generated project tapes
-- Drag-and-drop cassette insertion
-- Vimeo playback directly inside the television
-- Animated VCR display, tape states, lighting, and screen effects
-- Responsive presentation adapted for desktop and mobile devices
+</div>
 
-### Video Portfolio
+---
 
-- Supabase-powered portfolio that can be updated without editing the website
-- Vimeo integration for reliable high-quality playback
-- Poster images and motion previews
-- Featured project presentation
-- Shared full-screen video player
-- VHS labels and cassette artwork generated from project metadata
+<a id="english"></a>
 
-### Stills Gallery
+## English
 
-- Cinematic horizontal gallery layout
-- Mouse-wheel, touchpad, touch, and keyboard navigation
-- Interactive gallery progress indicator
-- Optimized Supabase image delivery
-- Full-screen image viewer with previous and next controls
-- Configurable image focal points for consistent framing
+### About the Project
 
-### Studio Information
+Cinemorph Studio is a cinematic storytelling and production team based in
+Vancouver, Washington. The website was designed as a complete visual experience
+rather than a traditional grid-based portfolio.
 
-- About section and team profiles
-- Production services overview
-- Direct links to Vimeo, YouTube, Instagram, and other studio channels
-- Responsive contact information and developer credit
+Its identity combines analog television, VHS tapes, film equipment, atmospheric
+light, and modern media delivery. Visitors can explore the studio, watch selected
+projects, browse stills, learn about production services, and contact the team
+through one connected experience.
 
-### Contact Experience
+### Public Experience
 
-- Custom contact form for production enquiries
-- Support for up to five reference links
-- Automatic link preview cards inside the administration dashboard
-- Honeypot and Cloudflare Turnstile spam protection
-- Server-side validation before messages are stored
-- Clear submission, loading, and error states
+<table>
+  <tr>
+    <td width="50%">
+      <img src=".github/assets/public-portfolio.webp" alt="Cinemorph Studio video portfolio">
+    </td>
+    <td width="50%">
+      <img src=".github/assets/public-gallery.webp" alt="Cinemorph Studio stills gallery">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Video Portfolio</strong></td>
+    <td align="center"><strong>Stills Gallery</strong></td>
+  </tr>
+</table>
 
-## Administration Dashboard
+- Interactive television scene with working power, lighting, audio, and VCR states
+- Dynamic VHS box with project cassettes generated from real portfolio data
+- Drag-and-drop cassette insertion and Vimeo playback inside the television
+- Supabase-powered portfolio with posters, motion previews, and featured projects
+- Cinematic stills gallery with focal points and a full-screen viewer
+- Mouse, touchpad, touch, and keyboard-friendly navigation
+- Studio profile, team members, services, social channels, and contact details
+- Contact form with reference links, server-side validation, and spam protection
+- Responsive layouts and reduced-motion support
 
-The website includes a dedicated Supabase-authenticated dashboard that allows
-the studio to manage day-to-day content without changing source code.
+### Administration Dashboard
 
-### Messages
+The project includes a protected content dashboard, allowing the studio to
+update the website without editing source code.
 
-- View all enquiries submitted through the public contact form
-- Filter unread, read, and archived messages
-- Mark messages as read or unread
-- Archive or permanently delete messages
-- Detect and preview links included in enquiries
-- View live unread-message counters
+<table>
+  <tr>
+    <td width="50%">
+      <img src=".github/assets/admin-videos.webp" alt="Cinemorph Studio video administration dashboard">
+    </td>
+    <td width="50%">
+      <img src=".github/assets/admin-gallery.webp" alt="Cinemorph Studio gallery administration dashboard">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Video & VHS Management</strong></td>
+    <td align="center"><strong>Gallery Crop & Focus Tools</strong></td>
+  </tr>
+</table>
 
-### Gallery Management
+> Administration screenshots use demonstration records. No private enquiries,
+> credentials, or production customer data are included in this repository.
 
-- Upload new gallery images
-- Add titles and accessible alternative text
-- Preview the final public gallery card before publishing
-- Set a custom focal point for each image
-- Crop images to the required cinematic 17:9 format
-- Reorder gallery items with drag and drop
-- Edit or delete existing entries
-- Automatically clean up associated Storage files
+#### Messages
 
-### Video and Portfolio Management
+- Read, filter, archive, and delete website enquiries
+- Track unread messages with live counters
+- Detect and preview reference links included by clients
+
+#### Gallery
+
+- Upload images with titles and accessible alternative text
+- Preview the public card before publishing
+- Set image focal points and prepare the cinematic 17:9 crop
+- Reorder entries with drag and drop
+- Edit records and clean up replaced Storage files
+
+#### Video and VHS
 
 - Add and edit Vimeo projects
 - Upload poster images and GIF or MP4 motion previews
 - Generate a poster from a selected Vimeo frame
-- Mark a project as featured
-- Enable or disable its VHS presentation
-- Customize the VHS label and cassette texture
-- Reorder portfolio cards and VHS tapes independently
-- Preview the public-facing card before publishing
-- Remove outdated media files when content is replaced or deleted
+- Feature projects and preview the resulting public card
+- Enable VHS presentation, edit cassette labels, and select tape textures
+- Order portfolio cards and television cassettes independently
 
-### Portfolio Watcher
+#### Portfolio Watcher
 
-The built-in Portfolio Watcher highlights incomplete or inconsistent content,
-including missing posters, previews, titles, alternative text, or VHS metadata.
-This gives administrators a quick overview of anything that needs attention
-before new work is published.
+The built-in Portfolio Watcher highlights incomplete content such as missing
+posters, previews, titles, alternative text, or VHS metadata before publication.
 
-### Dashboard Status
+### Performance, Accessibility, and Security
 
-- Live counts for videos and gallery images
-- Unread enquiry indicator
-- Supabase connection status
-- Optional link-preview mode
-- Responsive layouts for different screen sizes
-- Confirmation dialogs for destructive actions
-- Non-blocking status and error notifications
+- Modular browser-native JavaScript without a heavyweight frontend framework
+- Lazy-loaded media and optimized Supabase image previews
+- Responsive behavior tuned for desktop, mobile, mouse wheel, and touchpad
+- Keyboard-accessible controls, dialogs, and gallery navigation
+- Supabase authentication and Row Level Security compatible access
+- Cloudflare Turnstile and server-side validation for public enquiries
+- Authenticated server-side Vimeo poster generation
 
-## Performance and User Experience
+### Technology
 
-- Modular JavaScript architecture with isolated feature responsibilities
-- No heavyweight frontend framework
-- Lazy-loaded gallery and portfolio media
-- Supabase image transformations for smaller preview requests
-- Responsive layouts for desktop, laptop, tablet, and mobile
-- Tuned mouse-wheel and touchpad section navigation
-- Reduced-motion support
-- Keyboard-accessible controls and dialogs
-- Clear empty, loading, fallback, and error states
+`HTML5` · `CSS3` · `JavaScript` · `Supabase Auth` · `Supabase Database` ·
+`Supabase Storage` · `Vimeo Player API` · `Cloudflare Turnstile` ·
+`Netlify Functions` · `Node.js` · `FFmpeg`
 
-## Security and Data
+<div align="right">
+  <a href="#cinemorph-studio">Back to top ↑</a>
+</div>
 
-- Supabase authentication for administration access
-- Row Level Security compatible data access
-- Server-only privileged Supabase operations
-- Cloudflare Turnstile verification for public enquiries
-- Server-side form validation
-- Controlled Storage uploads and cleanup
-- Vimeo poster generation restricted to authenticated administrators
+---
 
-## Technology
+<a id="russian"></a>
 
-- Semantic HTML5
-- Custom responsive CSS
-- Browser-native JavaScript and ES Modules
-- Supabase Auth, Database, and Storage
-- Vimeo Player API
-- Cloudflare Turnstile
-- Netlify Hosting and Netlify Functions
-- Node.js
-- FFmpeg
+## Русский
 
-## Project Highlights
+### О проекте
 
-- Fully custom visual identity rather than a template-based portfolio
-- Public content and administration tools built as one connected system
-- Interactive VHS concept tied directly to real portfolio data
-- Media workflow designed for non-technical content management
-- Responsive behavior tailored to both traditional and gesture-based input
-- Maintainable modular codebase prepared for future studio content
+Cinemorph Studio — команда кинематографического продакшена и визуального
+сторителлинга из Ванкувера, штат Вашингтон. Сайт задуман не как обычная сетка
+портфолио, а как самостоятельный интерактивный опыт.
 
+Визуальная концепция объединяет аналоговое телевидение, VHS-кассеты, съёмочную
+технику, атмосферный свет и современную систему публикации контента. Посетители
+могут познакомиться со студией, посмотреть проекты, открыть галерею, изучить
+услуги и связаться с командой в рамках одного цельного интерфейса.
+
+### Публичная часть
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src=".github/assets/public-portfolio.webp" alt="Видеопортфолио Cinemorph Studio">
+    </td>
+    <td width="50%">
+      <img src=".github/assets/public-gallery.webp" alt="Галерея Cinemorph Studio">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Видеопортфолио</strong></td>
+    <td align="center"><strong>Галерея фотографий</strong></td>
+  </tr>
+</table>
+
+- Интерактивная TV-сцена с питанием, освещением, звуком и состояниями видеомагнитофона
+- Динамический VHS-бокс с кассетами, созданными из реальных данных портфолио
+- Перетаскивание кассеты в видеомагнитофон и воспроизведение Vimeo внутри телевизора
+- Портфолио на Supabase с постерами, анимированными превью и избранными проектами
+- Кинематографическая галерея с фокусными точками и полноэкранным просмотром
+- Навигация, адаптированная под мышь, тачпад, сенсорный экран и клавиатуру
+- Информация о студии, команда, услуги, социальные сети и контакты
+- Контактная форма с референсами, серверной проверкой и защитой от спама
+- Адаптивная вёрстка и поддержка режима уменьшенной анимации
+
+### Административная панель
+
+Проект включает защищённую панель управления, через которую команда может
+обновлять сайт без редактирования исходного кода.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src=".github/assets/admin-videos.webp" alt="Управление видео Cinemorph Studio">
+    </td>
+    <td width="50%">
+      <img src=".github/assets/admin-gallery.webp" alt="Управление галереей Cinemorph Studio">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Управление видео и VHS</strong></td>
+    <td align="center"><strong>Кадрирование и фокус галереи</strong></td>
+  </tr>
+</table>
+
+> Для скриншотов админки использованы демонстрационные записи. Репозиторий не
+> содержит личные обращения клиентов, учётные данные или закрытую информацию.
+
+#### Сообщения
+
+- Просмотр, фильтрация, архивация и удаление обращений с сайта
+- Счётчик непрочитанных сообщений
+- Распознавание и предпросмотр ссылок-референсов от клиентов
+
+#### Галерея
+
+- Загрузка фотографий с названием и доступным альтернативным текстом
+- Предпросмотр итоговой карточки до публикации
+- Настройка фокусной точки и подготовка кинематографического кадра 17:9
+- Изменение порядка элементов перетаскиванием
+- Редактирование записей и очистка заменённых файлов в Storage
+
+#### Видео и VHS
+
+- Добавление и редактирование Vimeo-проектов
+- Загрузка постеров и анимированных GIF- или MP4-превью
+- Создание постера из выбранного кадра Vimeo
+- Выделение избранных проектов и предпросмотр публичной карточки
+- Включение VHS-режима, настройка надписи и выбор текстуры кассеты
+- Независимая сортировка карточек портфолио и кассет в телевизоре
+
+#### Portfolio Watcher
+
+Встроенный Portfolio Watcher заранее показывает незаполненные данные: постеры,
+превью, названия, альтернативный текст или VHS-метаданные.
+
+### Производительность, доступность и безопасность
+
+- Модульный JavaScript без тяжёлого frontend-фреймворка
+- Ленивая загрузка медиа и оптимизированные превью Supabase
+- Адаптация под компьютер, телефон, колесо мыши и жесты тачпада
+- Управление с клавиатуры, доступные модальные окна и навигация по галерее
+- Авторизация Supabase и совместимость с Row Level Security
+- Cloudflare Turnstile и серверная проверка контактной формы
+- Серверное создание Vimeo-постеров только для авторизованных администраторов
+
+### Технологии
+
+`HTML5` · `CSS3` · `JavaScript` · `Supabase Auth` · `Supabase Database` ·
+`Supabase Storage` · `Vimeo Player API` · `Cloudflare Turnstile` ·
+`Netlify Functions` · `Node.js` · `FFmpeg`
+
+<div align="right">
+  <a href="#cinemorph-studio">Наверх ↑</a>
+</div>
