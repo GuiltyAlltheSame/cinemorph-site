@@ -1,3 +1,7 @@
+/* ==========================================================================
+   01. Fonts, design tokens, and global element defaults
+   ========================================================================== */
+
 @font-face {
   font-family: "League Gothic";
   src: url("../assets/fonts/league-gothic.regular.woff2") format("woff2");
@@ -97,7 +101,9 @@ body::-webkit-scrollbar {
   box-sizing: border-box;
 }
 
-/* ====================== BOTTOM MENU =========================== */
+/* ==========================================================================
+   02. Persistent navigation
+   ========================================================================== */
 
 #menu {
   position: fixed;
@@ -116,6 +122,7 @@ body::-webkit-scrollbar {
   color: #ccc;
 }
 
+/* Brand and desktop navigation typography. */
 #logo-menu,
 .icon-list a,
 .mobilenav a,
@@ -170,6 +177,7 @@ body::-webkit-scrollbar {
   transform: translateY(0);
 }
 
+/* Desktop link and social groups. */
 #men,
 #social,
 .mobilenav ul {
@@ -327,6 +335,7 @@ body::-webkit-scrollbar {
   max-height: 0%;
 }
 
+/* Mobile fullscreen navigation and hamburger animation. */
 .mobilenav {
   position: fixed;
   inset: 0;
@@ -459,6 +468,7 @@ body::-webkit-scrollbar {
   transform: rotate(-225deg);
 }
 
+/* Global interaction locks applied by JavaScript. */
 body.menu-open {
   overflow: hidden;
 }
@@ -478,6 +488,7 @@ body.is-gallery-progress-dragging {
   user-select: none;
 }
 
+/* Navigation breakpoints. */
 @media (max-width: 991px) {
   #men,
   #social {
@@ -525,7 +536,9 @@ body.is-gallery-progress-dragging {
   }
 }
 
-/* ------------------------------------------------------------------TV Scene Section---------------------------*/
+/* ==========================================================================
+   03. Interactive TV / VHS hero scene
+   ========================================================================== */
 
 .main-area {
   --scene-grain-opacity: 0.05;
@@ -609,6 +622,7 @@ body.is-gallery-progress-dragging {
   overflow-x: hidden;
 }
 
+/* Television screen frame, CRT overlays, and inline media. */
 .tv-content {
   position: absolute;
   inset: 0;
@@ -900,6 +914,7 @@ body.is-gallery-progress-dragging {
   pointer-events: none;
 }
 
+/* VCR clock, status display, and cassette insertion slot. */
 .vcr-clock {
   --vcr-clock-left: 50%;
   --vcr-clock-top: 79.7%;
@@ -1058,7 +1073,7 @@ body.is-gallery-progress-dragging {
   }
 }
 
-/* Shared hotspot rules */
+/* Artwork-aligned interactive hotspots and TV power animation. */
 .hotspot {
   position: absolute;
   z-index: 4;            /* above the scene image */
@@ -1232,6 +1247,7 @@ body.is-gallery-progress-dragging {
 }
 
 
+/* Decorative room layers and focus/hover lighting. */
 .vhs-box {
   position: absolute;
   inset: 0;
@@ -1361,7 +1377,7 @@ body.is-gallery-progress-dragging {
 .hotspot:focus-visible { outline: none; }
 
 
-/* ====================== VHS MENU =========================== */
+/* Cassette drawer, generated VHS buttons, and empty state. */
 
 .vhs-menu {
   --vhs-menu-closed-extra-x: 190px;
@@ -1488,7 +1504,6 @@ body.is-gallery-progress-dragging {
   overflow: hidden;
   color: rgba(24, 18, 12, 0.92);
   font-family: var(--font-tape-label);
-  font-size: clamp(18px, 2.8vw, 40px);
   font-size: var(--tape-label-single-size);
   font-weight: 400;
   line-height: 0.88;
@@ -1508,19 +1523,16 @@ body.is-gallery-progress-dragging {
 }
 
 .vhs-menu__cassette-label.is-split {
-  font-size: clamp(14px, 2.1vw, 32px);
   font-size: var(--tape-label-split-size);
   line-height: 0.84;
 }
 
 .vhs-menu__cassette-label.is-long {
-  font-size: clamp(11px, 1.7vw, 26px);
   font-size: var(--tape-label-long-size);
   line-height: 0.84;
 }
 
 .vhs-menu__cassette-label.is-extra-long {
-  font-size: clamp(9px, 1.35vw, 20px);
   font-size: var(--tape-label-extra-long-size);
   line-height: 0.82;
 }
@@ -1628,6 +1640,7 @@ body.is-gallery-progress-dragging {
     opacity 0.48s ease 0.12s;
 }
 
+/* Reel indicator displayed during section navigation. */
 .scene-loader {
   --scene-loader-size: clamp(70px, 30vw, 96px);
 
@@ -1663,6 +1676,7 @@ body.is-gallery-progress-dragging {
   }
 }
 
+/* TV scene scaling and mobile presentation. */
 @media (max-width: 700px) {
   body {
     font-size: 18px;
@@ -1753,26 +1767,20 @@ body.is-gallery-progress-dragging {
 
 
 
-/* ------------------------------------------------------------------TV Scene Section END---------------------------*/
-
-
-/* ------------------------------------------------------------------Scrolling Sections---------------------------*/
+/* ==========================================================================
+   04. Scrollable content sections
+   ========================================================================== */
 
 :root{
   --dark-bg:#0a0e11;
   --dark-bg-rgb: 10, 14, 17;
   --dark-fg:#e8e8e8;
-  --light-bg:#ffffff;
-  --light-fg:#111111;
   --muted:#7a8a95;
-  --accent:#ffd766;
   --maxw:1100px;
-  --radius:14px;
-  --shadow:0 12px 28px rgba(0,0,0,.18);
   --site-menu-height: 70px;
 }
 
-/* Base section layout */
+/* Shared full-viewport section layout and background system. */
 .section{
   --section-padding-block: clamp(56px, 9vw, 120px);
   --section-noise-image: none;
@@ -1845,8 +1853,7 @@ body.is-gallery-progress-dragging {
   transform-origin: left center;
 }
 
-.section--dark,
-.section--light{
+.section--dark{
   --section-fill: var(--dark-bg);
   --section-fill-rgb: var(--dark-bg-rgb);
   color: var(--dark-fg);
@@ -1858,6 +1865,7 @@ body.is-gallery-progress-dragging {
   padding-top: var(--about-statement-offset, 20px);
 }
 
+/* About section and team roster. */
 #about {
   --section-padding-bottom: calc(clamp(36px, 5.2vw, 72px) + var(--site-menu-height));
   --about-copy-size: clamp(18px, 2.3vw, 28px);
@@ -1953,6 +1961,7 @@ body.is-gallery-progress-dragging {
   transform-origin: left center;
 }
 
+/* Per-section wallpaper and shading tokens. */
 #portfolio {
   --portfolio-bg-shade-opacity:.80;
 
@@ -1981,6 +1990,7 @@ body.is-gallery-progress-dragging {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/* Gallery strip, lazy cards, and draggable progress track. */
 .gallery-stage {
   display: grid;
   margin: clamp(24px, 3.2vw, 38px) 0 0;
@@ -2193,7 +2203,7 @@ body.is-gallery-progress-dragging {
   --section-noise-image: url("../assets/img/wallpaper_contact_noise.gif");
 }
 
-/* Portfolio */
+/* Portfolio category controls and dynamic video cards. */
 .portfolio-categories{
   display:flex;
   gap: clamp(18px, 3vw, 42px);
@@ -2255,7 +2265,6 @@ body.is-gallery-progress-dragging {
   color:#fff;
   counter-increment: portfolio-card;
 }
-.card--light{ background: transparent; color:#fff; }
 .card--feature{
   grid-column:span 2;
   grid-row:span 2;
@@ -2290,8 +2299,7 @@ body.is-gallery-progress-dragging {
     rgba(255,255,255,.02);
 }
 .portfolio-poster,
-.portfolio-preview,
-.portfolio-gif{
+.portfolio-preview{
   position:absolute;
   inset:0;
   display:block;
@@ -2310,8 +2318,7 @@ body.is-gallery-progress-dragging {
 .portfolio-poster:not([src]){
   opacity:0;
 }
-.portfolio-preview,
-.portfolio-gif{
+.portfolio-preview{
   z-index:2;
   opacity:0;
   transition:opacity .49s ease;
@@ -2322,8 +2329,7 @@ body.is-gallery-progress-dragging {
 .portfolio-preview--gif{
   background:transparent;
 }
-.portfolio-preview.is-playing,
-.portfolio-gif.is-playing{
+.portfolio-preview.is-playing{
   opacity:1;
 }
 .card:hover .portfolio-poster,
@@ -2342,7 +2348,6 @@ body.is-gallery-progress-dragging {
     linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 62%, rgba(255,255,255,.035)),
     rgba(255,255,255,.018);
 }
-.card--light .ph-thumb{ background:rgba(255,255,255,.02); }
 .card__body{
   order:1;
   flex:0 0 auto;
@@ -2366,11 +2371,7 @@ body.is-gallery-progress-dragging {
   content:counter(portfolio-card, decimal-leading-zero) " ";
   margin-right:18px;
 }
-.card p{ display:none; }
-.tag{
-  display:none;
-}
-
+/* Shared portfolio/VHS video modal. */
 .video-modal{
   position:fixed;
   inset:0;
@@ -2531,6 +2532,7 @@ body.is-gallery-progress-dragging {
   background:#000;
 }
 
+/* Full-screen still gallery modal. */
 .gallery-modal{
   position:fixed;
   inset:0;
@@ -2770,7 +2772,7 @@ body.is-gallery-progress-dragging {
   }
 }
 
-/* Services */
+/* Services grid. */
 .services{
   display:grid;
   grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
@@ -2780,10 +2782,6 @@ body.is-gallery-progress-dragging {
 .service{
   padding: var(--service-card-padding);
   background: rgba(255,255,255,.02);
-}
-.section--light .service{
-  border:1px solid rgba(0,0,0,.06);
-  background:#fff;
 }
 .service h3{
   margin:0 0 clamp(7px, .65vw, 10px);
@@ -2797,7 +2795,7 @@ body.is-gallery-progress-dragging {
   line-height: var(--service-copy-line);
 }
 
-/* Contact */
+/* Contact form, reference cards, status, and social details. */
 #contact {
   --section-padding-bottom: calc(clamp(30px, 4vw, 56px) + var(--site-menu-height));
 }
@@ -2884,9 +2882,6 @@ body.is-gallery-progress-dragging {
     color .2s ease;
   transform: scaleY(var(--font-body-y-scale));
   transform-origin: left center;
-}
-.section--light .input,.section--light .textarea{
-  background:#fff; color:#111; border:1px solid rgba(0,0,0,.12);
 }
 .input::placeholder,
 .textarea::placeholder{
@@ -3273,6 +3268,7 @@ body.is-gallery-progress-dragging {
   transform:translateY(-2px);
 }
 
+/* Content-section responsive layouts. */
 @media (max-width: 1200px) {
   #contact .section__inner{
     min-height:0;
@@ -3657,6 +3653,7 @@ body.is-gallery-progress-dragging {
   }
 }
 
+/* Motion-accessibility overrides for content cards and modals. */
 @media (prefers-reduced-motion: reduce) {
   .scene-loader.is-visible {
     animation: none;
@@ -3687,4 +3684,4 @@ body.is-gallery-progress-dragging {
 
 
 
-/* ------------------------------------------------------------------Scrolling Sections END---------------------------*/
+/* End public content styles. */

@@ -1,3 +1,7 @@
+/* ==========================================================================
+   01. Fonts, admin tokens, and global defaults
+   ========================================================================== */
+
 @font-face {
   font-family: "League Gothic";
   src: url("../../assets/fonts/league-gothic.regular.woff2") format("woff2");
@@ -33,13 +37,10 @@
 :root {
   color-scheme: dark;
   --bg: #080a0c;
-  --panel: #101419;
-  --panel-strong: #161c22;
   --line: rgba(232, 238, 242, .13);
   --line-strong: rgba(232, 238, 242, .24);
   --text: #e8edf1;
   --muted: rgba(232, 238, 242, .58);
-  --soft: rgba(232, 238, 242, .08);
   --accent: #d8e0e7;
   --success: #8affba;
   --warning: #ffd36b;
@@ -103,6 +104,7 @@ button {
   font-weight: 400;
 }
 
+/* Shared display typography, hidden helpers, and inline SVG icons. */
 h1,
 h2,
 h3,
@@ -189,6 +191,10 @@ img {
   fill: currentColor;
 }
 
+/* ==========================================================================
+   02. Authentication screen
+   ========================================================================== */
+
 .auth-screen {
   display: grid;
   min-height: 100vh;
@@ -238,6 +244,10 @@ img {
 .auth-panel .primary-button {
   width: 100%;
 }
+
+/* ==========================================================================
+   03. Application shell, sidebar, status, and panel workspace
+   ========================================================================== */
 
 .admin-shell {
   display: grid;
@@ -421,6 +431,7 @@ button.admin-mode:focus-visible {
   color: var(--muted);
 }
 
+/* Main workspace and active-panel switching. */
 .admin-main {
   min-width: 0;
   padding: 24px clamp(18px, 3vw, 42px) 42px;
@@ -476,6 +487,10 @@ button.admin-mode:focus-visible {
 .admin-panel.is-active {
   display: block;
 }
+
+/* ==========================================================================
+   04. Shared buttons, segmented controls, and form primitives
+   ========================================================================== */
 
 .icon-button,
 .primary-button,
@@ -583,19 +598,9 @@ button.admin-mode:focus-visible {
   pointer-events: none;
 }
 
-.segmented--wide {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: 100%;
-}
-
-.segmented--wide label {
-  min-width: 0;
-}
-
-.segmented--wide label span {
-  width: 100%;
-}
+/* ==========================================================================
+   05. Messages and reference cards
+   ========================================================================== */
 
 .message-list {
   display: grid;
@@ -839,6 +844,10 @@ button.admin-mode:focus-visible {
   text-align: center;
 }
 
+/* ==========================================================================
+   06. Gallery/video upload workspaces and shared forms
+   ========================================================================== */
+
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 420px));
@@ -958,12 +967,6 @@ button.admin-mode:focus-visible {
   text-transform: uppercase;
 }
 
-.fieldset {
-  margin: 0;
-  border: 0;
-  padding: 0;
-}
-
 input[type="text"],
 input[type="url"],
 input[type="number"],
@@ -1051,6 +1054,10 @@ textarea::placeholder {
   max-width: 560px;
 }
 
+/* ==========================================================================
+   07. Public VHS drawer order
+   ========================================================================== */
+
 .tape-order-panel {
   display: grid;
   align-content: start;
@@ -1107,7 +1114,7 @@ textarea::placeholder {
   border-radius: 4px;
   background:
     linear-gradient(180deg, rgba(0, 0, 0, .12), rgba(0, 0, 0, .34)),
-    url("../assets/img/box-bg.png") center / cover no-repeat;
+    url("../../assets/img/box-bg.png") center / cover no-repeat;
   box-shadow:
     inset 0 0 36px rgba(0, 0, 0, .28),
     0 14px 24px rgba(0, 0, 0, .22);
@@ -1264,6 +1271,10 @@ textarea::placeholder {
     linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .026)),
     rgba(255, 255, 255, .045);
 }
+
+/* ==========================================================================
+   08. Upload and public-card previews
+   ========================================================================== */
 
 .media-preview {
   display: grid;
@@ -1485,6 +1496,10 @@ textarea::placeholder {
   transform-origin: right center;
 }
 
+/* ==========================================================================
+   09. Vimeo Poster Picker and VHS texture picker
+   ========================================================================== */
+
 .poster-picker,
 .tape-picker {
   display: grid;
@@ -1701,6 +1716,7 @@ textarea::placeholder {
   outline-offset: 2px;
 }
 
+/* Generated cassette preview and label sizing. */
 .tape-preview {
   display: grid;
   min-width: 0;
@@ -1758,7 +1774,6 @@ textarea::placeholder {
   overflow: hidden;
   color: rgba(24, 18, 12, .92);
   font-family: var(--font-tape-label);
-  font-size: clamp(18px, 2.8vw, 40px);
   font-size: var(--tape-label-single-size);
   line-height: .88;
   overflow-wrap: anywhere;
@@ -1768,51 +1783,23 @@ textarea::placeholder {
 }
 
 .tape-preview__cassette > .tape-label.is-split {
-  font-size: clamp(14px, 2.1vw, 32px);
   font-size: var(--tape-label-split-size);
   line-height: .84;
 }
 
 .tape-preview__cassette > .tape-label.is-long {
-  font-size: clamp(11px, 1.7vw, 26px);
   font-size: var(--tape-label-long-size);
   line-height: .84;
 }
 
 .tape-preview__cassette > .tape-label.is-extra-long {
-  font-size: clamp(9px, 1.35vw, 20px);
   font-size: var(--tape-label-extra-long-size);
   line-height: .82;
 }
 
-.tape-preview--compact .tape-preview__cassette {
-  --tape-label-single-size: clamp(7px, 5.3cqw, 13px);
-  --tape-label-split-size: clamp(6px, 4.2cqw, 10px);
-  --tape-label-long-size: clamp(5px, 3.45cqw, 8px);
-  --tape-label-extra-long-size: clamp(4px, 2.75cqw, 7px);
-
-  width: min(100%, 230px);
-}
-
-.tape-preview--compact .tape-preview__cassette > .tape-label {
-  font-size: clamp(7px, 1.1vw, 13px);
-  font-size: var(--tape-label-single-size);
-}
-
-.tape-preview--compact .tape-preview__cassette > .tape-label.is-split {
-  font-size: clamp(6px, .92vw, 10px);
-  font-size: var(--tape-label-split-size);
-}
-
-.tape-preview--compact .tape-preview__cassette > .tape-label.is-long {
-  font-size: clamp(5px, .76vw, 8px);
-  font-size: var(--tape-label-long-size);
-}
-
-.tape-preview--compact .tape-preview__cassette > .tape-label.is-extra-long {
-  font-size: clamp(4px, .64vw, 7px);
-  font-size: var(--tape-label-extra-long-size);
-}
+/* ==========================================================================
+   10. Gallery focus point and destructive crop editor
+   ========================================================================== */
 
 .focus-panel {
   --focus-x: 50%;
@@ -1904,10 +1891,6 @@ textarea::placeholder {
 .focus-control__stage.is-targeting .focus-control__frame,
 .focus-control__frame:hover {
   border-color: rgba(255, 211, 107, .42);
-}
-
-.focus-control__frame--landscape {
-  aspect-ratio: auto;
 }
 
 .focus-control__frame--gallery {
@@ -2135,6 +2118,10 @@ textarea::placeholder {
   min-width: 0;
   accent-color: var(--accent);
 }
+
+/* ==========================================================================
+   11. Existing media cards, ordering, and drag ghosts
+   ========================================================================== */
 
 .media-list {
   display: grid;
@@ -2366,6 +2353,10 @@ body.is-video-card-dragging .media-card[data-video-card] {
   color: var(--success);
 }
 
+/* ==========================================================================
+   12. Toast and link-preview overlays
+   ========================================================================== */
+
 .toast {
   position: fixed;
   right: 18px;
@@ -2431,16 +2422,6 @@ body.is-video-card-dragging .media-card[data-video-card] {
   object-fit: cover;
 }
 
-.link-preview-popover__empty {
-  padding: 28px 18px;
-  color: var(--muted);
-  font-family: var(--font-display);
-  font-size: 28px;
-  line-height: 1;
-  text-align: center;
-  text-transform: uppercase;
-}
-
 .link-preview-popover__meta {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2467,6 +2448,10 @@ body.is-video-card-dragging .media-card[data-video-card] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   13. Shared dialogs, video editor, and Portfolio Watcher
+   ========================================================================== */
 
 .modal[hidden] {
   display: none;
@@ -2810,6 +2795,10 @@ body.is-admin-modal-open {
   border-color: rgba(255, 211, 107, .34);
   color: var(--warning);
 }
+
+/* ==========================================================================
+   14. Responsive admin layouts
+   ========================================================================== */
 
 @media (max-width: 1280px) {
   .admin-grid--videos {

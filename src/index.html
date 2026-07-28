@@ -1,22 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- Document metadata and the single public stylesheet. -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cinemorph Studio</title>
   <meta name="description" content="Cinemorph Studio is a cinematic storytelling studio based in Vancouver, Washington, serving clients throughout Washington and Oregon.">
   <link rel="canonical" href="https://cinemorphstudio.com/">
-  <link rel="stylesheet" href="css/style.css?v=site-stage-6-mobile-backdrop-close-20260718">
+  <link rel="stylesheet" href="css/style.css?v=site-css-audit-final-20260727">
 </head>
 <body>
 
-<!-- Bottom Navigation -->
+<!-- Persistent navigation: desktop links/socials plus the mobile fullscreen menu. -->
 <nav id="menu" class="site-menu" aria-label="Primary navigation">
+  <!-- Brand swaps to the animated reel while section navigation is active. -->
   <div id="logo-menu" class="site-menu__brand">
     <span class="site-menu__brand-text">Cinemorph Studio</span>
     <div class="scene-loader" id="sceneLoader" aria-hidden="true"></div>
   </div>
 
+  <!-- Desktop section navigation. JavaScript keeps is-active synchronized. -->
   <ul id="men" class="icon-list">
     <li><a href="#home" data-hover="Home" data-section-link>Home</a></li>
     <li><a href="#about" data-hover="ABOUT" data-section-link>About</a></li>
@@ -26,6 +29,7 @@
     <li><a href="#contact" data-hover="CONTACT" data-section-link>Contact</a></li>
   </ul>
 
+  <!-- Desktop social links; the developer credit replaces them on Contact. -->
   <ul id="social" class="site-menu__social" aria-label="Social links">
     <li>
       <a href="https://vimeo.com/user259712917" target="_blank" rel="noreferrer" aria-label="Vimeo">
@@ -60,6 +64,7 @@
     </li>
   </ul>
 
+  <!-- Mobile navigation overlay. -->
   <div class="mobilenav" id="mobileNav" aria-hidden="true">
     <ul>
       <li class="mobile-brand">Cinemorph Studio</li>
@@ -94,6 +99,7 @@
     </ul>
   </div>
 
+  <!-- Mobile hamburger control and its three animated bars. -->
   <button class="icon white" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false">
     <span class="hamburger" aria-hidden="true">
       <span class="menui top-menu"></span>
@@ -103,9 +109,10 @@
   </button>
 </nav>
 
-<!-- TV Scene Section -->
+<!-- Hero / TV scene: interactive television, VCR slot, cassette box, and audio. -->
 <div class="main-area has-lamp-flicker" id="home">
   <div class="tv-area">
+    <!-- Room artwork and hardware overlays. -->
     <img class="tv-room-image" src="assets/img/wallpaper2.png" alt="Frame">
     <img class="vhs-box" src="assets/img/box-click.png" alt="VHS Box">
     <div class="vcr-clock" id="vcrClock" aria-label="VCR clock">
@@ -117,6 +124,7 @@
       <span class="vcr-clock__status" aria-hidden="true"></span>
     </div>
     <div class="vcr-slot-target" id="vcrSlotTarget" aria-hidden="true"></div>
+    <!-- Invisible accessible hotspots align with controls in the room artwork. -->
     <button
       class="hotspot hotspot-tv-power"
       type="button"
@@ -130,15 +138,18 @@
       aria-controls="vhsMenu"
       aria-expanded="false"
     ></button>
+    <!-- Decorative lighting layers controlled by hover and TV power state. -->
     <div class="vhs-glow" aria-hidden="true"></div>
     <div class="lamp-glow" aria-hidden="true"></div>
     <div class="tv-bloom" aria-hidden="true"></div>
+    <!-- TV screen mount: VHS JavaScript inserts Vimeo or HTML video here. -->
     <div class="tv-content">
       <div class="screen" role="group" aria-label="TV screen">
         <span class="screen__signal" aria-hidden="true"></span>
         <div class="screen__video" data-vhs-player aria-live="polite"></div>
       </div>
     </div>
+    <!-- Inline tape controls appear only while playable media is inserted. -->
     <div class="screen-controls-layer" data-vhs-player-controls hidden>
       <button class="screen__control" type="button" data-vhs-unmute aria-label="Unmute tape video" aria-pressed="false">
         <svg class="screen__control-icon screen__control-icon--muted" viewBox="0 0 24 24" aria-hidden="true">
@@ -156,17 +167,21 @@
     </div>
   </div>
 
+  <!-- Scene sound effects; playback begins only after an allowed user gesture. -->
   <audio id="tvNoise" src="assets/sounds/white-noise-soft.mp3" preload="auto" loop></audio>
   <audio id="tvPowerClick" src="assets/sounds/on-off-click.mp3" preload="auto"></audio>
   <audio id="vcrTapeInsertSound" src="assets/sounds/edr-vcr-tape-eject.mp3?v=20260616" preload="auto"></audio>
 
+  <!-- Cassette drawer populated from public portfolio data. -->
   <div class="vhs-menu" id="vhsMenu" aria-hidden="true">
     <div class="vhs-menu__content" data-vhs-menu-content aria-live="polite"></div>
   </div>
 </div>
-<!-- TV Scene Section END -->
+<!-- End hero / TV scene. -->
 
+<!-- Scrollable content sections controlled by the desktop navigation state machine. -->
 <main>
+  <!-- About: studio copy and team cards. -->
   <section id="about" class="section section--dark">
     <div class="section__inner">
       <h2>Who we are</h2>
@@ -175,25 +190,26 @@
       <p class="lead lead--statement">Technology changes. Trends come and go. Powerful stories remain.</p>
 
 
+      <!-- Team roster. -->
       <div class="about-team" aria-label="Cinemorph Studio team">
         <article class="team-card">
-          <img class="team-card__avatar" src="assets/img/apollo_avatar.jpg" width="720" height="720" alt="Alex Reed portrait placeholder" loading="lazy" decoding="async">
+          <img class="team-card__avatar" src="assets/img/apollo_avatar.jpg" width="720" height="720" alt="Mikhail Utkin portrait" loading="lazy" decoding="async">
           <div class="team-card__body">
             <h3>Mikhail Utkin</h3>
             <p>Director of photography</p>
           </div>
         </article>
 
-       <article class="team-card">
-          <img class="team-card__avatar" src="assets/img/vegas_avatar.png" width="720" height="720" alt="Maya Stone portrait placeholder" loading="lazy" decoding="async">
+        <article class="team-card">
+          <img class="team-card__avatar" src="assets/img/vegas_avatar.png" width="720" height="720" alt="Artem Kulachek portrait" loading="lazy" decoding="async">
           <div class="team-card__body">
             <h3>Artem Kulachek</h3>
             <p>Tech & Photography</p>
           </div>
         </article>
 
-  <article class="team-card">
-          <img class="team-card__avatar" src="assets/img/morgana_avatar.jpg" width="720" height="720" alt="Noah Vale portrait placeholder" loading="lazy" decoding="async">
+        <article class="team-card">
+          <img class="team-card__avatar" src="assets/img/morgana_avatar.jpg" width="720" height="720" alt="Morgana Pirins portrait" loading="lazy" decoding="async">
           <div class="team-card__body">
             <h3>Morgana Pirins</h3>
             <p>Production Assistant</p>
@@ -201,7 +217,7 @@
         </article>
 
         <article class="team-card">
-          <img class="team-card__avatar" src="assets/img/hauka_avatar.jpg" width="720" height="720" alt="Lena Cross portrait placeholder" loading="lazy" decoding="async">
+          <img class="team-card__avatar" src="assets/img/hauka_avatar.jpg" width="720" height="720" alt="Viktor Hauka portrait" loading="lazy" decoding="async">
           <div class="team-card__body">
             <h3>Viktor Hauka</h3>
             <p>Composer & Sound Designer</p>
@@ -211,22 +227,24 @@
     </div>
   </section>
 
+  <!-- Portfolio: category controls and the dynamic Supabase video grid. -->
   <section id="portfolio" class="section section--dark">
     <div class="section__inner">
       <h2>Tapes</h2>
       <nav class="portfolio-categories" aria-label="Portfolio categories">
         <button class="portfolio-categories__item is-active" type="button" aria-pressed="true">ALL PROJECTS</button>
-        <!--<button class="portfolio-categories__item" type="button" aria-pressed="false">COMERCIAL</button>-->
-        <!--<button class="portfolio-categories__item" type="button" aria-pressed="false">MUSIC VIDEOS</button>-->
       </nav>
 
+      <!-- portfolio.js renders cards into this live region. -->
       <div class="portfolio-grid" data-portfolio-grid aria-live="polite"></div>
     </div>
   </section>
 
+  <!-- Gallery: dynamic stills strip and its keyboard-accessible progress control. -->
   <section id="gallery" class="section section--dark">
     <div class="section__inner">
       <h1>Stills</h1>
+      <!-- gallery.js renders cards and controls desktop frame visibility. -->
       <div class="gallery-stage" data-gallery-stage>
         <div class="gallery-strip gallery-strip--cinematic" data-gallery-strip data-visible-count="5" aria-label="Gallery still uploads" aria-live="polite"></div>
       </div>
@@ -236,6 +254,7 @@
     </div>
   </section>
 
+  <!-- Services: static capabilities grid. -->
   <section id="services" class="section section--dark">
     <div class="section__inner">
       <h2>What we do</h2>
@@ -272,12 +291,15 @@
     </div>
   </section>
 
+  <!-- Contact: server-submitted form, optional references, and studio details. -->
   <section id="contact" class="section section--dark">
     <div class="section__inner">
       <h2>TRANSMISSION</h2>
       <p>Tell us what you're working on. A film, commercial, music video, documentary, creative collaboration, or just an idea that needs a visual form.</p>
 
+      <!-- contact.js validates and submits this form to the Netlify endpoint. -->
       <form class="contact" action="#" method="post" data-contact-form novalidate>
+        <!-- Honeypot field: real visitors never interact with it. -->
         <input class="form-honeypot" type="text" name="company" autocomplete="off" tabindex="-1" aria-hidden="true">
         <div class="field">
           <label for="name">Name</label>
@@ -297,6 +319,7 @@
             </label>
           </div>
         </div>
+        <!-- Optional reference cards are built from pasted URLs. -->
         <div class="field field--references" data-reference-field hidden>
           <div class="reference-panel" data-reference-panel hidden>
             <div class="reference-input" data-reference-box aria-label="Reference links">
@@ -305,6 +328,7 @@
             </div>
           </div>
         </div>
+        <!-- Cloudflare Turnstile token required by the server-side form handler. -->
         <div
           class="cf-turnstile"
           data-sitekey="0x4AAAAAADjcJEfIbKBCygj6"
@@ -316,6 +340,7 @@
           <button class="btn" type="submit" data-contact-submit>Send</button>
         </div>
       </form>
+      <!-- Static contact details and social destinations. -->
       <div class="contact-aside" aria-label="Contact details and social links">
         <div class="contact-details">
           <p>info@cinemorphstudio.com</p>
@@ -358,6 +383,7 @@
   </section>
 </main>
 
+<!-- Shared portfolio/VHS video modal. The player node is created on demand. -->
 <div class="video-modal" data-video-modal role="dialog" aria-modal="true" aria-labelledby="video-modal-title" aria-hidden="true">
   <div class="video-modal__backdrop" data-video-modal-close aria-hidden="true"></div>
   <div class="video-modal__panel" role="document">
@@ -374,6 +400,7 @@
   </div>
 </div>
 
+<!-- Full-screen still gallery with cyclic previous/next navigation. -->
 <div class="gallery-modal" data-gallery-modal role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title" aria-hidden="true">
   <div class="gallery-modal__backdrop" data-gallery-modal-close aria-hidden="true"></div>
   <div class="gallery-modal__panel" role="document">
@@ -394,6 +421,7 @@
   </div>
 </div>
 
+<!-- Runtime dependencies: public data config, Vimeo SDK, application entry, anti-spam widget. -->
 <script src="js/supabase-config.js" defer></script>
 <script src="https://player.vimeo.com/api/player.js" defer></script>
 <script type="module" src="js/main.js?v=site-modules-final-20260719"></script>
