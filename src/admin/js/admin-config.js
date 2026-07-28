@@ -1,3 +1,4 @@
+// Browser-visible admin endpoints and public Supabase client configuration.
 window.CINEMORPH_ADMIN_CONFIG = {
   authEnabled: true,
   supabase: {

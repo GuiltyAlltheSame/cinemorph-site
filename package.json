@@ -7,7 +7,7 @@
   "scripts": {
     "check": "npm run check:site && npm run check:admin && npm run check:functions",
     "check:site": "node --check src/js/main.js && node --check src/js/core.js && node --check src/js/api.js && node --check src/js/contact.js && node --check src/js/gallery.js && node --check src/js/navigation.js && node --check src/js/portfolio.js && node --check src/js/television.js && node --check src/js/vhs-player.js",
-    "check:admin": "node --check src/admin/js/admin.js",
+    "check:admin": "node --check src/admin/js/admin-config.js && node --check src/admin/js/admin-core.js && node --check src/admin/js/admin-links.js && node --check src/admin/js/admin-service.js && node --check src/admin/js/admin-dashboard.js && node --check src/admin/js/admin-video.js && node --check src/admin/js/admin-gallery.js && node --check src/admin/js/admin-video-events.js && node --check src/admin/js/admin-shell.js && node --check src/admin/js/admin.js",
     "check:functions": "node --check netlify/functions/generate-vimeo-poster.js && node --check netlify/functions/submit-message.js"
   },
   "dependencies": {
