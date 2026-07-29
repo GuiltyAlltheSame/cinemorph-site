@@ -47,6 +47,7 @@ export const initTelevision = ({ vhsController = null } = {}) => {
     let noiseFadeFrame;
     let tvShutdownTimer;
     let noiseStarted = false;
+    let noiseRequested = false;
     let targetNoiseVolume = 0;
     let tvPoweredOn = false;
 
@@ -108,7 +109,7 @@ export const initTelevision = ({ vhsController = null } = {}) => {
 
     /** Starts white noise after a permitted user gesture and applies boot fade timing. */
     const startNoise = async () => {
-      if (isMobileScene() || !tvPoweredOn) return;
+      if (isMobileScene() || !tvPoweredOn || !noiseRequested) return false;
 
       if (!noiseStarted) {
         tvNoise.volume = 0;
@@ -121,10 +122,24 @@ export const initTelevision = ({ vhsController = null } = {}) => {
         if (window.scrollY <= 2) {
           fadeNoiseTo(maxNoiseVolume, tvBootDuration);
         }
+
+        return true;
       } catch {
         // Browsers may block sound until the first explicit user gesture.
+        return false;
       }
     };
+
+    /** Retries blocked autoplay on the first interaction while the TV scene is active. */
+    const unlockNoiseOnInteraction = async () => {
+      if (!await startNoise()) return;
+
+      window.removeEventListener("pointerdown", unlockNoiseOnInteraction);
+      window.removeEventListener("keydown", unlockNoiseOnInteraction);
+    };
+
+    window.addEventListener("pointerdown", unlockNoiseOnInteraction);
+    window.addEventListener("keydown", unlockNoiseOnInteraction);
 
     /** Restarts the physical TV power click for each accepted button press. */
     const playPowerClick = () => {
@@ -199,6 +214,8 @@ export const initTelevision = ({ vhsController = null } = {}) => {
     // Navigation and VHS receive only these media capabilities, not TV internals.
     tvNoiseController = {
       fadeIn: () => {
+        noiseRequested = true;
+
         if (isMobileScene() || !tvPoweredOn || vhsController?.isVideoPlaying?.()) return;
 
         if (!noiseStarted) {
@@ -214,6 +231,8 @@ export const initTelevision = ({ vhsController = null } = {}) => {
         fadeNoiseTo(maxNoiseVolume);
       },
       fadeOut: () => {
+        noiseRequested = false;
+
         if (tvPoweredOn && noiseStarted) {
           fadeNoiseTo(0);
         }
@@ -222,6 +241,7 @@ export const initTelevision = ({ vhsController = null } = {}) => {
         window.cancelAnimationFrame(noiseFadeFrame);
         noiseFadeFrame = null;
         targetNoiseVolume = 0;
+        noiseRequested = false;
         noiseStarted = false;
         tvNoise.volume = 0;
         tvNoise.pause();
@@ -250,6 +270,11 @@ export const initTelevision = ({ vhsController = null } = {}) => {
       tvPowerButton.setAttribute("aria-label", "TV is on");
     };
 
+    // The opening scene should feel alive immediately; audio joins after the
+    // browser permits playback and remains governed by active-section state.
+    if (!isMobileScene()) {
+      powerOnTv({ startAudio: false });
+    }
     syncMobileTvState();
 
     if (typeof mobileSceneQuery.addEventListener === "function") {

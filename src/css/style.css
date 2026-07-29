@@ -1557,6 +1557,10 @@ body.is-gallery-progress-dragging {
   pointer-events: none;
 }
 
+.vhs-menu__cassette.is-in-vcr {
+  display: none;
+}
+
 .vhs-menu__empty {
   position: relative;
   z-index: 1;
